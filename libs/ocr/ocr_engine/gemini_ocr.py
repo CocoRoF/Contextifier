@@ -1,5 +1,5 @@
 # libs/ocr/ocr_engine/gemini_ocr.py
-# Google Gemini Vision 모델을 사용한 OCR 클래스
+# OCR class using Google Gemini Vision model
 import logging
 from typing import Any, Optional
 
@@ -7,29 +7,29 @@ from libs.ocr.base import BaseOCR
 
 logger = logging.getLogger("ocr-gemini")
 
-# 기본 모델
+# Default model
 DEFAULT_GEMINI_MODEL = "gemini-2.0-flash"
 
 
 class GeminiOCR(BaseOCR):
     """
-    Google Gemini Vision 모델을 사용한 OCR 처리 클래스.
+    OCR processing class using Google Gemini Vision model.
 
-    지원 모델: gemini-pro-vision, gemini-1.5-pro, gemini-2.0-flash 등
+    Supported models: gemini-pro-vision, gemini-1.5-pro, gemini-2.0-flash, etc.
 
     Example:
         ```python
         from libs.ocr.ocr_engine import GeminiOCR
 
-        # 방법 1: api_key와 model로 초기화
+        # Method 1: Initialize with api_key and model
         ocr = GeminiOCR(api_key="...", model="gemini-2.0-flash")
 
-        # 방법 2: 기존 LLM 클라이언트 사용
+        # Method 2: Use existing LLM client
         from langchain_google_genai import ChatGoogleGenerativeAI
         llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", google_api_key="...")
         ocr = GeminiOCR(llm_client=llm)
 
-        # 단일 이미지 변환
+        # Single image conversion
         result = await ocr.convert_image_to_text("/path/to/image.png")
         ```
     """
@@ -44,19 +44,19 @@ class GeminiOCR(BaseOCR):
         max_tokens: Optional[int] = None,
     ):
         """
-        Gemini OCR 초기화.
+        Initialize Gemini OCR.
 
         Args:
-            api_key: Google API 키 (llm_client가 없을 경우 필수)
-            model: 사용할 모델명 (기본값: gemini-2.0-flash)
-            llm_client: 기존 LangChain Gemini 클라이언트 (있으면 api_key, model 무시)
-            prompt: 사용자 정의 프롬프트 (None이면 기본 프롬프트 사용)
-            temperature: 생성 온도 (기본값: 0.0)
-            max_tokens: 최대 토큰 수 (None이면 모델 기본값 사용)
+            api_key: Google API key (required if llm_client is not provided)
+            model: Model name to use (default: gemini-2.0-flash)
+            llm_client: Existing LangChain Gemini client (if provided, api_key and model are ignored)
+            prompt: Custom prompt (if None, default prompt is used)
+            temperature: Generation temperature (default: 0.0)
+            max_tokens: Maximum number of tokens (if None, model default is used)
         """
         if llm_client is None:
             if api_key is None:
-                raise ValueError("api_key 또는 llm_client 중 하나는 필수입니다.")
+                raise ValueError("Either api_key or llm_client is required.")
 
             from langchain_google_genai import ChatGoogleGenerativeAI
 
@@ -70,11 +70,11 @@ class GeminiOCR(BaseOCR):
                 client_kwargs["max_output_tokens"] = max_tokens
 
             llm_client = ChatGoogleGenerativeAI(**client_kwargs)
-            logger.info(f"[Gemini OCR] 클라이언트 생성 완료: model={model}")
+            logger.info(f"[Gemini OCR] Client created: model={model}")
 
         super().__init__(llm_client=llm_client, prompt=prompt)
         self.model = model
-        logger.info("[Gemini OCR] 초기화 완료")
+        logger.info("[Gemini OCR] Initialization completed")
 
     @property
     def provider(self) -> str:

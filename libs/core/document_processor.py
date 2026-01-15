@@ -1,42 +1,48 @@
-# libs/core/document_processor_new.py
+# libs/core/document_processor.py
 """
-DocumentProcessor - 신규 문서 처리 클래스
+DocumentProcessor - Document Processing Class
 
-Contextify 라이브러리의 메인 문서 처리 클래스입니다.
-다양한 문서 형식(PDF, DOCX, PPT, Excel, HWP 등)에서 텍스트를 추출하고,
-청킹을 수행하는 통합 인터페이스를 제공합니다.
+Main document processing class for the Contextify library.
+Provides a unified interface for extracting text from various document formats
+(PDF, DOCX, PPT, Excel, HWP, etc.) and performing text chunking.
 
-이 클래스는 라이브러리 사용 시 권장되는 진입점입니다.
+This class is the recommended entry point when using the library.
 
-사용 예시:
-    from libs.core.document_processor_new import DocumentProcessor
+Usage Example:
+    from libs.core.document_processor import DocumentProcessor
+    from libs.ocr.ocr_engine import OpenAIOCR
 
-    # 인스턴스 생성
-    processor = DocumentProcessor()
+    # Create instance (with optional OCR engine)
+    ocr_engine = OpenAIOCR(api_key="sk-...", model="gpt-4o")
+    processor = DocumentProcessor(ocr_engine=ocr_engine)
 
-    # 파일에서 텍스트 추출
+    # Extract text from file
     text = await processor.extract_text(file_path, file_extension)
 
-    # 텍스트 청킹
+    # Extract text with OCR processing
+    text = await processor.extract_text(file_path, file_extension, ocr_processing=True)
+
+    # Chunk text
     chunks = processor.chunk_text(text, chunk_size=1000)
 """
 
 import logging
+import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 logger = logging.getLogger("contextify")
 
 
 class DocumentProcessor:
     """
-    Contextify 문서 처리 메인 클래스
+    Contextify Main Document Processing Class
 
-    다양한 문서 형식을 처리하고 텍스트를 추출하는 통합 인터페이스입니다.
+    A unified interface for processing various document formats and extracting text.
 
     Attributes:
-        config: 설정 딕셔너리 또는 ConfigComposer 인스턴스
-        supported_extensions: 지원되는 파일 확장자 목록
+        config: Configuration dictionary or ConfigComposer instance
+        supported_extensions: List of supported file extensions
 
     Example:
         >>> processor = DocumentProcessor()
@@ -44,7 +50,7 @@ class DocumentProcessor:
         >>> chunks = processor.chunk_text(text, chunk_size=1000)
     """
 
-    # === 지원 파일 타입 분류 ===
+    # === Supported File Type Classifications ===
     DOCUMENT_TYPES = frozenset(['pdf', 'docx', 'doc', 'pptx', 'ppt', 'hwp', 'hwpx'])
     TEXT_TYPES = frozenset(['txt', 'md', 'markdown', 'rtf'])
     CODE_TYPES = frozenset([
@@ -62,46 +68,64 @@ class DocumentProcessor:
     def __init__(
         self,
         config: Optional[Union[Dict[str, Any], Any]] = None,
+        ocr_engine: Optional[Any] = None,
         **kwargs
     ):
         """
-        DocumentProcessor 초기화
+        Initialize DocumentProcessor.
 
         Args:
-            config: 설정 딕셔너리 또는 ConfigComposer 인스턴스
-                   - Dict: 직접 설정 딕셔너리 전달
-                   - ConfigComposer: 기존 config_composer 인스턴스
-                   - None: 기본 설정 사용
-            **kwargs: 추가 설정 옵션
+            config: Configuration dictionary or ConfigComposer instance
+                   - Dict: Pass configuration dictionary directly
+                   - ConfigComposer: Existing config_composer instance
+                   - None: Use default settings
+            ocr_engine: OCR engine instance (BaseOCR subclass)
+                   - If provided, OCR processing can be enabled in extract_text
+                   - Example: OpenAIOCR, AnthropicOCR, GeminiOCR, VllmOCR
+            **kwargs: Additional configuration options
         """
-        self._config = config
+        self._config = config or {}
+        self._ocr_engine = ocr_engine
         self._kwargs = kwargs
         self._supported_extensions: Optional[List[str]] = None
 
-        # 로거 설정
+        # Logger setup
         self._logger = logging.getLogger("contextify.processor")
 
-        # 라이브러리 가용성 체크 결과 캐시
+        # Cache for library availability check results
         self._library_availability: Optional[Dict[str, bool]] = None
 
+        # Handler registry
+        self._handler_registry: Optional[Dict[str, Callable]] = None
+
     # =========================================================================
-    # 공개 속성 (Properties)
+    # Public Properties
     # =========================================================================
 
     @property
     def supported_extensions(self) -> List[str]:
-        """지원되는 모든 파일 확장자 목록"""
+        """List of all supported file extensions."""
         if self._supported_extensions is None:
             self._supported_extensions = self._build_supported_extensions()
         return self._supported_extensions.copy()
 
     @property
     def config(self) -> Optional[Union[Dict[str, Any], Any]]:
-        """현재 설정"""
+        """Current configuration."""
         return self._config
 
+    @property
+    def ocr_engine(self) -> Optional[Any]:
+        """Current OCR engine instance."""
+        return self._ocr_engine
+
+    @ocr_engine.setter
+    def ocr_engine(self, engine: Optional[Any]) -> None:
+        """Set OCR engine instance."""
+        self._ocr_engine = engine
+
     # =========================================================================
-    # 공개 메서드 - 텍스트 추출
+    # Public Methods - Text Extraction
     # =========================================================================
 
     async def extract_text(
@@ -111,27 +135,60 @@ class DocumentProcessor:
         *,
         process_type: str = "default",
         extract_metadata: bool = True,
+        ocr_processing: bool = False,
         **kwargs
     ) -> str:
         """
-        파일에서 텍스트를 추출합니다.
+        Extract text from a file.
 
         Args:
-            file_path: 파일 경로
-            file_extension: 파일 확장자 (None인 경우 file_path에서 자동 추출)
-            process_type: 처리 유형 ('default', 'enhanced', 'enhanced_v4', 'enhanced_ocr' 등)
-            extract_metadata: 메타데이터 추출 여부
-            **kwargs: 핸들러별 추가 옵션
+            file_path: File path
+            file_extension: File extension (if None, auto-extracted from file_path)
+            process_type: Processing type ('default', 'enhanced', 'enhanced_v4', 'enhanced_ocr', etc.)
+            extract_metadata: Whether to extract metadata
+            ocr_processing: Whether to perform OCR on image tags in extracted text
+                           - If True and ocr_engine is set, processes [Image:...] tags
+                           - If True but ocr_engine is None, skips OCR processing
+            **kwargs: Additional handler-specific options
 
         Returns:
-            추출된 텍스트 문자열
+            Extracted text string
 
         Raises:
-            FileNotFoundError: 파일을 찾을 수 없는 경우
-            ValueError: 지원되지 않는 파일 형식인 경우
+            FileNotFoundError: If file cannot be found
+            ValueError: If file format is not supported
         """
-        # TODO: 구현 예정
-        raise NotImplementedError("extract_text method is not yet implemented")
+        # Convert to string path
+        file_path_str = str(file_path)
+
+        # Check file existence
+        if not os.path.exists(file_path_str):
+            raise FileNotFoundError(f"File not found: {file_path_str}")
+
+        # Extract extension if not provided
+        if file_extension is None:
+            file_extension = os.path.splitext(file_path_str)[1].lstrip('.')
+
+        ext = file_extension.lower().lstrip('.')
+
+        # Check if extension is supported
+        if not self.is_supported(ext):
+            raise ValueError(f"Unsupported file format: {ext}")
+
+        self._logger.info(f"Extracting text from: {file_path_str} (ext={ext})")
+
+        # Get handler and extract text
+        handler = self._get_handler(ext)
+        text = await self._invoke_handler(handler, file_path_str, ext, extract_metadata, **kwargs)
+
+        # Apply OCR processing if enabled and ocr_engine is available
+        if ocr_processing and self._ocr_engine is not None:
+            self._logger.info(f"Applying OCR processing with {self._ocr_engine}")
+            text = await self._ocr_engine.process_text(text)
+        elif ocr_processing and self._ocr_engine is None:
+            self._logger.warning("OCR processing requested but no ocr_engine is configured. Skipping OCR.")
+
+        return text
 
     async def extract_text_batch(
         self,
@@ -139,28 +196,62 @@ class DocumentProcessor:
         *,
         process_type: str = "default",
         extract_metadata: bool = True,
+        ocr_processing: bool = False,
         max_concurrent: int = 5,
         **kwargs
     ) -> List[Dict[str, Any]]:
         """
-        여러 파일에서 텍스트를 배치로 추출합니다.
+        Extract text from multiple files in batch.
 
         Args:
-            file_paths: 파일 경로 목록
-            process_type: 처리 유형
-            extract_metadata: 메타데이터 추출 여부
-            max_concurrent: 최대 동시 처리 수
-            **kwargs: 핸들러별 추가 옵션
+            file_paths: List of file paths
+            process_type: Processing type
+            extract_metadata: Whether to extract metadata
+            ocr_processing: Whether to perform OCR on image tags
+            max_concurrent: Maximum concurrent processing count
+            **kwargs: Additional handler-specific options
 
         Returns:
-            추출 결과 딕셔너리 목록
+            List of extraction result dictionaries
             [{"file_path": str, "text": str, "success": bool, "error": Optional[str]}, ...]
         """
-        # TODO: 구현 예정
-        raise NotImplementedError("extract_text_batch method is not yet implemented")
+        import asyncio
+
+        semaphore = asyncio.Semaphore(max_concurrent)
+        results = []
+
+        async def process_single(fp: Union[str, Path]) -> Dict[str, Any]:
+            async with semaphore:
+                try:
+                    text = await self.extract_text(
+                        fp,
+                        process_type=process_type,
+                        extract_metadata=extract_metadata,
+                        ocr_processing=ocr_processing,
+                        **kwargs
+                    )
+                    return {
+                        "file_path": str(fp),
+                        "text": text,
+                        "success": True,
+                        "error": None
+                    }
+                except Exception as e:
+                    self._logger.error(f"Error processing {fp}: {e}")
+                    return {
+                        "file_path": str(fp),
+                        "text": "",
+                        "success": False,
+                        "error": str(e)
+                    }
+
+        tasks = [process_single(fp) for fp in file_paths]
+        results = await asyncio.gather(*tasks)
+
+        return list(results)
 
     # =========================================================================
-    # 공개 메서드 - 텍스트 청킹
+    # Public Methods - Text Chunking
     # =========================================================================
 
     def chunk_text(
@@ -171,38 +262,51 @@ class DocumentProcessor:
         chunk_overlap: int = 200,
         file_extension: Optional[str] = None,
         preserve_tables: bool = True,
-        **kwargs
     ) -> List[str]:
         """
-        텍스트를 청크로 분할합니다.
+        Split text into chunks.
 
         Args:
-            text: 분할할 텍스트
-            chunk_size: 청크 크기 (문자 수)
-            chunk_overlap: 청크 간 오버랩 크기
-            file_extension: 파일 확장자 (테이블 기반 파일 처리에 사용)
-            preserve_tables: 테이블 구조 보존 여부
-            **kwargs: 추가 청킹 옵션
+            text: Text to split
+            chunk_size: Chunk size (character count)
+            chunk_overlap: Overlap size between chunks
+            file_extension: File extension (used for table-based file processing)
+            preserve_tables: Whether to preserve table structure
 
         Returns:
-            청크 문자열 목록
+            List of chunk strings
         """
-        # TODO: 구현 예정
-        raise NotImplementedError("chunk_text method is not yet implemented")
+        from libs.chunking.chunking import split_text_preserving_html_blocks
+
+        if not text or not text.strip():
+            return [""]
+
+        # Use force_chunking to disable table protection if preserve_tables is False
+        force_chunking = not preserve_tables
+
+        chunks = split_text_preserving_html_blocks(
+            text=text,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            file_extension=file_extension,
+            force_chunking=force_chunking
+        )
+
+        return chunks
 
     # =========================================================================
-    # 공개 메서드 - 유틸리티
+    # Public Methods - Utilities
     # =========================================================================
 
     def get_file_category(self, file_extension: str) -> str:
         """
-        파일 확장자의 카테고리를 반환합니다.
+        Return the category of a file extension.
 
         Args:
-            file_extension: 파일 확장자
+            file_extension: File extension
 
         Returns:
-            카테고리 문자열 ('document', 'text', 'code', 'data', 등)
+            Category string ('document', 'text', 'code', 'data', etc.)
         """
         ext = file_extension.lower().lstrip('.')
 
@@ -229,13 +333,13 @@ class DocumentProcessor:
 
     def is_supported(self, file_extension: str) -> bool:
         """
-        파일 확장자가 지원되는지 확인합니다.
+        Check if a file extension is supported.
 
         Args:
-            file_extension: 파일 확장자
+            file_extension: File extension
 
         Returns:
-            지원 여부
+            Whether supported
         """
         ext = file_extension.lower().lstrip('.')
         return ext in self.supported_extensions
@@ -243,13 +347,13 @@ class DocumentProcessor:
     @staticmethod
     def clean_text(text: str) -> str:
         """
-        텍스트를 정리합니다.
+        Clean text.
 
         Args:
-            text: 정리할 텍스트
+            text: Text to clean
 
         Returns:
-            정리된 텍스트
+            Cleaned text
         """
         from libs.core.functions.utils import clean_text as _clean_text
         return _clean_text(text)
@@ -257,23 +361,23 @@ class DocumentProcessor:
     @staticmethod
     def clean_code_text(text: str) -> str:
         """
-        코드 텍스트를 정리합니다.
+        Clean code text.
 
         Args:
-            text: 정리할 코드 텍스트
+            text: Code text to clean
 
         Returns:
-            정리된 코드 텍스트
+            Cleaned code text
         """
         from libs.core.functions.utils import clean_code_text as _clean_code_text
         return _clean_code_text(text)
 
     # =========================================================================
-    # 비공개 메서드
+    # Private Methods
     # =========================================================================
 
     def _build_supported_extensions(self) -> List[str]:
-        """지원되는 확장자 목록 구성"""
+        """Build list of supported extensions."""
         extensions = list(
             self.DOCUMENT_TYPES |
             self.TEXT_TYPES |
@@ -286,101 +390,168 @@ class DocumentProcessor:
             self.IMAGE_TYPES
         )
 
-        # 라이브러리 가용성에 따른 필터링
-        availability = self._check_library_availability()
-
-        if not availability.get('openpyxl') and not availability.get('xlrd'):
-            extensions = [e for e in extensions if e not in ['xlsx', 'xls']]
-            self._logger.warning("openpyxl/xlrd not available. Excel processing disabled.")
-
-        if not availability.get('langchain_openai'):
-            extensions = [e for e in extensions if e not in self.IMAGE_TYPES]
-            self._logger.warning("langchain_openai not available. Image processing disabled.")
-
         return sorted(extensions)
 
-    def _check_library_availability(self) -> Dict[str, bool]:
-        """필수 라이브러리 가용성 체크"""
-        if self._library_availability is not None:
-            return self._library_availability
+    def _get_handler_registry(self) -> Dict[str, Callable]:
+        """Build and cache handler registry."""
+        if self._handler_registry is not None:
+            return self._handler_registry
 
-        availability = {}
+        self._handler_registry = {}
 
-        # openpyxl
+        # PDF handlers
         try:
-            from openpyxl import load_workbook  # noqa
-            availability['openpyxl'] = True
-        except ImportError:
-            availability['openpyxl'] = False
+            from libs.core.processor.pdf_handler import extract_text_from_pdf
+            self._handler_registry['pdf'] = extract_text_from_pdf
+        except ImportError as e:
+            self._logger.warning(f"PDF handler not available: {e}")
 
-        # xlrd
+        # DOCX handler
         try:
-            import xlrd  # noqa
-            availability['xlrd'] = True
-        except ImportError:
-            availability['xlrd'] = False
+            from libs.core.processor.docx_handler import extract_text_from_docx
+            self._handler_registry['docx'] = extract_text_from_docx
+        except ImportError as e:
+            self._logger.warning(f"DOCX handler not available: {e}")
 
-        # langchain_openai
+        # DOC handler
         try:
-            from langchain_openai import ChatOpenAI  # noqa
-            availability['langchain_openai'] = True
-        except ImportError:
-            availability['langchain_openai'] = False
+            from libs.core.processor.doc_handler import extract_text_from_doc
+            self._handler_registry['doc'] = extract_text_from_doc
+        except ImportError as e:
+            self._logger.warning(f"DOC handler not available: {e}")
 
-        # pdfminer
+        # PPT/PPTX handler
         try:
-            from pdfminer.high_level import extract_text  # noqa
-            availability['pdfminer'] = True
-        except ImportError:
-            availability['pdfminer'] = False
+            from libs.core.processor.ppt_handler import extract_text_from_ppt
+            self._handler_registry['ppt'] = extract_text_from_ppt
+            self._handler_registry['pptx'] = extract_text_from_ppt
+        except ImportError as e:
+            self._logger.warning(f"PPT handler not available: {e}")
 
-        # pdf2image
+        # Excel handlers
         try:
-            from pdf2image import convert_from_path  # noqa
-            availability['pdf2image'] = True
-        except ImportError:
-            availability['pdf2image'] = False
+            from libs.core.processor.excel_handler import extract_text_from_excel
+            self._handler_registry['xlsx'] = extract_text_from_excel
+            self._handler_registry['xls'] = extract_text_from_excel
+        except ImportError as e:
+            self._logger.warning(f"Excel handler not available: {e}")
 
-        # python-pptx
+        # CSV/TSV handler
         try:
-            from pptx import Presentation  # noqa
-            availability['python_pptx'] = True
-        except ImportError:
-            availability['python_pptx'] = False
+            from libs.core.processor.csv_handler import extract_text_from_csv
+            self._handler_registry['csv'] = extract_text_from_csv
+            self._handler_registry['tsv'] = extract_text_from_csv
+        except ImportError as e:
+            self._logger.warning(f"CSV handler not available: {e}")
 
-        # PIL
+        # HWP handler
         try:
-            from PIL import Image  # noqa
-            availability['pil'] = True
-        except ImportError:
-            availability['pil'] = False
+            from libs.core.processor.hwp_processor import extract_text_from_hwp
+            self._handler_registry['hwp'] = extract_text_from_hwp
+        except ImportError as e:
+            self._logger.warning(f"HWP handler not available: {e}")
 
-        self._library_availability = availability
-        return availability
+        # HWPX handler
+        try:
+            from libs.core.processor.hwpx_processor import extract_text_from_hwpx
+            self._handler_registry['hwpx'] = extract_text_from_hwpx
+        except ImportError as e:
+            self._logger.warning(f"HWPX handler not available: {e}")
+
+        # Text handler (for text, code, config, script, log, web types)
+        try:
+            from libs.core.processor.text_handler import extract_text_from_text_file
+            text_extensions = (
+                self.TEXT_TYPES |
+                self.CODE_TYPES |
+                self.CONFIG_TYPES |
+                self.SCRIPT_TYPES |
+                self.LOG_TYPES |
+                self.WEB_TYPES
+            )
+            for ext in text_extensions:
+                self._handler_registry[ext] = extract_text_from_text_file
+        except ImportError as e:
+            self._logger.warning(f"Text handler not available: {e}")
+
+        return self._handler_registry
+
+    def _get_handler(self, ext: str) -> Optional[Callable]:
+        """Get handler for file extension."""
+        registry = self._get_handler_registry()
+        return registry.get(ext)
+
+    async def _invoke_handler(
+        self,
+        handler: Optional[Callable],
+        file_path: str,
+        ext: str,
+        extract_metadata: bool,
+        **kwargs
+    ) -> str:
+        """
+        Invoke the appropriate handler based on extension.
+
+        Args:
+            handler: Handler function
+            file_path: File path
+            ext: File extension
+            extract_metadata: Whether to extract metadata
+            **kwargs: Additional options
+
+        Returns:
+            Extracted text
+        """
+        if handler is None:
+            raise ValueError(f"No handler available for extension: {ext}")
+
+        # Determine if this is a code file
+        is_code = ext in self.CODE_TYPES
+
+        # Text-based files use different signature
+        text_extensions = (
+            self.TEXT_TYPES |
+            self.CODE_TYPES |
+            self.CONFIG_TYPES |
+            self.SCRIPT_TYPES |
+            self.LOG_TYPES |
+            self.WEB_TYPES
+        )
+
+        if ext in text_extensions:
+            # text_handler signature: (file_path, file_type, encodings, is_code)
+            return await handler(file_path, ext, is_code=is_code)
+
+        # HWP/HWPX signature: (file_path, config, extract_default_metadata)
+        if ext in ('hwp', 'hwpx'):
+            return await handler(file_path, self._config, extract_default_metadata=extract_metadata)
+
+        # Standard handler signature: (file_path, current_config, extract_default_metadata)
+        return await handler(file_path, self._config, extract_default_metadata=extract_metadata)
 
     # =========================================================================
-    # 컨텍스트 매니저 지원
+    # Context Manager Support
     # =========================================================================
 
     async def __aenter__(self) -> "DocumentProcessor":
-        """비동기 컨텍스트 매니저 진입"""
+        """Async context manager entry."""
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        """비동기 컨텍스트 매니저 종료"""
-        # 리소스 정리가 필요한 경우 여기서 수행
+        """Async context manager exit."""
+        # Perform resource cleanup here if needed
         pass
 
     def __enter__(self) -> "DocumentProcessor":
-        """동기 컨텍스트 매니저 진입"""
+        """Sync context manager entry."""
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        """동기 컨텍스트 매니저 종료"""
+        """Sync context manager exit."""
         pass
 
     # =========================================================================
-    # 문자열 표현
+    # String Representation
     # =========================================================================
 
     def __repr__(self) -> str:
@@ -390,27 +561,34 @@ class DocumentProcessor:
         return f"Contextify DocumentProcessor ({len(self.supported_extensions)} supported formats)"
 
 
-# === 모듈 레벨 편의 함수 ===
+# === Module-level Convenience Functions ===
 
 def create_processor(
     config: Optional[Union[Dict[str, Any], Any]] = None,
+    ocr_engine: Optional[Any] = None,
     **kwargs
 ) -> DocumentProcessor:
     """
-    DocumentProcessor 인스턴스를 생성합니다.
+    Create a DocumentProcessor instance.
 
     Args:
-        config: 설정 딕셔너리 또는 ConfigComposer 인스턴스
-        **kwargs: 추가 설정 옵션
+        config: Configuration dictionary or ConfigComposer instance
+        ocr_engine: OCR engine instance (BaseOCR subclass)
+        **kwargs: Additional configuration options
 
     Returns:
-        DocumentProcessor 인스턴스
+        DocumentProcessor instance
 
     Example:
         >>> processor = create_processor()
         >>> processor = create_processor(config={"vision_model": "gpt-4-vision"})
+
+        # With OCR engine
+        >>> from libs.ocr.ocr_engine import OpenAIOCR
+        >>> ocr = OpenAIOCR(api_key="sk-...", model="gpt-4o")
+        >>> processor = create_processor(ocr_engine=ocr)
     """
-    return DocumentProcessor(config=config, **kwargs)
+    return DocumentProcessor(config=config, ocr_engine=ocr_engine, **kwargs)
 
 
 __all__ = [

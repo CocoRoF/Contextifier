@@ -1,5 +1,5 @@
 # libs/ocr/base.py
-# OCR 모델 추상 클래스 정의
+# Abstract base class for OCR models
 import logging
 from abc import ABC, abstractmethod
 from typing import Any, Optional
@@ -9,12 +9,12 @@ logger = logging.getLogger("ocr-base")
 
 class BaseOCR(ABC):
     """
-    OCR 처리를 위한 추상 기본 클래스.
+    Abstract base class for OCR processing.
 
-    모든 OCR 모델 구현체는 이 클래스를 상속받아야 합니다.
+    All OCR model implementations must inherit from this class.
     """
 
-    # 기본 프롬프트 (서브클래스에서 오버라이드 가능)
+    # Default prompt (can be overridden in subclasses)
     DEFAULT_PROMPT = (
         "Extract meaningful information from this image.\n\n"
         "**If the image contains a TABLE:**\n"
@@ -44,16 +44,16 @@ class BaseOCR(ABC):
         "- No filler words or unnecessary descriptions"
     )
 
-    # 간단한 프롬프트 (vllm 등에서 사용)
+    # Simple prompt (used for vllm, etc.)
     SIMPLE_PROMPT = "Describe the contents of this image."
 
     def __init__(self, llm_client: Any, prompt: Optional[str] = None):
         """
-        OCR 모델 초기화.
+        Initialize OCR model.
 
         Args:
-            llm_client: LangChain LLM 클라이언트 (Vision 모델 지원 필수)
-            prompt: 사용자 정의 프롬프트 (None이면 기본 프롬프트 사용)
+            llm_client: LangChain LLM client (must support Vision models)
+            prompt: Custom prompt (uses default prompt if None)
         """
         self.llm_client = llm_client
         self.prompt = prompt if prompt is not None else self.DEFAULT_PROMPT
@@ -61,32 +61,32 @@ class BaseOCR(ABC):
     @property
     @abstractmethod
     def provider(self) -> str:
-        """OCR 프로바이더 이름 반환 (예: 'openai', 'anthropic')"""
+        """Return OCR provider name (e.g., 'openai', 'anthropic')"""
         pass
 
     @abstractmethod
     def build_message_content(self, b64_image: str, mime_type: str) -> list:
         """
-        LLM에 전달할 메시지 content 구성.
+        Build message content for LLM.
 
         Args:
-            b64_image: Base64 인코딩된 이미지
-            mime_type: 이미지 MIME 타입
+            b64_image: Base64 encoded image
+            mime_type: Image MIME type
 
         Returns:
-            LangChain HumanMessage에 전달할 content 리스트
+            Content list for LangChain HumanMessage
         """
         pass
 
     async def convert_image_to_text(self, image_path: str) -> Optional[str]:
         """
-        이미지를 텍스트로 변환.
+        Convert image to text.
 
         Args:
-            image_path: 로컬 이미지 파일 경로
+            image_path: Local image file path
 
         Returns:
-            이미지에서 추출된 텍스트 또는 None (실패 시)
+            Extracted text from image or None (on failure)
         """
         from libs.ocr.ocr_processor import (
             _b64_from_file,
@@ -104,25 +104,25 @@ class BaseOCR(ABC):
             response = await self.llm_client.ainvoke([message])
             result = response.content.strip()
 
-            # 결과를 [그림:...] 형식으로 감싸기
-            result = f"[그림:{result}]"
+            # Wrap result in [Figure:...] format
+            result = f"[Figure:{result}]"
 
-            logger.info(f"[{self.provider.upper()}] 이미지 텍스트 변환 완료")
+            logger.info(f"[{self.provider.upper()}] Image to text conversion completed")
             return result
 
         except Exception as e:
-            logger.error(f"[{self.provider.upper()}] 이미지 텍스트 변환 실패: {e}")
-            return f"[이미지 변환 오류: {str(e)}]"
+            logger.error(f"[{self.provider.upper()}] Image to text conversion failed: {e}")
+            return f"[Image conversion error: {str(e)}]"
 
     async def process_text(self, text: str) -> str:
         """
-        텍스트 내 이미지 태그를 감지하고 OCR 처리하여 텍스트로 대체.
+        Detect image tags in text and replace with OCR results.
 
         Args:
-            text: [Image:{path}] 태그가 포함된 텍스트
+            text: Text containing [Image:{path}] tags
 
         Returns:
-            이미지 태그가 OCR 결과로 대체된 텍스트
+            Text with image tags replaced by OCR results
         """
         import re
         from libs.ocr.ocr_processor import (
@@ -131,16 +131,16 @@ class BaseOCR(ABC):
         )
 
         if not self.llm_client:
-            logger.warning(f"[{self.provider.upper()}] LLM 클라이언트가 없어 OCR 처리를 건너뜁니다")
+            logger.warning(f"[{self.provider.upper()}] Skipping OCR processing: no LLM client")
             return text
 
         image_paths = extract_image_tags(text)
 
         if not image_paths:
-            logger.debug(f"[{self.provider.upper()}] 텍스트에 이미지 태그가 없습니다")
+            logger.debug(f"[{self.provider.upper()}] No image tags found in text")
             return text
 
-        logger.info(f"[{self.provider.upper()}] {len(image_paths)}개의 이미지 태그 감지됨")
+        logger.info(f"[{self.provider.upper()}] Detected {len(image_paths)} image tags")
 
         result_text = text
 
@@ -150,29 +150,29 @@ class BaseOCR(ABC):
             local_path = load_image_from_path(img_path)
 
             if local_path is None:
-                logger.warning(f"[{self.provider.upper()}] 이미지 로드 실패, 원본 태그 유지: {img_path}")
+                logger.warning(f"[{self.provider.upper()}] Image load failed, keeping original tag: {img_path}")
                 continue
 
             ocr_result = await self.convert_image_to_text(local_path)
 
-            if ocr_result is None or ocr_result.startswith("[이미지 변환 오류:"):
-                logger.warning(f"[{self.provider.upper()}] 이미지 변환 실패, 원본 태그 유지: {img_path}")
+            if ocr_result is None or ocr_result.startswith("[Image conversion error:"):
+                logger.warning(f"[{self.provider.upper()}] Image conversion failed, keeping original tag: {img_path}")
                 continue
 
             result_text = tag_pattern.sub(ocr_result, result_text)
-            logger.info(f"[{self.provider.upper()}] 태그 대체 완료: {img_path[:50]}...")
+            logger.info(f"[{self.provider.upper()}] Tag replacement completed: {img_path[:50]}...")
 
         return result_text
 
     async def process_batch_texts(self, texts: list) -> list:
         """
-        여러 텍스트에 대해 OCR 처리를 수행.
+        Perform OCR processing on multiple texts.
 
         Args:
-            texts: 텍스트 목록
+            texts: List of texts
 
         Returns:
-            OCR 처리된 텍스트 목록
+            List of OCR processed texts
         """
         results = []
         for text in texts:

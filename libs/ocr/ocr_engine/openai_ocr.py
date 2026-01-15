@@ -1,5 +1,5 @@
 # libs/ocr/ocr_engine/openai_ocr.py
-# OpenAI Vision 모델을 사용한 OCR 클래스
+# OCR class using OpenAI Vision model
 import logging
 from typing import Any, Optional
 
@@ -7,33 +7,33 @@ from libs.ocr.base import BaseOCR
 
 logger = logging.getLogger("ocr-openai")
 
-# 기본 모델
+# Default model
 DEFAULT_OPENAI_MODEL = "gpt-4o"
 
 
 class OpenAIOCR(BaseOCR):
     """
-    OpenAI Vision 모델을 사용한 OCR 처리 클래스.
+    OCR processing class using OpenAI Vision model.
 
-    지원 모델: gpt-4-vision-preview, gpt-4o, gpt-4o-mini 등
+    Supported models: gpt-4-vision-preview, gpt-4o, gpt-4o-mini, etc.
 
     Example:
         ```python
         from libs.ocr.ocr_engine import OpenAIOCR
 
-        # 방법 1: api_key와 model로 초기화
+        # Method 1: Initialize with api_key and model
         ocr = OpenAIOCR(api_key="sk-...", model="gpt-4o")
 
-        # 방법 2: 기존 LLM 클라이언트 사용
+        # Method 2: Use existing LLM client
         from langchain_openai import ChatOpenAI
         llm = ChatOpenAI(model="gpt-4o", temperature=0, api_key="sk-...")
         ocr = OpenAIOCR(llm_client=llm)
 
-        # 단일 이미지 변환
+        # Single image conversion
         result = await ocr.convert_image_to_text("/path/to/image.png")
 
-        # 텍스트 내 이미지 태그 처리
-        text = "문서 내용 [Image:/path/to/image.png] 계속..."
+        # Process image tags in text
+        text = "Document content [Image:/path/to/image.png] continues..."
         processed = await ocr.process_text(text)
         ```
     """
@@ -49,20 +49,20 @@ class OpenAIOCR(BaseOCR):
         base_url: Optional[str] = None,
     ):
         """
-        OpenAI OCR 초기화.
+        Initialize OpenAI OCR.
 
         Args:
-            api_key: OpenAI API 키 (llm_client가 없을 경우 필수)
-            model: 사용할 모델명 (기본값: gpt-4o)
-            llm_client: 기존 LangChain OpenAI 클라이언트 (있으면 api_key, model 무시)
-            prompt: 사용자 정의 프롬프트 (None이면 기본 프롬프트 사용)
-            temperature: 생성 온도 (기본값: 0.0)
-            max_tokens: 최대 토큰 수 (None이면 모델 기본값 사용)
-            base_url: OpenAI API base URL (Azure 등 사용 시)
+            api_key: OpenAI API key (required if llm_client is not provided)
+            model: Model name to use (default: gpt-4o)
+            llm_client: Existing LangChain OpenAI client (if provided, api_key and model are ignored)
+            prompt: Custom prompt (if None, default prompt is used)
+            temperature: Generation temperature (default: 0.0)
+            max_tokens: Maximum number of tokens (if None, model default is used)
+            base_url: OpenAI API base URL (for Azure, etc.)
         """
         if llm_client is None:
             if api_key is None:
-                raise ValueError("api_key 또는 llm_client 중 하나는 필수입니다.")
+                raise ValueError("Either api_key or llm_client is required.")
 
             from langchain_openai import ChatOpenAI
 
@@ -79,11 +79,11 @@ class OpenAIOCR(BaseOCR):
                 client_kwargs["base_url"] = base_url
 
             llm_client = ChatOpenAI(**client_kwargs)
-            logger.info(f"[OpenAI OCR] 클라이언트 생성 완료: model={model}")
+            logger.info(f"[OpenAI OCR] Client created: model={model}")
 
         super().__init__(llm_client=llm_client, prompt=prompt)
         self.model = model
-        logger.info("[OpenAI OCR] 초기화 완료")
+        logger.info("[OpenAI OCR] Initialization completed")
 
     @property
     def provider(self) -> str:

@@ -1,5 +1,5 @@
 # libs/ocr/ocr_engine/anthropic_ocr.py
-# Anthropic Claude Vision 모델을 사용한 OCR 클래스
+# OCR class using Anthropic Claude Vision model
 import logging
 from typing import Any, Optional
 
@@ -7,29 +7,29 @@ from libs.ocr.base import BaseOCR
 
 logger = logging.getLogger("ocr-anthropic")
 
-# 기본 모델
+# Default model
 DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-20250514"
 
 
 class AnthropicOCR(BaseOCR):
     """
-    Anthropic Claude Vision 모델을 사용한 OCR 처리 클래스.
+    OCR processing class using Anthropic Claude Vision model.
 
-    지원 모델: claude-3-opus, claude-3-sonnet, claude-3-haiku, claude-sonnet-4 등
+    Supported models: claude-3-opus, claude-3-sonnet, claude-3-haiku, claude-sonnet-4, etc.
 
     Example:
         ```python
         from libs.ocr.ocr_engine import AnthropicOCR
 
-        # 방법 1: api_key와 model로 초기화
+        # Method 1: Initialize with api_key and model
         ocr = AnthropicOCR(api_key="sk-ant-...", model="claude-sonnet-4-20250514")
 
-        # 방법 2: 기존 LLM 클라이언트 사용
+        # Method 2: Use existing LLM client
         from langchain_anthropic import ChatAnthropic
         llm = ChatAnthropic(model="claude-sonnet-4-20250514", temperature=0, api_key="sk-ant-...")
         ocr = AnthropicOCR(llm_client=llm)
 
-        # 단일 이미지 변환
+        # Single image conversion
         result = await ocr.convert_image_to_text("/path/to/image.png")
         ```
     """
@@ -44,19 +44,19 @@ class AnthropicOCR(BaseOCR):
         max_tokens: int = 4096,
     ):
         """
-        Anthropic OCR 초기화.
+        Initialize Anthropic OCR.
 
         Args:
-            api_key: Anthropic API 키 (llm_client가 없을 경우 필수)
-            model: 사용할 모델명 (기본값: claude-sonnet-4-20250514)
-            llm_client: 기존 LangChain Anthropic 클라이언트 (있으면 api_key, model 무시)
-            prompt: 사용자 정의 프롬프트 (None이면 기본 프롬프트 사용)
-            temperature: 생성 온도 (기본값: 0.0)
-            max_tokens: 최대 토큰 수 (기본값: 4096)
+            api_key: Anthropic API key (required if llm_client is not provided)
+            model: Model name to use (default: claude-sonnet-4-20250514)
+            llm_client: Existing LangChain Anthropic client (if provided, api_key and model are ignored)
+            prompt: Custom prompt (if None, default prompt is used)
+            temperature: Generation temperature (default: 0.0)
+            max_tokens: Maximum number of tokens (default: 4096)
         """
         if llm_client is None:
             if api_key is None:
-                raise ValueError("api_key 또는 llm_client 중 하나는 필수입니다.")
+                raise ValueError("Either api_key or llm_client is required.")
 
             from langchain_anthropic import ChatAnthropic
 
@@ -66,11 +66,11 @@ class AnthropicOCR(BaseOCR):
                 temperature=temperature,
                 max_tokens=max_tokens,
             )
-            logger.info(f"[Anthropic OCR] 클라이언트 생성 완료: model={model}")
+            logger.info(f"[Anthropic OCR] Client created: model={model}")
 
         super().__init__(llm_client=llm_client, prompt=prompt)
         self.model = model
-        logger.info("[Anthropic OCR] 초기화 완료")
+        logger.info("[Anthropic OCR] Initialization completed")
 
     @property
     def provider(self) -> str:

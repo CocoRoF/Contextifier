@@ -1,25 +1,25 @@
 # libs/ocr/ocr_processor.py
-# 이미지 파일을 로드하여 OCR 처리하는 모듈.
+# Module for loading image files and processing OCR.
 import re
 import base64
 import logging
 import os
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional
 
 logger = logging.getLogger("ocr-processor")
 
-# 이미지 태그 패턴: [Image:{path}] 또는 [image:{path}] (대소문자 무관)
+# Image tag pattern: [Image:{path}] or [image:{path}] (case-insensitive)
 IMAGE_TAG_PATTERN = re.compile(r'\[[Ii]mage:([^\]]+)\]')
 
 
 def _b64_from_file(path: str) -> str:
-    """파일을 Base64로 인코딩"""
+    """Encode file to Base64"""
     with open(path, "rb") as f:
         return base64.b64encode(f.read()).decode("utf-8")
 
 
 def _get_mime_type(file_path: str) -> str:
-    """파일 확장자에 따른 MIME 타입 반환"""
+    """Return MIME type based on file extension"""
     ext = os.path.splitext(file_path)[1].lower()
     mime_map = {
         ".jpg": "image/jpeg",
@@ -36,13 +36,13 @@ def _get_mime_type(file_path: str) -> str:
 
 def extract_image_tags(text: str) -> List[str]:
     """
-    텍스트에서 [Image:{path}] 태그를 추출
+    Extract [Image:{path}] tags from text.
 
     Args:
-        text: 이미지 태그가 포함된 텍스트
+        text: Text containing image tags
 
     Returns:
-        추출된 image_path 목록
+        List of extracted image_path values
     """
     matches = IMAGE_TAG_PATTERN.findall(text)
     return matches
@@ -50,29 +50,29 @@ def extract_image_tags(text: str) -> List[str]:
 
 def load_image_from_path(image_path: str) -> Optional[str]:
     """
-    로컬 이미지 파일 경로를 검증하고 반환
+    Validate and return local image file path.
 
     Args:
-        image_path: 이미지 파일 경로
+        image_path: Image file path
 
     Returns:
-        유효한 로컬 파일 경로 또는 None
+        Valid local file path or None
     """
     try:
-        # 절대 경로로 변환
+        # Convert to absolute path
         if not os.path.isabs(image_path):
             image_path = os.path.abspath(image_path)
 
-        # 파일 존재 확인
+        # Check file existence
         if os.path.exists(image_path) and os.path.getsize(image_path) > 0:
-            logger.info(f"[OCR] 이미지 로드: {image_path}")
+            logger.info(f"[OCR] Image loaded: {image_path}")
             return image_path
 
-        logger.warning(f"[OCR] 이미지 파일 없음: {image_path}")
+        logger.warning(f"[OCR] Image file not found: {image_path}")
         return None
 
     except Exception as e:
-        logger.error(f"[OCR] 이미지 로드 실패: {image_path}, error: {e}")
+        logger.error(f"[OCR] Image load failed: {image_path}, error: {e}")
         return None
 
 
@@ -82,15 +82,15 @@ async def convert_image_to_text_with_llm(
     provider: str
 ) -> str:
     """
-    VL 모델을 사용하여 이미지를 텍스트로 변환
+    Convert image to text using VL model.
 
     Args:
-        image_path: 로컬 이미지 파일 경로
-        llm_client: LangChain LLM 클라이언트
-        provider: LLM 프로바이더 (openai, anthropic, gemini, vllm)
+        image_path: Local image file path
+        llm_client: LangChain LLM client
+        provider: LLM provider (openai, anthropic, gemini, vllm)
 
     Returns:
-        이미지에서 추출된 텍스트
+        Text extracted from image
     """
     try:
         from langchain_core.messages import HumanMessage
@@ -98,7 +98,7 @@ async def convert_image_to_text_with_llm(
         b64_image = _b64_from_file(image_path)
         mime_type = _get_mime_type(image_path)
 
-        # vllm은 간단한 프롬프트 사용
+        # vllm uses simple prompt
         if provider == "vllm":
             prompt = "Describe the contents of this image."
         else:
@@ -131,7 +131,7 @@ async def convert_image_to_text_with_llm(
                 "- No filler words or unnecessary descriptions"
             )
 
-        # Provider별 메시지 구성
+        # Build message by provider
         if provider in ("openai", "vllm"):
             content = [
                 {"type": "text", "text": prompt},
@@ -167,7 +167,7 @@ async def convert_image_to_text_with_llm(
             message = HumanMessage(content=content)
 
         elif provider == "aws_bedrock":
-            # AWS Bedrock (Claude via Bedrock) - Anthropic과 동일한 형식 사용
+            # AWS Bedrock (Claude via Bedrock) - Uses same format as Anthropic
             content = [
                 {
                     "type": "image",
@@ -182,20 +182,20 @@ async def convert_image_to_text_with_llm(
             message = HumanMessage(content=content)
 
         else:
-            return None  # 지원하지 않는 프로바이더
+            return None  # Unsupported provider
 
         response = await llm_client.ainvoke([message])
         result = response.content.strip()
 
-        # 결과를 [그림:...] 형식으로 감싸기
-        result = f"[그림:{result}]"
+        # Wrap result in [Figure:...] format
+        result = f"[Figure:{result}]"
 
-        logger.info(f"[OCR] 이미지 텍스트 변환 완료: {os.path.basename(image_path)}")
+        logger.info(f"[OCR] Image to text conversion completed: {os.path.basename(image_path)}")
         return result
 
     except Exception as e:
-        logger.error(f"[OCR] 이미지 텍스트 변환 실패: {image_path}, error: {e}")
-        return f"[이미지 변환 오류: {str(e)}]"
+        logger.error(f"[OCR] Image to text conversion failed: {image_path}, error: {e}")
+        return f"[Image conversion error: {str(e)}]"
 
 
 async def process_text_with_ocr(
@@ -204,58 +204,58 @@ async def process_text_with_ocr(
     provider: str
 ) -> str:
     """
-    텍스트 내 이미지 태그를 감지하고 OCR 처리하여 텍스트로 대체
+    Detect image tags in text and replace with OCR results.
 
     Args:
-        text: [Image:{path}] 태그가 포함된 텍스트
-        llm_client: LangChain LLM 클라이언트
-        provider: LLM 프로바이더
+        text: Text containing [Image:{path}] tags
+        llm_client: LangChain LLM client
+        provider: LLM provider
 
     Returns:
-        이미지 태그가 OCR 결과로 대체된 텍스트
+        Text with image tags replaced by OCR results
     """
     if not llm_client:
-        logger.warning("[OCR] LLM 클라이언트가 없어 OCR 처리를 건너뜁니다")
+        logger.warning("[OCR] Skipping OCR processing: no LLM client")
         return text
 
-    # 이미지 태그 추출
+    # Extract image tags
     image_paths = extract_image_tags(text)
 
     if not image_paths:
-        logger.debug("[OCR] 텍스트에 이미지 태그가 없습니다")
+        logger.debug("[OCR] No image tags found in text")
         return text
 
-    logger.info(f"[OCR] {len(image_paths)}개의 이미지 태그 감지됨")
+    logger.info(f"[OCR] Detected {len(image_paths)} image tags")
 
     result_text = text
 
     for img_path in image_paths:
-        # 대소문자 무관하게 태그 매칭
+        # Case-insensitive tag matching
         tag_pattern = re.compile(r'\[[Ii]mage:' + re.escape(img_path) + r'\]')
 
-        # 로컬에서 이미지 로드
+        # Load image from local path
         local_path = load_image_from_path(img_path)
 
         if local_path is None:
-            # 로드 실패 시 원본 태그 유지
-            logger.warning(f"[OCR] 이미지 로드 실패, 원본 태그 유지: {img_path}")
+            # Keep original tag on load failure
+            logger.warning(f"[OCR] Image load failed, keeping original tag: {img_path}")
             continue
 
-        # VL 모델로 이미지를 텍스트로 변환
+        # Convert image to text using VL model
         ocr_result = await convert_image_to_text_with_llm(
             image_path=local_path,
             llm_client=llm_client,
             provider=provider
         )
 
-        # OCR 실패 시 원본 태그 유지 (None 또는 에러 메시지인 경우)
-        if ocr_result is None or ocr_result.startswith("[이미지 변환 오류:"):
-            logger.warning(f"[OCR] 이미지 변환 실패, 원본 태그 유지: {img_path}")
+        # Keep original tag on OCR failure (None or error message)
+        if ocr_result is None or ocr_result.startswith("[Image conversion error:"):
+            logger.warning(f"[OCR] Image conversion failed, keeping original tag: {img_path}")
             continue
 
-        # 태그를 OCR 결과로 대체
+        # Replace tag with OCR result
         result_text = tag_pattern.sub(ocr_result, result_text)
-        logger.info(f"[OCR] 태그 대체 완료: {img_path[:50]}...")
+        logger.info(f"[OCR] Tag replacement completed: {img_path[:50]}...")
 
     return result_text
 
@@ -267,37 +267,37 @@ async def process_text_with_ocr_progress(
     progress_callback: Optional[Callable[[Dict[str, Any]], Any]] = None
 ) -> str:
     """
-    텍스트 내 이미지 태그를 감지하고 OCR 처리하여 텍스트로 대체 (진행 상황 콜백 지원)
+    Detect image tags in text and replace with OCR results (with progress callback support).
 
     Args:
-        text: [Image:{path}] 태그가 포함된 텍스트
-        llm_client: LangChain LLM 클라이언트
-        provider: LLM 프로바이더
-        progress_callback: 진행 상황 콜백 함수
+        text: Text containing [Image:{path}] tags
+        llm_client: LangChain LLM client
+        provider: LLM provider
+        progress_callback: Progress callback function
 
     Returns:
-        이미지 태그가 OCR 결과로 대체된 텍스트
+        Text with image tags replaced by OCR results
     """
     if not llm_client:
-        logger.warning("[OCR] LLM 클라이언트가 없어 OCR 처리를 건너뜁니다")
+        logger.warning("[OCR] Skipping OCR processing: no LLM client")
         return text
 
-    # 이미지 태그 추출
+    # Extract image tags
     image_paths = extract_image_tags(text)
 
     if not image_paths:
-        logger.debug("[OCR] 텍스트에 이미지 태그가 없습니다")
+        logger.debug("[OCR] No image tags found in text")
         return text
 
     total_chunks = len(image_paths)
-    logger.info(f"[OCR] {total_chunks}개의 이미지 태그 감지됨")
+    logger.info(f"[OCR] Detected {total_chunks} image tags")
 
     result_text = text
     success_count = 0
     failed_count = 0
 
     for idx, img_path in enumerate(image_paths):
-        # 진행 상황 콜백 - 처리 시작
+        # Progress callback - processing started
         if progress_callback:
             await progress_callback({
                 'event': 'ocr_tag_processing',
@@ -306,15 +306,15 @@ async def process_text_with_ocr_progress(
                 'image_path': img_path
             })
 
-        # 대소문자 무관하게 태그 매칭
+        # Case-insensitive tag matching
         tag_pattern = re.compile(r'\[[Ii]mage:' + re.escape(img_path) + r'\]')
 
-        # 로컬에서 이미지 로드
+        # Load image from local path
         local_path = load_image_from_path(img_path)
 
         if local_path is None:
-            # 로드 실패 시 원본 태그 유지
-            logger.warning(f"[OCR] 이미지 로드 실패, 원본 태그 유지: {img_path}")
+            # Keep original tag on load failure
+            logger.warning(f"[OCR] Image load failed, keeping original tag: {img_path}")
             failed_count += 1
             if progress_callback:
                 await progress_callback({
@@ -327,16 +327,16 @@ async def process_text_with_ocr_progress(
             continue
 
         try:
-            # VL 모델로 이미지를 텍스트로 변환
+            # Convert image to text using VL model
             ocr_result = await convert_image_to_text_with_llm(
                 image_path=local_path,
                 llm_client=llm_client,
                 provider=provider
             )
 
-            # OCR 실패 시 원본 태그 유지 (None 또는 에러 메시지인 경우)
-            if ocr_result is None or ocr_result.startswith("[이미지 변환 오류:"):
-                logger.warning(f"[OCR] 이미지 변환 실패, 원본 태그 유지: {img_path}")
+            # Keep original tag on OCR failure (None or error message)
+            if ocr_result is None or ocr_result.startswith("[Image conversion error:"):
+                logger.warning(f"[OCR] Image conversion failed, keeping original tag: {img_path}")
                 failed_count += 1
                 if progress_callback:
                     await progress_callback({
@@ -348,10 +348,10 @@ async def process_text_with_ocr_progress(
                     })
                 continue
 
-            # 태그를 OCR 결과로 대체
+            # Replace tag with OCR result
             result_text = tag_pattern.sub(ocr_result, result_text)
             success_count += 1
-            logger.info(f"[OCR] 태그 대체 완료: {img_path[:50]}...")
+            logger.info(f"[OCR] Tag replacement completed: {img_path[:50]}...")
 
             if progress_callback:
                 await progress_callback({
@@ -362,7 +362,7 @@ async def process_text_with_ocr_progress(
                 })
 
         except Exception as e:
-            logger.error(f"[OCR] 이미지 처리 오류: {img_path}, error: {e}")
+            logger.error(f"[OCR] Image processing error: {img_path}, error: {e}")
             failed_count += 1
             if progress_callback:
                 await progress_callback({
@@ -382,15 +382,15 @@ async def process_batch_texts_with_ocr(
     provider: str
 ) -> List[str]:
     """
-    여러 텍스트에 대해 OCR 처리를 수행
+    Perform OCR processing on multiple texts.
 
     Args:
-        texts: 텍스트 목록
-        llm_client: LangChain LLM 클라이언트
-        provider: LLM 프로바이더
+        texts: List of texts
+        llm_client: LangChain LLM client
+        provider: LLM provider
 
     Returns:
-        OCR 처리된 텍스트 목록
+        List of OCR processed texts
     """
     results = []
     for text in texts:

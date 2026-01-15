@@ -1,9 +1,9 @@
 # libs/ocr/ocr_engine/__init__.py
-# OCR 엔진 모듈 초기화
+# OCR engine module initialization
 """
-OCR 엔진 모듈
+OCR Engine Module
 
-각 LLM 프로바이더별 OCR 엔진 클래스를 제공합니다.
+Provides OCR engine classes for each LLM provider.
 """
 
 from libs.ocr.ocr_engine.openai_ocr import OpenAIOCR

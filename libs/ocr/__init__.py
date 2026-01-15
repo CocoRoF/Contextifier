@@ -1,38 +1,38 @@
 # libs/ocr/__init__.py
-# OCR 모듈 패키지 초기화
+# OCR module package initialization
 """
-OCR 처리 모듈
+OCR Processing Module
 
-이 모듈은 다양한 LLM Vision 모델을 사용하여 이미지에서 텍스트를 추출하는
-OCR 기능을 제공합니다.
+This module provides OCR functionality to extract text from images
+using various LLM Vision models.
 
-사용 예시:
+Usage Examples:
     ```python
     from libs.ocr.ocr_engine import OpenAIOCR, AnthropicOCR, GeminiOCR, VllmOCR
 
-    # OpenAI Vision 모델로 OCR 처리
+    # OCR processing with OpenAI Vision model
     ocr = OpenAIOCR(api_key="sk-...", model="gpt-4o")
     result = await ocr.convert_image_to_text("/path/to/image.png")
 
-    # Anthropic Claude Vision 모델로 OCR 처리
+    # OCR processing with Anthropic Claude Vision model
     ocr = AnthropicOCR(api_key="sk-ant-...", model="claude-sonnet-4-20250514")
     result = await ocr.convert_image_to_text("/path/to/image.png")
 
-    # Google Gemini Vision 모델로 OCR 처리
+    # OCR processing with Google Gemini Vision model
     ocr = GeminiOCR(api_key="...", model="gemini-2.0-flash")
     result = await ocr.convert_image_to_text("/path/to/image.png")
 
-    # vLLM 기반 Vision 모델로 OCR 처리
+    # OCR processing with vLLM-based Vision model
     ocr = VllmOCR(base_url="http://localhost:8000/v1", model="Qwen/Qwen2-VL-7B-Instruct")
     result = await ocr.convert_image_to_text("/path/to/image.png")
     ```
 
-클래스:
-    - BaseOCR: OCR 처리를 위한 추상 기본 클래스
-    - OpenAIOCR: OpenAI Vision 모델 기반 OCR (ocr_engine 모듈)
-    - AnthropicOCR: Anthropic Claude Vision 모델 기반 OCR (ocr_engine 모듈)
-    - GeminiOCR: Google Gemini Vision 모델 기반 OCR (ocr_engine 모듈)
-    - VllmOCR: vLLM 기반 Vision 모델 OCR (ocr_engine 모듈)
+Classes:
+    - BaseOCR: Abstract base class for OCR processing
+    - OpenAIOCR: OpenAI Vision model based OCR (ocr_engine module)
+    - AnthropicOCR: Anthropic Claude Vision model based OCR (ocr_engine module)
+    - GeminiOCR: Google Gemini Vision model based OCR (ocr_engine module)
+    - VllmOCR: vLLM-based Vision model OCR (ocr_engine module)
 """
 
 from libs.ocr.base import BaseOCR
