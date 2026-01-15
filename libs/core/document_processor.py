@@ -33,7 +33,6 @@ from typing import Any, Callable, Dict, List, Optional, Union
 
 logger = logging.getLogger("contextify")
 
-
 class DocumentProcessor:
     """
     Contextify Main Document Processing Class
