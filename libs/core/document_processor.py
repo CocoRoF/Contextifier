@@ -521,11 +521,7 @@ class DocumentProcessor:
             # text_handler signature: (file_path, file_type, encodings, is_code)
             return await handler(file_path, ext, is_code=is_code)
 
-        # HWP/HWPX signature: (file_path, config, extract_default_metadata)
-        if ext in ('hwp', 'hwpx'):
-            return await handler(file_path, self._config, extract_default_metadata=extract_metadata)
-
-        # Standard handler signature: (file_path, current_config, extract_default_metadata)
+        # Standard handler signature: (file_path, config, extract_default_metadata)
         return await handler(file_path, self._config, extract_default_metadata=extract_metadata)
 
     # =========================================================================

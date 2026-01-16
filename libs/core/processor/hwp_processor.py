@@ -50,13 +50,6 @@ from libs.core.processor.hwp_helper import (
 )
 from libs.core.processor.hwpx_processor import extract_text_from_hwpx
 
-# Check if OCR handler is available
-try:
-    from libs.core.ocr_legacy import convert_image_to_text
-    OCR_AVAILABLE = True
-except ImportError:
-    OCR_AVAILABLE = False
-
 logger = logging.getLogger("document-processor")
 
 
@@ -105,11 +98,10 @@ class HwpProcessor:
                 text_content.extend(section_texts)
 
                 # 4. BinData에서 이미지 추출
-                if OCR_AVAILABLE:
-                    image_text = await process_images_from_bindata(ole, processed_images=processed_images)
-                    if image_text:
-                        text_content.append("\n\n=== Extracted Images (Not Inline) ===\n")
-                        text_content.append(image_text)
+                image_text = await process_images_from_bindata(ole, processed_images=processed_images)
+                if image_text:
+                    text_content.append("\n\n=== Extracted Images (Not Inline) ===\n")
+                    text_content.append(image_text)
 
                 # 5. BinData에서 차트 추출
                 chart_texts = self._extract_charts_from_bindata(ole, processed_images)
@@ -563,10 +555,9 @@ class HwpProcessor:
                 logger.warning("Forensic text scan found no valid text.")
 
             # 이미지 복구
-            if OCR_AVAILABLE:
-                image_text = await self._recover_images_from_raw(raw_data)
-                if image_text:
-                    text_content.append(image_text)
+            image_text = await self._recover_images_from_raw(raw_data)
+            if image_text:
+                text_content.append(image_text)
 
         except Exception as e:
             logger.error(f"Forensic recovery failed completely: {e}")

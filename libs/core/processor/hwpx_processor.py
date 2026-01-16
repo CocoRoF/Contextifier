@@ -23,13 +23,6 @@ from .hwpx_helper import (
     extract_charts_from_hwpx,
 )
 
-# Try to import OCR handler if available in the project
-try:
-    from libs.core.ocr_legacy import convert_image_to_text
-    OCR_AVAILABLE = True
-except ImportError:
-    OCR_AVAILABLE = False
-
 logger = logging.getLogger("document-processor")
 
 
@@ -81,14 +74,13 @@ class HwpxProcessor:
                         text_content.append(section_text)
 
                 # 2. Process Remaining Images (BinData) that were not inline (using helper)
-                if OCR_AVAILABLE:
-                    remaining_images = get_remaining_images(zf, processed_images)
+                remaining_images = get_remaining_images(zf, processed_images)
 
-                    if remaining_images:
-                        image_text = await process_hwpx_images(zf, remaining_images)
-                        if image_text:
-                            text_content.append("\n\n=== Extracted Images (Not Inline) ===\n")
-                            text_content.append(image_text)
+                if remaining_images:
+                    image_text = await process_hwpx_images(zf, remaining_images)
+                    if image_text:
+                        text_content.append("\n\n=== Extracted Images (Not Inline) ===\n")
+                        text_content.append(image_text)
 
                 # 3. Extract Charts (using helper)
                 chart_texts = extract_charts_from_hwpx(zf)
