@@ -1,39 +1,39 @@
 """
 Block Image Engine for PDF Handler
 
-복잡한 영역을 의미론적 블록 단위로 분할하여 이미지로 렌더링하고 로컬에 저장합니다.
+Splits complex regions into semantic block units, renders them as images, and saves locally.
 
 =============================================================================
-핵심 개념:
+Core Concepts:
 =============================================================================
-기존: 전체 페이지를 하나의 이미지로 업로드
-개선: 페이지를 **의미론적/논리적 블록 단위**로 분할하여 각각 PNG로 저장
+Previous: Upload entire page as single image
+Improved: Split page into **semantic/logical block units** and save each as PNG
 
-이를 통해:
-1. LLM이 각 블록을 **개별적으로** 해석 가능
-2. 해상도 문제 해결 (블록별로 고해상도 유지)
-3. 읽기 순서 보존
-4. 컨텍스트 분리 (광고/기사/표 구분)
+Benefits:
+1. LLM can interpret each block **individually**
+2. Resolution issues resolved (high resolution maintained per block)
+3. Reading order preserved
+4. Context separation (ads/articles/tables distinguished)
 
 =============================================================================
-처리 전략:
+Processing Strategies:
 =============================================================================
-1. SEMANTIC_BLOCKS: 의미론적 블록 단위 분할 (권장)
-   - LayoutBlockDetector로 블록 감지
-   - 각 블록을 개별 이미지로 변환
-   - 읽기 순서대로 [Image:path] 태그 생성
+1. SEMANTIC_BLOCKS: Semantic block-based splitting (recommended)
+   - Block detection via LayoutBlockDetector
+   - Convert each block to individual image
+   - Generate [Image:path] tags in reading order
 
-2. GRID_BLOCKS: 그리드 기반 분할 (폴백)
-   - 페이지를 NxM 그리드로 분할
-   - 각 그리드 셀을 개별 이미지로 변환
+2. GRID_BLOCKS: Grid-based splitting (fallback)
+   - Split page into NxM grid
+   - Convert each grid cell to individual image
 
-3. FULL_PAGE: 전체 페이지 이미지화 (최후 수단)
-   - 기존 방식 유지
+3. FULL_PAGE: Full page imaging (last resort)
+   - Maintain existing approach
 
-렌더링 설정:
-- 기본 DPI: 300 (고해상도)
-- 최대 이미지 크기: 4096px
-- 이미지 포맷: PNG (무손실)
+Rendering Settings:
+- Default DPI: 300 (high resolution)
+- Max image size: 4096px
+- Image format: PNG (lossless)
 """
 
 import logging
@@ -46,12 +46,12 @@ from enum import Enum, auto
 import fitz
 from PIL import Image
 
-# 이미지 처리 모듈
+# Image processing module
 from libs.core.functions.img_processor import ImageProcessor
 
 logger = logging.getLogger(__name__)
 
-# 모듈 레벨 이미지 프로세서
+# Module level image processor
 _image_processor = ImageProcessor(
     directory_path="temp/images",
     tag_prefix="[Image:",
@@ -64,10 +64,10 @@ _image_processor = ImageProcessor(
 # ============================================================================
 
 class BlockStrategy(Enum):
-    """블록 처리 전략"""
-    SEMANTIC_BLOCKS = auto()  # 의미론적 블록 단위
-    GRID_BLOCKS = auto()      # 그리드 기반 분할
-    FULL_PAGE = auto()        # 전체 페이지
+    """Block processing strategy."""
+    SEMANTIC_BLOCKS = auto()  # Semantic block units
+    GRID_BLOCKS = auto()      # Grid-based splitting
+    FULL_PAGE = auto()        # Full page
 
 
 # ============================================================================
@@ -76,78 +76,78 @@ class BlockStrategy(Enum):
 
 @dataclass
 class BlockImageConfig:
-    """블록 이미지 엔진 설정"""
-    # 렌더링 설정
+    """Block image engine configuration."""
+    # Rendering settings
     DEFAULT_DPI: int = 300
     MAX_IMAGE_SIZE: int = 4096
 
-    # 이미지 포맷
+    # Image format
     IMAGE_FORMAT: str = "PNG"
 
-    # 영역 설정
-    REGION_PADDING: int = 5  # 영역 패딩 (pt)
+    # Region settings
+    REGION_PADDING: int = 5  # Region padding (pt)
 
-    # 최소 크기 (이 이하는 무시)
-    MIN_REGION_WIDTH: int = 80   # 상향 조정
-    MIN_REGION_HEIGHT: int = 60  # 상향 조정
+    # Minimum size (below this is ignored)
+    MIN_REGION_WIDTH: int = 80   # Increased
+    MIN_REGION_HEIGHT: int = 60  # Increased
 
-    # 블록 분할 전략
+    # Block splitting strategy
     PREFERRED_STRATEGY: str = "semantic"  # semantic, grid, full_page
 
-    # 그리드 분할 설정 (GRID_BLOCKS 전략용)
+    # Grid splitting settings (for GRID_BLOCKS strategy)
     GRID_ROWS: int = 2
     GRID_COLS: int = 2
 
-    # 블록 병합 설정
+    # Block merging settings
     MERGE_SMALL_BLOCKS: bool = True
-    MIN_BLOCK_AREA: float = 15000.0  # 최소 블록 면적 (pt²) - 대폭 상향
+    MIN_BLOCK_AREA: float = 15000.0  # Minimum block area (pt²) - significantly increased
 
-    # 빈 블록 필터링
+    # Empty block filtering
     SKIP_EMPTY_BLOCKS: bool = True
-    EMPTY_THRESHOLD: float = 0.95  # 흰색 픽셀 비율이 이 이상이면 빈 블록
+    EMPTY_THRESHOLD: float = 0.95  # Block is empty if white pixel ratio exceeds this
 
 
 @dataclass
 class BlockImageResult:
-    """블록 이미지 처리 결과"""
+    """Block image processing result."""
     bbox: Tuple[float, float, float, float]
 
-    # 이미지 정보
+    # Image info
     image_size: Tuple[int, int]
     dpi: int
 
-    # 이미지 경로
+    # Image path
     image_path: Optional[str] = None
 
-    # 인라인 태그 ([Image:{path}] 형태)
+    # Inline tag ([Image:{path}] format)
     image_tag: Optional[str] = None
 
-    # 성공 여부
+    # Success status
     success: bool = False
     error: Optional[str] = None
 
-    # 블록 정보 (고도화)
-    block_type: Optional[str] = None  # 블록 유형 (article, image, table 등)
-    reading_order: int = 0            # 읽기 순서
-    column_index: int = 0             # 컬럼 인덱스
+    # Block info (advanced)
+    block_type: Optional[str] = None  # Block type (article, image, table, etc.)
+    reading_order: int = 0            # Reading order
+    column_index: int = 0             # Column index
 
 
 @dataclass
 class MultiBlockResult:
-    """다중 블록 처리 결과"""
+    """Multi-block processing result."""
     page_num: int
     strategy_used: BlockStrategy
 
-    # 개별 블록 결과들 (읽기 순서대로)
+    # Individual block results (in reading order)
     block_results: List[BlockImageResult] = field(default_factory=list)
 
-    # 전체 성공 여부
+    # Overall success status
     success: bool = False
 
-    # 통합된 텍스트 출력 (모든 [Image:...] 태그 포함)
+    # Combined text output (includes all [Image:...] tags)
     combined_output: str = ""
 
-    # 통계
+    # Statistics
     total_blocks: int = 0
     successful_blocks: int = 0
     failed_blocks: int = 0
@@ -159,10 +159,10 @@ class MultiBlockResult:
 
 class BlockImageEngine:
     """
-    블록 이미지 엔진
+    Block Image Engine
 
-    복잡한 영역을 이미지로 렌더링하고 로컬에 저장합니다.
-    결과는 [image:{path}] 형태로 반환됩니다.
+    Renders complex regions as images and saves locally.
+    Results are returned in [image:{path}] format.
     """
 
     def __init__(
@@ -173,9 +173,9 @@ class BlockImageEngine:
     ):
         """
         Args:
-            page: PyMuPDF page 객체
-            page_num: 페이지 번호 (0-indexed)
-            config: 엔진 설정
+            page: PyMuPDF page object
+            page_num: Page number (0-indexed)
+            config: Engine configuration
         """
         self.page = page
         self.page_num = page_num
@@ -184,7 +184,7 @@ class BlockImageEngine:
         self.page_width = page.rect.width
         self.page_height = page.rect.height
 
-        # 처리된 이미지 해시 (중복 방지)
+        # Processed image hashes (duplicate prevention)
         self._processed_hashes: set = set()
 
     def process_region(
@@ -193,17 +193,17 @@ class BlockImageEngine:
         region_type: str = "complex_region"
     ) -> BlockImageResult:
         """
-        특정 영역을 이미지로 렌더링하고 로컬에 저장합니다.
+        Renders a specific region as an image and saves locally.
 
         Args:
-            bbox: 처리할 영역 (x0, y0, x1, y1)
-            region_type: 영역 유형 (로깅용)
+            bbox: Region to process (x0, y0, x1, y1)
+            region_type: Region type (for logging)
 
         Returns:
-            BlockImageResult 객체 (image_path, image_tag 포함)
+            BlockImageResult object (includes image_path, image_tag)
         """
         try:
-            # 최소 크기 검증
+            # Minimum size validation
             width = bbox[2] - bbox[0]
             height = bbox[3] - bbox[1]
 
@@ -216,7 +216,7 @@ class BlockImageEngine:
                     error="Region too small"
                 )
 
-            # 1. 영역 이미지 렌더링
+            # 1. Render region image
             image_bytes, actual_dpi, image_size = self._render_region(bbox)
 
             if image_bytes is None:
@@ -228,7 +228,7 @@ class BlockImageEngine:
                     error="Failed to render region"
                 )
 
-            # 2. 중복 체크
+            # 2. Duplicate check
             image_hash = hashlib.md5(image_bytes).hexdigest()
             if image_hash in self._processed_hashes:
                 return BlockImageResult(
@@ -240,7 +240,7 @@ class BlockImageEngine:
                 )
             self._processed_hashes.add(image_hash)
 
-            # 3. 로컬에 저장 (ImageProcessor 사용)
+            # 3. Save locally (using ImageProcessor)
             image_tag = _image_processor.save_image(image_bytes)
 
             if not image_tag:
@@ -252,7 +252,7 @@ class BlockImageEngine:
                     error="Failed to save image"
                 )
 
-            # 경로 추출 (태그에서)
+            # Extract path (from tag)
             image_path = image_tag.replace("[Image:", "").replace("]", "")
 
             logger.debug(f"[BlockImageEngine] Saved {region_type} at page {self.page_num + 1}: {image_path}")
@@ -278,13 +278,13 @@ class BlockImageEngine:
 
     def process_full_page(self, region_type: str = "full_page") -> BlockImageResult:
         """
-        전체 페이지를 이미지로 렌더링하고 로컬에 저장합니다.
+        Renders the entire page as an image and saves locally.
 
         Args:
-            region_type: 영역 유형 (로깅용)
+            region_type: Region type (for logging)
 
         Returns:
-            BlockImageResult 객체
+            BlockImageResult object
         """
         bbox = (0, 0, self.page_width, self.page_height)
         return self.process_region(bbox, region_type)
@@ -295,14 +295,14 @@ class BlockImageEngine:
         region_type: str = "complex_region"
     ) -> List[BlockImageResult]:
         """
-        여러 영역을 처리합니다.
+        Processes multiple regions.
 
         Args:
-            bboxes: 처리할 영역 목록
-            region_type: 영역 유형 (로깅용)
+            bboxes: List of regions to process
+            region_type: Region type (for logging)
 
         Returns:
-            BlockImageResult 객체 목록
+            List of BlockImageResult objects
         """
         results = []
         for bbox in bboxes:
@@ -315,26 +315,26 @@ class BlockImageEngine:
         bbox: Tuple[float, float, float, float]
     ) -> Tuple[Optional[bytes], int, Tuple[int, int]]:
         """
-        영역을 이미지 바이트로 렌더링합니다.
+        Renders a region to image bytes.
 
         Args:
-            bbox: 렌더링할 영역
+            bbox: Region to render
 
         Returns:
-            (이미지 바이트, 실제 DPI, (width, height))
+            (image bytes, actual DPI, (width, height))
         """
         try:
-            # 패딩 적용
+            # Apply padding
             padding = self.config.REGION_PADDING
             x0 = max(0, bbox[0] - padding)
             y0 = max(0, bbox[1] - padding)
             x1 = min(self.page_width, bbox[2] + padding)
             y1 = min(self.page_height, bbox[3] + padding)
 
-            # 클립 영역 생성
+            # Create clip rect
             clip_rect = fitz.Rect(x0, y0, x1, y1)
 
-            # DPI 계산 (최대 이미지 크기 고려)
+            # Calculate DPI (considering max image size)
             dpi = self.config.DEFAULT_DPI
 
             region_width = x1 - x0
@@ -344,17 +344,17 @@ class BlockImageEngine:
             expected_size = max_dim * dpi / 72
 
             if expected_size > self.config.MAX_IMAGE_SIZE:
-                # DPI 조정
+                # Adjust DPI
                 dpi = int(self.config.MAX_IMAGE_SIZE * 72 / max_dim)
 
-            # 매트릭스 생성 (줌 = DPI / 72)
+            # Create matrix (zoom = DPI / 72)
             zoom = dpi / 72
             matrix = fitz.Matrix(zoom, zoom)
 
-            # 렌더링
+            # Render
             pix = self.page.get_pixmap(matrix=matrix, clip=clip_rect)
 
-            # PNG 바이트로 변환
+            # Convert to PNG bytes
             image_bytes = pix.tobytes("png")
             image_size = (pix.width, pix.height)
 
@@ -369,35 +369,35 @@ class BlockImageEngine:
         bbox: Tuple[float, float, float, float]
     ) -> Optional[bytes]:
         """
-        영역을 이미지 바이트로 렌더링합니다 (업로드 없이).
+        Renders a region to image bytes (without saving).
 
         Args:
-            bbox: 렌더링할 영역
+            bbox: Region to render
 
         Returns:
-            이미지 바이트
+            Image bytes
         """
         image_bytes, _, _ = self._render_region(bbox)
         return image_bytes
 
     # ========================================================================
-    # 고도화된 블록 처리
+    # Advanced Block Processing
     # ========================================================================
 
     def process_page_as_semantic_blocks(self) -> MultiBlockResult:
         """
-        ★ 고도화된 처리: 페이지를 의미론적 블록 단위로 분할하여 처리합니다.
+        Advanced processing: Splits page into semantic block units for processing.
 
-        기존 FULL_PAGE_OCR과 달리:
-        1. LayoutBlockDetector로 의미론적 블록 감지
-        2. 각 블록을 개별 이미지로 렌더링
-        3. 읽기 순서대로 [Image:path] 태그 생성
+        Unlike traditional FULL_PAGE_OCR:
+        1. Detect semantic blocks with LayoutBlockDetector
+        2. Render each block as individual image
+        3. Generate [Image:path] tags in reading order
 
         Returns:
-            MultiBlockResult 객체 (모든 블록 결과 포함)
+            MultiBlockResult object (contains all block results)
         """
         try:
-            # 1. 레이아웃 블록 감지
+            # 1. Layout block detection
             from libs.core.processor.pdf_helpers.layout_block_detector import (
                 LayoutBlockDetector,
                 LayoutBlock,
@@ -413,12 +413,12 @@ class BlockImageEngine:
             logger.info(f"[BlockImageEngine] Page {self.page_num + 1}: "
                        f"Detected {len(layout_result.blocks)} semantic blocks in {layout_result.column_count} columns")
 
-            # 2. 각 블록을 개별 이미지로 처리
+            # 2. Process each block as individual image
             block_results: List[BlockImageResult] = []
 
             for block in layout_result.blocks:
-                # 너무 작은 블록 필터링 (면적 기준)
-                # NOTE: 요소가 없어도 블록 영역 자체가 유효하면 처리
+                # Filter out blocks that are too small (by area)
+                # NOTE: Process if block region is valid even without elements
                 if block.area < self.config.MIN_BLOCK_AREA:
                     logger.debug(f"[BlockImageEngine] Skipping small block: area={block.area:.0f}")
                     continue
@@ -428,7 +428,7 @@ class BlockImageEngine:
                     region_type=block.block_type.name if block.block_type else "unknown"
                 )
 
-                # 블록 메타데이터 추가
+                # Add block metadata
                 result.block_type = block.block_type.name if block.block_type else "unknown"
                 result.reading_order = block.reading_order
                 result.column_index = block.column_index
@@ -440,10 +440,10 @@ class BlockImageEngine:
                 logger.warning(f"[BlockImageEngine] No valid blocks, falling back to full page")
                 return self._fallback_to_full_page()
 
-            # 3. 읽기 순서대로 정렬
+            # 3. Sort by reading order
             block_results.sort(key=lambda r: r.reading_order)
 
-            # 4. 통합 출력 생성
+            # 4. Generate combined output
             combined_output = self._generate_combined_output(block_results)
 
             return MultiBlockResult(
@@ -467,16 +467,16 @@ class BlockImageEngine:
         cols: Optional[int] = None
     ) -> MultiBlockResult:
         """
-        페이지를 그리드로 분할하여 처리합니다.
+        Processes the page by dividing into a grid.
 
-        의미론적 분석이 실패했을 때 폴백으로 사용합니다.
+        Used as fallback when semantic analysis fails.
 
         Args:
-            rows: 행 수 (기본값: config.GRID_ROWS)
-            cols: 열 수 (기본값: config.GRID_COLS)
+            rows: Number of rows (default: config.GRID_ROWS)
+            cols: Number of columns (default: config.GRID_COLS)
 
         Returns:
-            MultiBlockResult 객체
+            MultiBlockResult object
         """
         rows = rows or self.config.GRID_ROWS
         cols = cols or self.config.GRID_COLS
@@ -488,7 +488,7 @@ class BlockImageEngine:
             block_results: List[BlockImageResult] = []
             reading_order = 0
 
-            # 좌→우, 상→하 순서로 처리
+            # Process left→right, top→bottom order
             for row in range(rows):
                 for col in range(cols):
                     x0 = col * cell_width
@@ -498,7 +498,7 @@ class BlockImageEngine:
 
                     bbox = (x0, y0, x1, y1)
 
-                    # 빈 영역인지 확인
+                    # Check if region is empty
                     if self.config.SKIP_EMPTY_BLOCKS and self._is_empty_region(bbox):
                         continue
 
@@ -529,29 +529,29 @@ class BlockImageEngine:
 
     def process_page_smart(self) -> MultiBlockResult:
         """
-        ★ 스마트 처리: 최적의 전략을 자동 선택합니다.
+        ★ Smart processing: Automatically selects optimal strategy.
 
-        1. 먼저 의미론적 블록 분할 시도
-        2. 실패하거나 결과가 부실하면 그리드 분할
-        3. 그래도 실패하면 전체 페이지 이미지화
+        1. First try semantic block splitting
+        2. If fails or results are poor, use grid splitting
+        3. If still fails, fall back to full page imaging
 
         Returns:
-            MultiBlockResult 객체
+            MultiBlockResult object
         """
-        # 1. 의미론적 블록 분할 시도
+        # 1. Try semantic block splitting
         result = self.process_page_as_semantic_blocks()
 
         if result.success and result.successful_blocks >= 1:
-            # 충분한 블록이 감지되었으면 사용
+            # Use if sufficient blocks detected
             if result.successful_blocks >= 2 or result.block_results:
                 logger.info(f"[BlockImageEngine] Smart: Using semantic blocks "
                            f"({result.successful_blocks} blocks)")
                 return result
 
-        # 2. 의미론적 분석 결과가 부실하면 그리드 분할
+        # 2. If semantic analysis results are poor, use grid splitting
         logger.info(f"[BlockImageEngine] Smart: Semantic blocks insufficient, trying grid")
 
-        # 컬럼 수 기반으로 그리드 결정
+        # Determine grid based on column count
         try:
             from libs.core.processor.pdf_helpers.layout_block_detector import (
                 LayoutBlockDetector,
@@ -571,12 +571,12 @@ class BlockImageEngine:
         except Exception:
             pass
 
-        # 3. 전체 페이지 폴백
+        # 3. Full page fallback
         logger.info(f"[BlockImageEngine] Smart: Falling back to full page")
         return self._fallback_to_full_page()
 
     def _fallback_to_full_page(self) -> MultiBlockResult:
-        """전체 페이지 이미지화 폴백"""
+        """Full page imaging fallback."""
         result = self.process_full_page()
 
         return MultiBlockResult(
@@ -591,16 +591,16 @@ class BlockImageEngine:
         )
 
     def _is_empty_region(self, bbox: Tuple[float, float, float, float]) -> bool:
-        """영역이 비어있는지 확인 (흰색 위주인지)"""
+        """Check if region is empty (mostly white)."""
         try:
             image_bytes, _, _ = self._render_region(bbox)
             if not image_bytes:
                 return False
 
-            # PIL로 분석
+            # Analyze with PIL
             img = Image.open(io.BytesIO(image_bytes))
 
-            # 흰색 픽셀 비율 계산
+            # Calculate white pixel ratio
             if img.mode != 'RGB':
                 img = img.convert('RGB')
 
@@ -610,7 +610,7 @@ class BlockImageEngine:
             if total_pixels == 0:
                 return True
 
-            # 거의 흰색인 픽셀 수 (R, G, B 모두 240 이상)
+            # Count nearly white pixels (R, G, B all > 240)
             white_pixels = sum(1 for p in pixels if p[0] > 240 and p[1] > 240 and p[2] > 240)
             white_ratio = white_pixels / total_pixels
 
@@ -621,10 +621,10 @@ class BlockImageEngine:
 
     def _generate_combined_output(self, block_results: List[BlockImageResult]) -> str:
         """
-        블록 결과들을 통합 출력 문자열로 변환합니다.
+        Converts block results to combined output string.
 
-        각 블록은 읽기 순서대로 배치되며,
-        블록 유형에 따라 적절한 마크업이 추가됩니다.
+        Each block is arranged in reading order,
+        with appropriate markup based on block type.
         """
         if not block_results:
             return ""
@@ -635,7 +635,7 @@ class BlockImageEngine:
             if not result.success or not result.image_tag:
                 continue
 
-            # 블록 유형에 따른 컨텍스트 힌트
+            # Context hint based on block type
             block_type = result.block_type or "unknown"
 
             if block_type == "HEADER":
@@ -651,7 +651,7 @@ class BlockImageEngine:
             elif block_type == "SIDEBAR":
                 output_parts.append(f"<!-- Sidebar -->\n{result.image_tag}")
             else:
-                # 일반 콘텐츠 블록 (ARTICLE, COLUMN_BLOCK 등)
+                # General content block (ARTICLE, COLUMN_BLOCK, etc.)
                 output_parts.append(result.image_tag)
 
         return "\n".join(output_parts)

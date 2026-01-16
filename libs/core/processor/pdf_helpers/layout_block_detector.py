@@ -20,33 +20,33 @@ Layout Analysis Algorithm:
 
 Phase 1: Basic Analysis
 ┌─────────────────────────────────────────────────────────────────┐
-│  1. Extract text blocks                                              │
-│  2. Extract image/graphic regions                                        │
-│  3. Extract drawings (lines, boxes)                                          │
-│  4. Identify table regions                                               │
+│  1. Extract text blocks                                         │
+│  2. Extract image/graphic regions                               │
+│  3. Extract drawings (lines, boxes)                             │
+│  4. Identify table regions                                      │
 └─────────────────────────────────────────────────────────────────┘
 
 Phase 2: Column Detection (Multi-column Layout)
 ┌─────────────────────────────────────────────────────────────────┐
-│  1. X-coordinate based clustering                                         │
-│  2. Identify column boundaries                                               │
-│  3. Group content by column                                           │
+│  1. X-coordinate based clustering                               │
+│  2. Identify column boundaries                                  │
+│  3. Group content by column                                     │
 └─────────────────────────────────────────────────────────────────┘
 
 Phase 3: Semantic Block Clustering
 ┌─────────────────────────────────────────────────────────────────┐
-│  1. Connect adjacent elements (distance-based)                                      │
-│  2. Connect headline-body (font size analysis)                             │
-│  3. Connect image-caption (positional relationship)                                    │
-│  4. Separate regions based on dividers/boxes                                      │
+│  1. Connect adjacent elements (distance-based)                  │
+│  2. Connect headline-body (font size analysis)                  │
+│  3. Connect image-caption (positional relationship)             │
+│  4. Separate regions based on dividers/boxes                    │
 └─────────────────────────────────────────────────────────────────┘
 
 Phase 4: Block Optimization and Ordering
 ┌─────────────────────────────────────────────────────────────────┐
-│  1. Merge small blocks                                                 │
-│  2. Resolve overlaps                                                      │
-│  3. Determine reading order (Column → 상→하)                                   │
-│  4. Normalize block bboxes                                               │
+│  1. Merge small blocks                                          │
+│  2. Resolve overlaps                                            │
+│  3. Determine reading order (column → top-to-bottom)            │
+│  4. Normalize block bboxes                                      │
 └─────────────────────────────────────────────────────────────────┘
 
 =============================================================================
@@ -200,47 +200,47 @@ class LayoutAnalysisResult:
 
 @dataclass
 class LayoutDetectorConfig:
-    """Layout detection configuration"""
+    """Layout detection configuration."""
     
     # Column detection settings
     MIN_COLUMN_GAP: float = 20.0        # Minimum gap between columns (pt)
-    COLUMN_CLUSTER_TOLERANCE: float = 30.0  # X-coordinate clustering Allow치 (pt)
+    COLUMN_CLUSTER_TOLERANCE: float = 30.0  # X-coordinate clustering tolerance (pt)
     
-    # Block clustering Settings
-    ELEMENT_PROXIMITY_THRESHOLD: float = 15.0  # Element Adjacent Determine Distance (pt)
-    VERTICAL_MERGE_THRESHOLD: float = 40.0     # Vertical Merge Distance (pt) - 더 Aggressive Merge
-    HORIZONTAL_MERGE_THRESHOLD: float = 15.0   # Horizontal Merge Distance (pt) - 더 Aggressive Merge
+    # Block clustering settings
+    ELEMENT_PROXIMITY_THRESHOLD: float = 15.0  # Element proximity threshold (pt)
+    VERTICAL_MERGE_THRESHOLD: float = 40.0     # Vertical merge distance (pt) - aggressive merge
+    HORIZONTAL_MERGE_THRESHOLD: float = 15.0   # Horizontal merge distance (pt) - aggressive merge
     
-    # Headline detection Settings
-    HEADLINE_FONT_RATIO: float = 1.3    # Body Versus Headline Font Ratio
-    HEADLINE_MIN_SIZE: float = 14.0     # Minimum Headline Font Size (pt)
+    # Headline detection settings
+    HEADLINE_FONT_RATIO: float = 1.3    # Headline font ratio vs. body text
+    HEADLINE_MIN_SIZE: float = 14.0     # Minimum headline font size (pt)
     
-    # Images-Caption Connection Settings
-    CAPTION_MAX_DISTANCE: float = 30.0  # Images-Caption Maximum Distance (pt)
-    CAPTION_MAX_HEIGHT: float = 50.0    # Caption Maximum Height (pt)
+    # Image-caption connection settings
+    CAPTION_MAX_DISTANCE: float = 30.0  # Max image-caption distance (pt)
+    CAPTION_MAX_HEIGHT: float = 50.0    # Max caption height (pt)
     
     # Header/footer settings
-    HEADER_MAX_HEIGHT: float = 60.0     # 헤더 Maximum Height (pt)
-    FOOTER_MAX_HEIGHT: float = 60.0     # 푸터 Maximum Height (pt)
-    HEADER_FOOTER_MARGIN: float = 0.1   # Page 상/Bottom 마진 Ratio
+    HEADER_MAX_HEIGHT: float = 60.0     # Max header height (pt)
+    FOOTER_MAX_HEIGHT: float = 60.0     # Max footer height (pt)
+    HEADER_FOOTER_MARGIN: float = 0.1   # Page top/bottom margin ratio
     
-    # Block Minimum Size (★ 핵심: Small Block은 Merge 대상)
-    MIN_BLOCK_WIDTH: float = 80.0       # Minimum Block Width (pt) - 상향
-    MIN_BLOCK_HEIGHT: float = 60.0      # Minimum Block Height (pt) - 상향
-    MIN_BLOCK_AREA: float = 15000.0     # Minimum Block area (pt²) - 대폭 상향 (~100x150pt)
+    # Minimum block size (small blocks are merge candidates)
+    MIN_BLOCK_WIDTH: float = 80.0       # Minimum block width (pt)
+    MIN_BLOCK_HEIGHT: float = 60.0      # Minimum block height (pt)
+    MIN_BLOCK_AREA: float = 15000.0     # Minimum block area (pt²) (~100x150pt)
     
-    # Block 수 목표 (★ 신규: 너무 많은 Block 방지)
-    TARGET_MIN_BLOCKS: int = 3          # Page당 Minimum Block 수
-    TARGET_MAX_BLOCKS: int = 10         # Page당 Maximum Block 수 (5Column 신문 고려)
-    AGGRESSIVE_MERGE_THRESHOLD: int = 15  # 이 이상이면 Aggressive Merge
+    # Block count target (prevents too many blocks)
+    TARGET_MIN_BLOCKS: int = 3          # Minimum blocks per page
+    TARGET_MAX_BLOCKS: int = 10         # Maximum blocks per page (considering 5-column newspapers)
+    AGGRESSIVE_MERGE_THRESHOLD: int = 15  # Aggressive merge if more than this
     
-    # Advertisement 감지
-    AD_BOX_DETECTION: bool = True       # 박스로 둘러싸인 Advertisement 감지
-    AD_MIN_BOX_AREA: float = 10000.0    # Advertisement로 Determine하는 Minimum 박스 Area
+    # Advertisement detection
+    AD_BOX_DETECTION: bool = True       # Detect advertisements enclosed by boxes
+    AD_MIN_BOX_AREA: float = 10000.0    # Minimum box area to be considered as advertisement
     
-    # Separator 감지
-    SEPARATOR_MIN_LENGTH_RATIO: float = 0.3  # Separator Minimum Length (Page Width Versus)
-    SEPARATOR_MAX_THICKNESS: float = 3.0     # Separator Maximum Thickness (pt)
+    # Separator detection
+    SEPARATOR_MIN_LENGTH_RATIO: float = 0.3  # Minimum separator length (relative to page width)
+    SEPARATOR_MAX_THICKNESS: float = 3.0     # Maximum separator thickness (pt)
 
 
 # ============================================================================
@@ -251,7 +251,7 @@ class LayoutBlockDetector:
     """
     Layout Block Detector
     
-    복잡한 다단 레이아웃을 의미론적 Block 단위로 분할합니다.
+    Divides complex multi-column layouts into semantic block units.
     """
     
     def __init__(
@@ -262,9 +262,9 @@ class LayoutBlockDetector:
     ):
         """
         Args:
-            page: PyMuPDF page Object
-            page_num: Page Number (0-indexed)
-            config: 감지 Settings
+            page: PyMuPDF page object
+            page_num: Page number (0-indexed)
+            config: Detection configuration
         """
         self.page = page
         self.page_num = page_num
@@ -278,17 +278,17 @@ class LayoutBlockDetector:
         self._drawings: Optional[List] = None
         self._images: Optional[List] = None
         
-        # 내부 상태
+        # Internal state
         self._elements: List[ContentElement] = []
         self._separators: List[Tuple[float, float, float, float]] = []
         self._boxes: List[Tuple[float, float, float, float]] = []
     
     def detect(self) -> LayoutAnalysisResult:
         """
-        레이아웃 Block을 감지합니다.
+        Detect layout blocks.
         
         Returns:
-            LayoutAnalysisResult Object
+            LayoutAnalysisResult object
         """
         columns = [ColumnInfo(index=0, x_start=0, x_end=self.page_width)]
         header_region = None
@@ -325,21 +325,21 @@ class LayoutBlockDetector:
                 header_region = None
                 footer_region = None
             
-            # Phase 4: 의미론적 Block clustering
+            # Phase 4: Semantic block clustering
             try:
                 blocks = self._cluster_into_blocks(columns, header_region, footer_region)
             except Exception as e:
                 logger.warning(f"[LayoutBlockDetector] Phase 4 (_cluster_into_blocks) failed: {e}")
-                # 폴백: Column 기반 단순 Create blocks
+                # Fallback: Create simple column-based blocks
                 blocks = self._create_column_based_blocks(columns)
             
-            # Phase 5: Block 분류
+            # Phase 5: Block classification
             try:
                 self._classify_blocks(blocks)
             except Exception as e:
                 logger.warning(f"[LayoutBlockDetector] Phase 5 (_classify_blocks) failed: {e}")
             
-            # Phase 6: Block optimization 및 Sort
+            # Phase 6: Block optimization and sorting
             try:
                 blocks = self._optimize_and_sort_blocks(blocks, columns)
             except Exception as e:
@@ -347,7 +347,7 @@ class LayoutBlockDetector:
         
         except Exception as e:
             logger.error(f"[LayoutBlockDetector] Critical error during detection: {e}")
-            # Minimum한 전체 Page를 하나의 Block으로 Returns
+            # Return entire page as a single block as minimum fallback
             blocks = [LayoutBlock(
                 block_id=0,
                 block_type=LayoutBlockType.UNKNOWN,
@@ -378,15 +378,15 @@ class LayoutBlockDetector:
     
     def _create_column_based_blocks(self, columns: List[ColumnInfo]) -> List[LayoutBlock]:
         """
-        폴백: Column 기반 단순 Create blocks
+        Fallback: Create simple column-based blocks.
         
-        Clustering 실패 시 각 Column을 하나의 Block으로 Processing합니다.
+        When clustering fails, treats each column as a single block.
         """
         blocks = []
         block_id = 0
         
         for col in columns:
-            # 이 Column에 속하는 Element들
+            # Elements belonging to this column
             col_elements = [
                 e for e in self._elements 
                 if self._element_in_column(e, col)
@@ -405,7 +405,7 @@ class LayoutBlockDetector:
                 ))
                 block_id += 1
         
-        # Element가 없는 경우 전체 Page를 하나의 Block으로
+        # If no elements, create entire page as a single block
         if not blocks:
             blocks.append(LayoutBlock(
                 block_id=0,
@@ -424,18 +424,18 @@ class LayoutBlockDetector:
     # ========================================================================
     
     def _extract_elements(self):
-        """Page에서 모든 콘텐츠 Element extraction"""
+        """Extract all content elements from the page."""
         self._elements = []
         
         # 1. Extract text blocks
         text_dict = self._get_text_dict()
         for block in text_dict.get("blocks", []):
-            if block.get("type") != 0:  # Text blocks만
+            if block.get("type") != 0:  # Text blocks only
                 continue
             
             bbox = tuple(block.get("bbox", (0, 0, 0, 0)))
             
-            # Font Information Collect
+            # Collect font information
             max_font_size = 0.0
             is_bold = False
             total_text = ""
@@ -467,7 +467,7 @@ class LayoutBlockDetector:
         for img_info in images:
             xref = img_info[0]
             try:
-                # Images 위치 Find
+                # Find image position
                 img_bbox = self._find_image_position(xref)
                 if img_bbox:
                     area = (img_bbox[2] - img_bbox[0]) * (img_bbox[3] - img_bbox[1])
@@ -480,7 +480,7 @@ class LayoutBlockDetector:
                 pass
     
     def _extract_separators_and_boxes(self):
-        """Separator과 박스 Extraction"""
+        """Extract separators and boxes."""
         self._separators = []
         self._boxes = []
         
@@ -492,13 +492,13 @@ class LayoutBlockDetector:
                 if not rect:
                     continue
                 
-                # rect 속성 안전하게 접근
+                # Safely access rect attributes
                 try:
                     w = rect.width
                     h = rect.height
                     x0, y0, x1, y1 = rect.x0, rect.y0, rect.x1, rect.y1
                 except (AttributeError, TypeError):
-                    # rect가 튜플일 수 Found
+                    # rect might be a tuple
                     if isinstance(rect, (list, tuple)) and len(rect) >= 4:
                         x0, y0, x1, y1 = rect[0], rect[1], rect[2], rect[3]
                         w = x1 - x0
@@ -506,28 +506,28 @@ class LayoutBlockDetector:
                     else:
                         continue
                 
-                # Separator (가로)
+                # Horizontal separator
                 if (h <= self.config.SEPARATOR_MAX_THICKNESS and 
                     w >= self.page_width * self.config.SEPARATOR_MIN_LENGTH_RATIO):
                     self._separators.append((x0, y0, x1, y1))
                 
-                # Separator (세로)
+                # Vertical separator
                 elif (w <= self.config.SEPARATOR_MAX_THICKNESS and 
                       h >= self.page_height * self.config.SEPARATOR_MIN_LENGTH_RATIO * 0.5):
                     self._separators.append((x0, y0, x1, y1))
                 
-                # 박스 (Advertisement/인포박스 후보)
+                # Box (Advertisement/infobox candidate)
                 elif w > 50 and h > 50:
                     area = w * h
                     if area >= self.config.AD_MIN_BOX_AREA:
-                        # 테두리가 있는 박스인지 Check
-                        # NOTE: stroke_opacity가 None일 수 있으므로 안전하게 Processing
+                        # Check if it's a box with border
+                        # NOTE: stroke_opacity can be None, so handle safely
                         stroke_opacity = drawing.get("stroke_opacity")
                         has_stroke = drawing.get("color") or (stroke_opacity is not None and stroke_opacity > 0)
                         if has_stroke:
                             self._boxes.append((x0, y0, x1, y1))
             except Exception as e:
-                # 개별 드로잉 Processing 실패 시 로깅하고 계속
+                # Log and continue on individual drawing processing failure
                 logger.debug(f"[LayoutBlockDetector] Error processing drawing: {e}")
                 continue
     
@@ -536,14 +536,14 @@ class LayoutBlockDetector:
     # ========================================================================
     
     def _detect_columns(self) -> List[ColumnInfo]:
-        """Column 구조 감지"""
+        """Detect column structure."""
         if not self._elements:
             return [ColumnInfo(index=0, x_start=0, x_end=self.page_width)]
         
-        # 텍스트 Element의 X StartPoint Collect
+        # Collect X start positions of text elements
         x_starts = []
         for elem in self._elements:
-            if elem.element_type == 'text' and elem.text_length > 20:  # 충분히 긴 텍스트만
+            if elem.element_type == 'text' and elem.text_length > 20:  # Only sufficiently long text
                 x_starts.append(elem.bbox[0])
         
         if not x_starts:
@@ -556,23 +556,23 @@ class LayoutBlockDetector:
         if len(clusters) <= 1:
             return [ColumnInfo(index=0, x_start=0, x_end=self.page_width)]
         
-        # Cluster 간 Gap 분석
+        # Analyze gaps between clusters
         cluster_centers = [sum(c) / len(c) for c in clusters]
         
-        # 충분한 Gap이 있는 Cluster만 Column으로 인정
+        # Only clusters with sufficient gap are recognized as columns
         columns = []
         valid_boundaries = [0]
         
         for i in range(len(cluster_centers) - 1):
             gap = cluster_centers[i + 1] - cluster_centers[i]
             if gap >= self.config.MIN_COLUMN_GAP:
-                # Column Boundary = 두 Cluster 중간Point
+                # Column boundary = midpoint between two clusters
                 boundary = (cluster_centers[i] + cluster_centers[i + 1]) / 2
                 valid_boundaries.append(boundary)
         
         valid_boundaries.append(self.page_width)
         
-        # Column Generation
+        # Create columns
         for i in range(len(valid_boundaries) - 1):
             columns.append(ColumnInfo(
                 index=i,
@@ -584,7 +584,7 @@ class LayoutBlockDetector:
         return columns
     
     def _cluster_x_positions(self, x_positions: List[float]) -> List[List[float]]:
-        """X-coordinate clustering (밀도 기반)"""
+        """X-coordinate clustering (density-based)."""
         if not x_positions:
             return []
         
@@ -595,7 +595,7 @@ class LayoutBlockDetector:
             if x - current_cluster[-1] <= self.config.COLUMN_CLUSTER_TOLERANCE:
                 current_cluster.append(x)
             else:
-                if len(current_cluster) >= 3:  # Minimum 3개 Element
+                if len(current_cluster) >= 3:  # Minimum 3 elements
                     clusters.append(current_cluster)
                 current_cluster = [x]
         
@@ -609,14 +609,14 @@ class LayoutBlockDetector:
     # ========================================================================
     
     def _detect_header_footer(self) -> Tuple[Optional[Tuple], Optional[Tuple]]:
-        """Detect header and footer regions"""
+        """Detect header and footer regions."""
         header_region = None
         footer_region = None
         
         header_boundary = self.page_height * self.config.HEADER_FOOTER_MARGIN
         footer_boundary = self.page_height * (1 - self.config.HEADER_FOOTER_MARGIN)
         
-        # Top Region 분석
+        # Analyze top region
         header_elements = [
             e for e in self._elements 
             if e.bbox[3] <= header_boundary and e.element_type == 'text'
@@ -629,7 +629,7 @@ class LayoutBlockDetector:
             if max_y - min_y <= self.config.HEADER_MAX_HEIGHT:
                 header_region = (0, min_y, self.page_width, max_y)
         
-        # Bottom Region 분석
+        # Analyze bottom region
         footer_elements = [
             e for e in self._elements 
             if e.bbox[1] >= footer_boundary and e.element_type == 'text'
@@ -645,7 +645,7 @@ class LayoutBlockDetector:
         return header_region, footer_region
     
     # ========================================================================
-    # Phase 4: 의미론적 Block clustering
+    # Phase 4: Semantic block clustering
     # ========================================================================
     
     def _cluster_into_blocks(
@@ -654,11 +654,11 @@ class LayoutBlockDetector:
         header_region: Optional[Tuple],
         footer_region: Optional[Tuple]
     ) -> List[LayoutBlock]:
-        """Element들을 의미론적 Block으로 Clustering"""
+        """Cluster elements into semantic blocks."""
         blocks = []
         block_id = 0
         
-        # Header/footer region Exclude한 Element들
+        # Elements excluding header/footer regions
         main_elements = []
         header_elements = []
         footer_elements = []
@@ -671,7 +671,7 @@ class LayoutBlockDetector:
             else:
                 main_elements.append(elem)
         
-        # 헤더 Block
+        # Header block
         if header_elements:
             bbox = self._merge_bboxes([e.bbox for e in header_elements])
             blocks.append(LayoutBlock(
@@ -682,9 +682,9 @@ class LayoutBlockDetector:
             ))
             block_id += 1
         
-        # Column별로 Processing
+        # Process by column
         for col in columns:
-            # 이 Column에 속하는 Element들
+            # Elements belonging to this column
             col_elements = [
                 e for e in main_elements 
                 if self._element_in_column(e, col)
@@ -693,14 +693,14 @@ class LayoutBlockDetector:
             if not col_elements:
                 continue
             
-            # Separator 기반 Vertical 분할
+            # Vertical split based on separators
             vertical_groups = self._split_by_separators(col_elements, col)
             
             for group_elements in vertical_groups:
                 if not group_elements:
                     continue
                 
-                # Adjacent Element clustering
+                # Adjacent element clustering
                 clusters = self._cluster_adjacent_elements(group_elements)
                 
                 for cluster in clusters:
@@ -709,21 +709,21 @@ class LayoutBlockDetector:
                     
                     bbox = self._merge_bboxes([e.bbox for e in cluster])
                     
-                    # 너무 Small Block은 무시
+                    # Ignore too small blocks
                     if (bbox[2] - bbox[0] < self.config.MIN_BLOCK_WIDTH or
                         bbox[3] - bbox[1] < self.config.MIN_BLOCK_HEIGHT):
                         continue
                     
                     blocks.append(LayoutBlock(
                         block_id=block_id,
-                        block_type=LayoutBlockType.UNKNOWN,  # 나중에 분류
+                        block_type=LayoutBlockType.UNKNOWN,  # Classify later
                         bbox=bbox,
                         elements=cluster,
                         column_index=col.index
                     ))
                     block_id += 1
         
-        # 푸터 Block
+        # Footer block
         if footer_elements:
             bbox = self._merge_bboxes([e.bbox for e in footer_elements])
             blocks.append(LayoutBlock(
@@ -736,7 +736,7 @@ class LayoutBlockDetector:
         return blocks
     
     def _element_in_column(self, elem: ContentElement, col: ColumnInfo) -> bool:
-        """Element가 Column에 속하는지 Check"""
+        """Check if element belongs to column."""
         elem_center_x = (elem.bbox[0] + elem.bbox[2]) / 2
         return col.x_start <= elem_center_x <= col.x_end
     
@@ -745,28 +745,28 @@ class LayoutBlockDetector:
         elements: List[ContentElement], 
         col: ColumnInfo
     ) -> List[List[ContentElement]]:
-        """Separator 기준으로 Vertical 분할"""
+        """Split vertically based on separators."""
         if not elements:
             return []
         
-        # 이 Column 내 Horizontal Separator Find
+        # Find horizontal separators within this column
         col_separators = []
         for sep in self._separators:
-            # Horizontal Separator이고 이 Column과 겹치는지
+            # Check if horizontal separator overlaps with this column
             is_horizontal = abs(sep[3] - sep[1]) < 5
             if is_horizontal:
                 sep_start_x = sep[0]
                 sep_end_x = sep[2]
                 if (sep_start_x <= col.x_end and sep_end_x >= col.x_start):
-                    col_separators.append(sep[1])  # Y Coordinate
+                    col_separators.append(sep[1])  # Y coordinate
         
         if not col_separators:
             return [elements]
         
-        # Separator 위치 Sort
+        # Sort separator positions
         col_separators.sort()
         
-        # Element들을 Separator 기준으로 분할
+        # Split elements based on separators
         groups = []
         boundaries = [0] + col_separators + [self.page_height]
         
@@ -788,17 +788,17 @@ class LayoutBlockDetector:
         self, 
         elements: List[ContentElement]
     ) -> List[List[ContentElement]]:
-        """Adjacent Element clustering"""
+        """Adjacent element clustering."""
         if not elements:
             return []
         
         if len(elements) == 1:
             return [elements]
         
-        # Element를 Y Coordinate로 Sort
+        # Sort elements by Y coordinate
         sorted_elements = sorted(elements, key=lambda e: (e.bbox[1], e.bbox[0]))
         
-        # Union-Find 스타일 Clustering
+        # Union-Find style clustering
         clusters: List[List[ContentElement]] = []
         used = set()
         
@@ -806,7 +806,7 @@ class LayoutBlockDetector:
             if id(elem) in used:
                 continue
             
-            # 새 Cluster Start
+            # Start new cluster
             cluster = [elem]
             used.add(id(elem))
             queue = [elem]
@@ -828,20 +828,20 @@ class LayoutBlockDetector:
         return clusters
     
     def _are_adjacent(self, e1: ContentElement, e2: ContentElement) -> bool:
-        """두 Element가 Adjacent한지 Check"""
-        # Vertical Distance
+        """Check if two elements are adjacent."""
+        # Vertical gap
         vertical_gap = max(0, e2.bbox[1] - e1.bbox[3], e1.bbox[1] - e2.bbox[3])
         
-        # Horizontal 겹침
+        # Horizontal overlap
         x_overlap_start = max(e1.bbox[0], e2.bbox[0])
         x_overlap_end = min(e1.bbox[2], e2.bbox[2])
         has_x_overlap = x_overlap_start < x_overlap_end
         
-        # Vertical Adjacent (같은 X 범위, Closest Y)
+        # Vertically adjacent (same X range, close Y)
         if has_x_overlap and vertical_gap <= self.config.VERTICAL_MERGE_THRESHOLD:
             return True
         
-        # Horizontal Adjacent (같은 Y 범위)
+        # Horizontally adjacent (same Y range)
         horizontal_gap = max(0, e2.bbox[0] - e1.bbox[2], e1.bbox[0] - e2.bbox[2])
         
         y_overlap_start = max(e1.bbox[1], e2.bbox[1])
@@ -854,11 +854,11 @@ class LayoutBlockDetector:
         return False
     
     # ========================================================================
-    # Phase 5: Block 분류
+    # Phase 5: Block classification
     # ========================================================================
     
     def _classify_blocks(self, blocks: List[LayoutBlock]):
-        """Block Type 분류"""
+        """Classify block types."""
         for block in blocks:
             if block.block_type in (LayoutBlockType.HEADER, LayoutBlockType.FOOTER):
                 continue
@@ -866,40 +866,40 @@ class LayoutBlockDetector:
             block.block_type = self._determine_block_type(block)
     
     def _determine_block_type(self, block: LayoutBlock) -> LayoutBlockType:
-        """Determine block type"""
+        """Determine block type."""
         text_elements = [e for e in block.elements if e.element_type == 'text']
         image_elements = [e for e in block.elements if e.element_type == 'image']
         
         has_text = len(text_elements) > 0
         has_image = len(image_elements) > 0
         
-        # Images + 텍스트 = IMAGE_WITH_CAPTION
+        # Image + text = IMAGE_WITH_CAPTION
         if has_image and has_text:
-            # 텍스트가 Images 아래/위에 있는지 Check
+            # Check if text is above/below image
             for img_elem in image_elements:
                 for txt_elem in text_elements:
                     if self._is_caption_of_image(txt_elem, img_elem):
                         return LayoutBlockType.IMAGE_WITH_CAPTION
-            return LayoutBlockType.IMAGE_WITH_CAPTION  # Default 가정
+            return LayoutBlockType.IMAGE_WITH_CAPTION  # Default assumption
         
-        # Images만 = STANDALONE_IMAGE
+        # Image only = STANDALONE_IMAGE
         if has_image and not has_text:
             return LayoutBlockType.STANDALONE_IMAGE
         
-        # 텍스트만
+        # Text only
         if has_text:
-            # Headline detection (Large Font + 짧은 텍스트)
+            # Headline detection (large font + short text)
             avg_font_size = sum(e.font_size for e in text_elements) / len(text_elements)
             max_font_size = max(e.font_size for e in text_elements)
             
-            # Font Size 변화가 크면 ARTICLE (Headline + Body)
+            # If font size variation is large, ARTICLE (headline + body)
             if max_font_size >= self.config.HEADLINE_MIN_SIZE:
                 if max_font_size >= avg_font_size * self.config.HEADLINE_FONT_RATIO:
                     return LayoutBlockType.ARTICLE
             
-            # 박스 안에 있으면 SIDEBAR or ADVERTISEMENT
+            # If inside a box, SIDEBAR or ADVERTISEMENT
             if self._is_inside_box(block.bbox):
-                # 텍스트가 짧으면 Advertisement
+                # Short text means advertisement
                 total_text_len = sum(e.text_length for e in text_elements)
                 if total_text_len < 200:
                     return LayoutBlockType.ADVERTISEMENT
@@ -910,18 +910,18 @@ class LayoutBlockDetector:
         return LayoutBlockType.UNKNOWN
     
     def _is_caption_of_image(self, text_elem: ContentElement, img_elem: ContentElement) -> bool:
-        """텍스트가 Images의 Caption인지 Check"""
-        # Images 바로 아래
+        """Check if text is a caption for the image."""
+        # Directly below image
         if (text_elem.bbox[1] > img_elem.bbox[3] - 5 and
             text_elem.bbox[1] < img_elem.bbox[3] + self.config.CAPTION_MAX_DISTANCE):
-            # X 범위가 비슷
+            # Similar X range
             if (text_elem.bbox[0] >= img_elem.bbox[0] - 20 and
                 text_elem.bbox[2] <= img_elem.bbox[2] + 20):
-                # Height가 Caption 범위
+                # Height within caption range
                 if text_elem.bbox[3] - text_elem.bbox[1] <= self.config.CAPTION_MAX_HEIGHT:
                     return True
         
-        # Images 바로 위도 가능
+        # Also possible directly above image
         if (text_elem.bbox[3] < img_elem.bbox[1] + 5 and
             text_elem.bbox[3] > img_elem.bbox[1] - self.config.CAPTION_MAX_DISTANCE):
             if (text_elem.bbox[0] >= img_elem.bbox[0] - 20 and
@@ -932,14 +932,14 @@ class LayoutBlockDetector:
         return False
     
     def _is_inside_box(self, bbox: Tuple) -> bool:
-        """Block이 박스 안에 있는지 Check"""
+        """Check if block is inside a box."""
         for box in self._boxes:
             if self._is_inside(bbox, box, margin=10):
                 return True
         return False
     
     # ========================================================================
-    # Phase 6: Block optimization 및 Sort
+    # Phase 6: Block optimization and sorting
     # ========================================================================
     
     def _optimize_and_sort_blocks(
@@ -947,7 +947,7 @@ class LayoutBlockDetector:
         blocks: List[LayoutBlock],
         columns: List[ColumnInfo]
     ) -> List[LayoutBlock]:
-        """Block optimization 및 읽기 Order Sort"""
+        """Block optimization and reading order sorting."""
         if not blocks:
             return []
         
@@ -958,25 +958,25 @@ class LayoutBlockDetector:
         blocks = self._resolve_overlaps(blocks)
         
         # 3. Determine reading order
-        #    - 헤더 우선
-        #    - Column Order (좌 → 우)
-        #    - Column 내 상 → 하
-        #    - 푸터 마지막
+        #    - Header first
+        #    - Column order (left → right)
+        #    - Top to bottom within column
+        #    - Footer last
         
         header_blocks = [b for b in blocks if b.block_type == LayoutBlockType.HEADER]
         footer_blocks = [b for b in blocks if b.block_type == LayoutBlockType.FOOTER]
         main_blocks = [b for b in blocks if b.block_type not in (LayoutBlockType.HEADER, LayoutBlockType.FOOTER)]
         
-        # Column별로 Sort
+        # Sort by column
         column_groups = defaultdict(list)
         for block in main_blocks:
             column_groups[block.column_index].append(block)
         
-        # 각 Column 내에서 Y Coordinate로 Sort
+        # Sort by Y coordinate within each column
         for col_idx in column_groups:
             column_groups[col_idx].sort(key=lambda b: b.bbox[1])
         
-        # 최종 Order: 헤더 → (Column별로) → 푸터
+        # Final order: Header → (by column) → Footer
         sorted_blocks = []
         order = 0
         
@@ -999,34 +999,34 @@ class LayoutBlockDetector:
         return sorted_blocks
     
     def _merge_small_blocks(self, blocks: List[LayoutBlock]) -> List[LayoutBlock]:
-        """너무 Small Adjacent Block Merge"""
+        """Merge adjacent blocks that are too small."""
         if len(blocks) <= 1:
             return blocks
         
-        # Block 수가 목표 범위 내면 Merge 스킵
+        # Skip merge if block count is within target range
         if len(blocks) <= self.config.TARGET_MAX_BLOCKS:
             return blocks
         
         result = []
         skip_ids = set()
         
-        # Block 수가 너무 많으면 Aggressive Merge
+        # Aggressive merge if too many blocks
         aggressive_merge = len(blocks) > self.config.AGGRESSIVE_MERGE_THRESHOLD
         
         for block in blocks:
             if block.block_id in skip_ids:
                 continue
             
-            # Small Block인지 Check (Aggressive Merge 시 기준 높임)
+            # Check if small block (raise threshold for aggressive merge)
             min_area = self.config.MIN_BLOCK_AREA
             if aggressive_merge:
-                min_area = self.config.MIN_BLOCK_AREA * 2  # 2배 기준
+                min_area = self.config.MIN_BLOCK_AREA * 2  # 2x threshold
             
             if block.area >= min_area:
                 result.append(block)
                 continue
             
-            # Adjacent한 Block Find
+            # Find adjacent block
             merged = False
             for other in blocks:
                 if other.block_id == block.block_id or other.block_id in skip_ids:
@@ -1044,21 +1044,21 @@ class LayoutBlockDetector:
             if not merged:
                 result.append(block)
         
-        # 목표보다 많으면 추가 Merge 시도
+        # Try additional merge if still above target
         if len(result) > self.config.TARGET_MAX_BLOCKS:
             result = self._force_merge_to_target(result)
         
         return result
     
     def _should_merge_blocks(self, b1: LayoutBlock, b2: LayoutBlock, aggressive: bool = False) -> bool:
-        """두 Block을 Merge해야 하는지 Check"""
-        # 같은 Column (Aggressive Merge 시 Adjacent Column도 Allow)
+        """Check if two blocks should be merged."""
+        # Same column (allow adjacent columns for aggressive merge)
         if not aggressive and b1.column_index != b2.column_index:
             return False
         if aggressive and abs(b1.column_index - b2.column_index) > 1:
             return False
         
-        # Closest Distance
+        # Close distance
         vertical_gap = max(0, b2.bbox[1] - b1.bbox[3], b1.bbox[1] - b2.bbox[3])
         threshold = self.config.VERTICAL_MERGE_THRESHOLD * (3 if aggressive else 2)
         if vertical_gap > threshold:
@@ -1068,13 +1068,13 @@ class LayoutBlockDetector:
     
     def _force_merge_to_target(self, blocks: List[LayoutBlock]) -> List[LayoutBlock]:
         """
-        Block 수가 목표를 초과할 때 강제 Merge.
-        같은 Column 내에서 Adjacent한 Block들을 Merge합니다.
+        Force merge when block count exceeds target.
+        Merges adjacent blocks within the same column.
         """
         if len(blocks) <= self.config.TARGET_MAX_BLOCKS:
             return blocks
         
-        # Column별로 Grouping
+        # Group by column
         column_groups: Dict[int, List[LayoutBlock]] = defaultdict(list)
         for block in blocks:
             column_groups[block.column_index].append(block)
@@ -1084,9 +1084,9 @@ class LayoutBlockDetector:
         for col_idx in sorted(column_groups.keys()):
             col_blocks = sorted(column_groups[col_idx], key=lambda b: b.bbox[1])
             
-            # Column 내 Block 수가 2개 이상이면 Merge 가능
+            # If 2+ blocks in column, merge is possible
             if len(col_blocks) >= 2:
-                # Adjacent한 Block들을 Merge
+                # Merge adjacent blocks
                 merged_blocks = self._merge_adjacent_in_column(col_blocks)
                 result.extend(merged_blocks)
             else:
@@ -1097,13 +1097,13 @@ class LayoutBlockDetector:
     
     def _merge_adjacent_in_column(self, col_blocks: List[LayoutBlock]) -> List[LayoutBlock]:
         """
-        Column 내에서 Adjacent한 Block들을 Merge.
-        Maximum 2~3개 Block으로 축소합니다.
+        Merge adjacent blocks within a column.
+        Reduces to at most 2-3 blocks.
         """
         if len(col_blocks) <= 2:
             return col_blocks
         
-        # Block들을 2~3개 그룹으로 나눔
+        # Divide blocks into 2-3 groups
         target_groups = max(2, min(3, len(col_blocks) // 2))
         blocks_per_group = max(1, len(col_blocks) // target_groups)
         
@@ -1113,13 +1113,13 @@ class LayoutBlockDetector:
         for i, block in enumerate(col_blocks):
             current_group.append(block)
             
-            # 그룹이 채워지면 Merge
+            # When group is filled, merge
             if len(current_group) >= blocks_per_group and len(result) < target_groups - 1:
                 merged = self._merge_block_group(current_group)
                 result.append(merged)
                 current_group = []
         
-        # 남은 Block들 Merge
+        # Merge remaining blocks
         if current_group:
             merged = self._merge_block_group(current_group)
             result.append(merged)
@@ -1127,7 +1127,7 @@ class LayoutBlockDetector:
         return result
     
     def _merge_block_group(self, blocks: List[LayoutBlock]) -> LayoutBlock:
-        """Block 그룹을 하나로 Merge"""
+        """Merge a group of blocks into one."""
         if len(blocks) == 1:
             return blocks[0]
         
@@ -1147,8 +1147,8 @@ class LayoutBlockDetector:
         )
     
     def _resolve_overlaps(self, blocks: List[LayoutBlock]) -> List[LayoutBlock]:
-        """Block Resolve overlaps"""
-        # 현재는 단순히 Returns (추후 개선 가능)
+        """Resolve block overlaps."""
+        # Currently simply returns (can be improved later)
         return blocks
     
     # ========================================================================
@@ -1156,25 +1156,25 @@ class LayoutBlockDetector:
     # ========================================================================
     
     def _get_text_dict(self) -> Dict:
-        """Text dictionary Cache"""
+        """Cached text dictionary."""
         if self._text_dict is None:
             self._text_dict = self.page.get_text("dict", sort=True)
         return self._text_dict
     
     def _get_drawings(self) -> List:
-        """드로잉 Cache"""
+        """Cached drawings."""
         if self._drawings is None:
             self._drawings = self.page.get_drawings()
         return self._drawings
     
     def _get_images(self) -> List:
-        """Images Cache"""
+        """Cached images."""
         if self._images is None:
             self._images = self.page.get_images()
         return self._images
     
     def _find_image_position(self, xref: int) -> Optional[Tuple[float, float, float, float]]:
-        """Images 위치 Find"""
+        """Find image position."""
         try:
             for img in self.page.get_image_rects(xref):
                 return (img.x0, img.y0, img.x1, img.y1)
@@ -1188,7 +1188,7 @@ class LayoutBlockDetector:
         outer: Tuple[float, float, float, float],
         margin: float = 0
     ) -> bool:
-        """inner가 outer 안에 있는지 Check"""
+        """Check if inner is inside outer."""
         return (
             inner[0] >= outer[0] - margin and
             inner[1] >= outer[1] - margin and
@@ -1197,7 +1197,7 @@ class LayoutBlockDetector:
         )
     
     def _merge_bboxes(self, bboxes: List[Tuple]) -> Tuple[float, float, float, float]:
-        """Multiple bbox Merge"""
+        """Merge multiple bboxes."""
         if not bboxes:
             return (0, 0, 0, 0)
         
@@ -1209,11 +1209,11 @@ class LayoutBlockDetector:
         return (x0, y0, x1, y1)
     
     def _calculate_confidence(self, blocks: List[LayoutBlock], columns: List[ColumnInfo]) -> float:
-        """Analysis confidence Calculate"""
+        """Calculate analysis confidence."""
         if not blocks:
             return 0.5
         
-        # Element 수 Versus Block 수 Ratio
+        # Ratio of blocks to total elements
         total_elements = len(self._elements)
         if total_elements == 0:
             return 0.5
@@ -1221,7 +1221,7 @@ class LayoutBlockDetector:
         covered_elements = sum(len(b.elements) for b in blocks)
         coverage = covered_elements / total_elements
         
-        # UNKNOWN Block Ratio
+        # Ratio of UNKNOWN blocks
         unknown_ratio = sum(1 for b in blocks if b.block_type == LayoutBlockType.UNKNOWN) / max(1, len(blocks))
         
         confidence = coverage * (1 - unknown_ratio * 0.3)

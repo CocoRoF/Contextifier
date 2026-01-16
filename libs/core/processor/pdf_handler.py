@@ -3,17 +3,17 @@
 PDF Handler - Adaptive Complexity-based PDF Processor
 
 =============================================================================
-핵심 기능:
+Core Features:
 =============================================================================
-1. 복잡도 분석 - 페이지/영역별 복잡도 점수 계산
-2. 적응형 처리 전략 - 복잡도에 따른 최적 전략 선택
-3. 블록 이미지화 - 복잡한 영역을 이미지로 렌더링
-4. 로컬 저장 - 이미지화된 블록을 로컬에 저장하고 [image:{path}] 태그 생성
-5. 다단 레이아웃 - 신문/잡지 스타일 다단 컬럼 처리
-6. 텍스트 품질 분석 - 벡터 텍스트 품질 자동 평가
+1. Complexity Analysis - Calculate complexity scores per page/region
+2. Adaptive Processing Strategy - Select optimal strategy based on complexity
+3. Block Imaging - Render complex regions as images
+4. Local Storage - Save imaged blocks locally and generate [image:{path}] tags
+5. Multi-column Layout - Handle newspaper/magazine style multi-column layouts
+6. Text Quality Analysis - Automatic vector text quality evaluation
 
 =============================================================================
-아키텍처:
+Architecture:
 =============================================================================
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                         PDF Document Input                               │
@@ -88,30 +88,30 @@ PDF Handler - Adaptive Complexity-based PDF Processor
 └─────────────────────────────────────────────────────────────────────────┘
 
 =============================================================================
-핵심 알고리즘:
+Core Algorithms:
 =============================================================================
-1. 선 분석 (Line Analysis):
-   - drawings/rects에서 모든 선 추출
-   - 선 두께별 분류 (thin < 0.5pt, normal 0.5-2pt, thick > 2pt)
-   - 인접 이중선 병합 (간격 < 5pt)
-   - 불완전 테두리 복구 (3면 이상 존재시 4면 완성)
+1. Line Analysis:
+   - Extract all lines from drawings/rects
+   - Classify by line thickness (thin < 0.5pt, normal 0.5-2pt, thick > 2pt)
+   - Merge adjacent double lines (gap < 5pt)
+   - Recover incomplete borders (complete 4 sides when 3+ exist)
 
-2. 테이블 감지 (Table Detection):
-   - Strategy 1: PyMuPDF find_tables() - 신뢰도 점수 계산
-   - Strategy 2: pdfplumber - 신뢰도 점수 계산
-   - Strategy 3: 선 분석 기반 그리드 구성 - 신뢰도 점수 계산
-   - 최고 신뢰도 전략 선택 또는 결과 병합
+2. Table Detection:
+   - Strategy 1: PyMuPDF find_tables() - Calculate confidence score
+   - Strategy 2: pdfplumber - Calculate confidence score
+   - Strategy 3: Line analysis based grid construction - Calculate confidence score
+   - Select highest confidence strategy or merge results
 
-3. 셀 분석 (Cell Analysis):
-   - 물리적 셀 bbox 추출
-   - 그리드 라인 매핑 (tolerance 기반)
-   - rowspan/colspan 정밀 계산
-   - 텍스트 위치 기반 병합 검증
+3. Cell Analysis:
+   - Extract physical cell bbox
+   - Grid line mapping (tolerance based)
+   - Precise rowspan/colspan calculation
+   - Merge validation based on text position
 
-4. 주석 통합 (Annotation Integration):
-   - 테이블 직후 주석행 감지 (예: "주) ...")
-   - 각주/미주 텍스트 수집
-   - 테이블 데이터에 적절히 통합
+4. Annotation Integration:
+   - Detect annotation rows immediately after tables (e.g., "Note: ...")
+   - Collect footnote/endnote text
+   - Integrate appropriately into table data
 """
 import logging
 import copy
@@ -130,17 +130,17 @@ from libs.core.processor.pdf_helpers.pdf_helper import (
     get_text_lines_with_positions,
 )
 
-# 이미지 처리 모듈
+# Image processing module
 from libs.core.functions.img_processor import ImageProcessor
 
-# 모듈 레벨 이미지 프로세서
+# Module level image processor
 _image_processor = ImageProcessor(
     directory_path="temp/images",
     tag_prefix="[Image:",
     tag_suffix="]"
 )
 
-# 모듈화된 컴포넌트 import
+# Modularized component imports
 from libs.core.processor.pdf_helpers.types import (
     TableDetectionStrategy as TableDetectionStrategyType,
     ElementType,
@@ -166,7 +166,7 @@ from libs.core.processor.pdf_helpers.text_quality_analyzer import (
     TextQualityConfig,
 )
 
-# 복잡도 분석 모듈
+# Complexity analysis module
 from libs.core.processor.pdf_helpers.complexity_analyzer import (
     ComplexityAnalyzer,
     ComplexityLevel,
@@ -199,96 +199,96 @@ import fitz
 
 
 # ============================================================================
-# 설정 확장 (PDFConfig 기반)
+# Config Extension (PDFConfig based)
 # ============================================================================
 
 class PDFConfig(PDFConfig):
-    """PDF 처리 설정 상수 - 기본값 + 추가 설정"""
-    # 선 분석
+    """PDF processing config constants - defaults + additional settings"""
+    # Line analysis
     THIN_LINE_THRESHOLD = 0.5      # pt
     THICK_LINE_THRESHOLD = 2.0     # pt
-    DOUBLE_LINE_GAP = 5.0          # pt - 이중선으로 판단하는 최대 간격
-    LINE_MERGE_TOLERANCE = 3.0     # pt - 같은 위치로 판단하는 허용 오차
+    DOUBLE_LINE_GAP = 5.0          # pt - Max gap to consider as double line
+    LINE_MERGE_TOLERANCE = 3.0     # pt - Tolerance for same position judgment
 
-    # 테이블 감지 추가 설정
-    MIN_CELL_SIZE = 10.0           # pt - 최소 셀 크기
-    PAGE_BORDER_MARGIN = 0.1       # 페이지 크기 대비 테두리 마진 비율
-    PAGE_SPANNING_RATIO = 0.85     # 페이지를 가로지르는 것으로 판단하는 비율
+    # Table detection additional settings
+    MIN_CELL_SIZE = 10.0           # pt - Minimum cell size
+    PAGE_BORDER_MARGIN = 0.1       # Border margin ratio relative to page size
+    PAGE_SPANNING_RATIO = 0.85     # Ratio to consider as spanning across page
 
-    # 불완전 테두리 복구
-    BORDER_EXTENSION_MARGIN = 20.0  # pt - 테두리 연장 시 마진
-    INCOMPLETE_BORDER_MIN_SIDES = 3  # 불완전 테두리로 판단하는 최소 변 수
+    # Incomplete border recovery
+    BORDER_EXTENSION_MARGIN = 20.0  # pt - Margin when extending borders
+    INCOMPLETE_BORDER_MIN_SIDES = 3  # Minimum sides for incomplete border judgment
 
-    # 주석 감지
-    ANNOTATION_Y_MARGIN = 30.0     # pt - 테이블 하단에서 주석 탐색 범위
-    ANNOTATION_PATTERNS = ['주)', '주 )', '※', '*', '†', '‡', '¹', '²', '³']
+    # Annotation detection
+    ANNOTATION_Y_MARGIN = 30.0     # pt - Annotation search range below table
+    ANNOTATION_PATTERNS = ['Note)', 'Note )', '※', '*', '†', '‡', '¹', '²', '³']
 
-    # 벡터 텍스트 OCR 설정 (Outlined Text / Path Text)
-    VECTOR_TEXT_MIN_ITEMS = 20     # 벡터 텍스트로 판단하는 최소 drawing items 수
-    VECTOR_TEXT_MAX_HEIGHT = 30.0  # pt - 벡터 텍스트로 판단하는 최대 높이
-    VECTOR_TEXT_OCR_DPI = 300      # OCR용 이미지 렌더링 DPI
-    VECTOR_TEXT_OCR_SCALE = 4      # OCR용 이미지 확대 배율
-    VECTOR_TEXT_OCR_LANG = 'kor+eng'  # Tesseract 언어 설정
+    # Vector text OCR settings (Outlined Text / Path Text)
+    VECTOR_TEXT_MIN_ITEMS = 20     # Minimum drawing items for vector text judgment
+    VECTOR_TEXT_MAX_HEIGHT = 30.0  # pt - Maximum height for vector text judgment
+    VECTOR_TEXT_OCR_DPI = 300      # OCR image rendering DPI
+    VECTOR_TEXT_OCR_SCALE = 4      # OCR image scale factor
+    VECTOR_TEXT_OCR_LANG = 'kor+eng'  # Tesseract language setting
 
-    # 그리드 규칙성 검증 (Grid Regularity Validation)
-    GRID_VARIANCE_THRESHOLD = 0.5          # 셀 크기 분산 임계값 (낮을수록 규칙적)
-    GRID_MIN_ORTHOGONAL_RATIO = 0.7        # 직교선(수평/수직) 최소 비율
+    # Grid regularity validation
+    GRID_VARIANCE_THRESHOLD = 0.5          # Cell size variance threshold (lower = more regular)
+    GRID_MIN_ORTHOGONAL_RATIO = 0.7        # Minimum orthogonal line (horizontal/vertical) ratio
 
-    # 이미지/일러스트 영역 보호
-    IMAGE_AREA_MARGIN = 5.0               # 이미지 주변 마진 (pt)
+    # Image/illustration area protection
+    IMAGE_AREA_MARGIN = 5.0               # Image surrounding margin (pt)
 
 
 class AdaptiveConfig:
-    """적응형 복잡도 기반 처리 설정 상수"""
+    """Adaptive complexity-based processing config constants."""
 
-    # ========== 복잡도 분석 설정 ==========
-    # 복잡도 임계값
-    COMPLEXITY_MODERATE_THRESHOLD = 0.3   # 이 이상이면 HYBRID 처리
-    COMPLEXITY_COMPLEX_THRESHOLD = 0.6    # 이 이상이면 BLOCK_IMAGE_OCR
-    COMPLEXITY_EXTREME_THRESHOLD = 0.8    # 이 이상이면 FULL_PAGE_OCR
+    # ========== Complexity Analysis Settings ==========
+    # Complexity thresholds
+    COMPLEXITY_MODERATE_THRESHOLD = 0.3   # Above this = HYBRID processing
+    COMPLEXITY_COMPLEX_THRESHOLD = 0.6    # Above this = BLOCK_IMAGE_OCR
+    COMPLEXITY_EXTREME_THRESHOLD = 0.8    # Above this = FULL_PAGE_OCR
 
-    # 드로잉 밀도 (1000pt² 당)
+    # Drawing density (per 1000pt²)
     DRAWING_DENSITY_MODERATE = 0.5
     DRAWING_DENSITY_COMPLEX = 2.0
     DRAWING_DENSITY_EXTREME = 5.0
 
-    # 이미지 밀도
+    # Image density
     IMAGE_DENSITY_MODERATE = 0.1
     IMAGE_DENSITY_COMPLEX = 0.3
 
-    # 텍스트 품질 임계값
-    TEXT_QUALITY_POOR = 0.7    # 이 이하면 품질 문제
-    TEXT_QUALITY_BAD = 0.5     # 이 이하면 OCR 권장
+    # Text quality thresholds
+    TEXT_QUALITY_POOR = 0.7    # Below this = quality issue
+    TEXT_QUALITY_BAD = 0.5     # Below this = OCR recommended
 
-    # 레이아웃 복잡도
-    COLUMN_COUNT_MODERATE = 3   # 이 이상이면 다단 레이아웃
-    COLUMN_COUNT_COMPLEX = 5    # 이 이상이면 복잡한 다단
+    # Layout complexity
+    COLUMN_COUNT_MODERATE = 3   # Above this = multi-column layout
+    COLUMN_COUNT_COMPLEX = 5    # Above this = complex multi-column
 
-    # ========== 블록 이미지 설정 ==========
-    BLOCK_IMAGE_DPI = 300              # OCR용 렌더링 DPI
-    BLOCK_IMAGE_MAX_SIZE = 4096        # 최대 이미지 크기 (px)
+    # ========== Block Image Settings ==========
+    BLOCK_IMAGE_DPI = 300              # OCR rendering DPI
+    BLOCK_IMAGE_MAX_SIZE = 4096        # Max image size (px)
 
-    # OCR 설정
-    OCR_LANGUAGE = 'kor+eng'           # Tesseract 언어
-    OCR_CONFIG = '--oem 3 --psm 3'     # Tesseract 설정
-    OCR_MIN_CONFIDENCE = 60.0          # 최소 신뢰도
+    # OCR settings
+    OCR_LANGUAGE = 'kor+eng'           # Tesseract language
+    OCR_CONFIG = '--oem 3 --psm 3'     # Tesseract config
+    OCR_MIN_CONFIDENCE = 60.0          # Minimum confidence
 
-    # 이미지 전처리
-    IMAGE_CONTRAST_ENHANCE = 1.5       # 대비 향상
-    IMAGE_SHARPEN = True               # 샤프닝 적용
+    # Image preprocessing
+    IMAGE_CONTRAST_ENHANCE = 1.5       # Contrast enhancement
+    IMAGE_SHARPEN = True               # Apply sharpening
 
-    # ========== 영역 분석 설정 ==========
-    REGION_GRID_SIZE = 200             # 분석 그리드 크기 (pt)
-    MIN_COMPLEX_REGION_SIZE = 100      # 최소 복잡 영역 크기 (pt)
-    COMPLEX_REGION_OVERLAP_RATIO = 0.5 # 복잡 영역 겹침 비율
+    # ========== Region Analysis Settings ==========
+    REGION_GRID_SIZE = 200             # Analysis grid size (pt)
+    MIN_COMPLEX_REGION_SIZE = 100      # Minimum complex region size (pt)
+    COMPLEX_REGION_OVERLAP_RATIO = 0.5 # Complex region overlap ratio
 
-    # ========== 처리 전략 설정 ==========
-    # 자동 전략 선택
+    # ========== Processing Strategy Settings ==========
+    # Auto strategy selection
     AUTO_STRATEGY_ENABLED = True
 
-    # 강제 OCR 조건
-    FORCE_OCR_TEXT_QUALITY = 0.4       # 텍스트 품질이 이 이하면 강제 OCR
-    FORCE_OCR_BROKEN_RATIO = 0.2       # 깨진 문자 비율이 이 이상이면 강제 OCR
+    # Force OCR conditions
+    FORCE_OCR_TEXT_QUALITY = 0.4       # Force OCR if text quality below this
+    FORCE_OCR_BROKEN_RATIO = 0.2       # Force OCR if broken char ratio above this
 
 
 # Enum aliases for backward compatibility
@@ -297,19 +297,19 @@ TableDetectionStrategy = TableDetectionStrategyType
 
 
 # ============================================================================
-# 내부 타입 정의
+# Internal Type Definitions
 # ============================================================================
 
 @dataclass
 class TableCandidate:
-    """테이블 후보 - 내부 사용"""
+    """Table candidate - internal use."""
     strategy: TableDetectionStrategy
     confidence: float
     bbox: Tuple[float, float, float, float]
     grid: Optional[GridInfo]
     cells: List[CellInfo]
     data: List[List[Optional[str]]]
-    raw_table: Any = None  # 원본 테이블 객체
+    raw_table: Any = None  # Original table object
 
     @property
     def row_count(self) -> int:
@@ -322,7 +322,7 @@ class TableCandidate:
 
 @dataclass
 class AnnotationInfo:
-    """주석/각주/미주 정보"""
+    """Annotation/footnote/endnote info."""
     text: str
     bbox: Tuple[float, float, float, float]
     type: str  # 'footnote', 'endnote', 'table_note'
@@ -331,17 +331,17 @@ class AnnotationInfo:
 
 @dataclass
 class PageElementExtended(PageElement):
-    """페이지 내 요소 - 확장"""
+    """Page element - extended."""
 
     @property
     def sort_key(self) -> Tuple[float, float]:
-        """정렬 키: (y0, x0)"""
+        """Sort key: (y0, x0)"""
         return (self.bbox[1], self.bbox[0])
 
 
 @dataclass
 class TableInfo:
-    """최종 테이블 정보"""
+    """Final table info."""
     page_num: int
     table_idx: int
     bbox: Tuple[float, float, float, float]
@@ -356,7 +356,7 @@ class TableInfo:
 
 
 # ============================================================================
-# 메인 함수
+# Main Function
 # ============================================================================
 
 def extract_text_from_pdf(
@@ -389,7 +389,7 @@ def extract_text_from_pdf(
 
 
 # ============================================================================
-# 핵심 처리 로직
+# Core Processing Logic
 # ============================================================================
 
 def _extract_pdf_enhanced(
@@ -398,43 +398,43 @@ def _extract_pdf_enhanced(
     extract_default_metadata: bool = True
 ) -> str:
     """
-    고도화된 PDF 처리 - 적응형 복잡도 기반.
+    Enhanced PDF processing - adaptive complexity-based.
 
-    처리 순서:
-    1. 문서 열기 및 메타데이터 추출
-    2. 각 페이지에 대해:
-       a. 복잡도 분석
-       b. 처리 전략 결정
-       c. 전략에 따른 처리:
-          - TEXT_EXTRACTION: 표준 텍스트 추출
-          - HYBRID: 텍스트 + 부분 OCR
-          - BLOCK_IMAGE_OCR: 복잡 영역 이미지화 + OCR
-          - FULL_PAGE_OCR: 전체 페이지 OCR
-       d. 결과 통합
-    3. 최종 HTML 생성 및 통합
+    Processing order:
+    1. Open document and extract metadata
+    2. For each page:
+       a. Complexity analysis
+       b. Determine processing strategy
+       c. Process according to strategy:
+          - TEXT_EXTRACTION: Standard text extraction
+          - HYBRID: Text + partial OCR
+          - BLOCK_IMAGE_OCR: Complex region imaging + OCR
+          - FULL_PAGE_OCR: Full page OCR
+       d. Integrate results
+    3. Generate and integrate final HTML
     """
     try:
         doc = fitz.open(file_path)
         all_pages_text = []
         processed_images: Set[int] = set()
 
-        # 메타데이터 추출 (extract_default_metadata가 True인 경우에만)
+        # Extract metadata (only if extract_default_metadata is True)
         if extract_default_metadata:
             metadata = extract_pdf_metadata(doc)
             metadata_text = format_metadata(metadata)
             if metadata_text:
                 all_pages_text.append(metadata_text)
 
-        # 전체 문서 테이블 추출
+        # Extract all document tables
         all_tables = _extract_all_tables(doc, file_path)
 
-        # 페이지별 처리
+        # Process each page
         for page_num in range(len(doc)):
             page = doc[page_num]
 
             logger.debug(f"[PDF] Processing page {page_num + 1}")
 
-            # Phase 0: 복잡도 분석
+            # Phase 0: Complexity analysis
             complexity_analyzer = ComplexityAnalyzer(page, page_num)
             page_complexity = complexity_analyzer.analyze()
 
@@ -443,28 +443,28 @@ def _extract_pdf_enhanced(
                        f"score={page_complexity.overall_score:.2f}, "
                        f"strategy={page_complexity.recommended_strategy.name}")
 
-            # 처리 전략에 따른 분기
+            # Branch by processing strategy
             strategy = page_complexity.recommended_strategy
 
             if strategy == ProcessingStrategy.FULL_PAGE_OCR:
-                # 전체 페이지 OCR
+                # Full page OCR
                 page_text = _process_page_full_ocr(
                     page, page_num, doc, processed_images, all_tables
                 )
             elif strategy == ProcessingStrategy.BLOCK_IMAGE_OCR:
-                # 복잡 영역 블록 이미지화 + OCR
+                # Complex region block imaging + OCR
                 page_text = _process_page_block_ocr(
                     page, page_num, doc, processed_images, all_tables,
                     page_complexity.complex_regions
                 )
             elif strategy == ProcessingStrategy.HYBRID:
-                # 하이브리드 (텍스트 + 부분 OCR)
+                # Hybrid (text + partial OCR)
                 page_text = _process_page_hybrid(
                     page, page_num, doc, processed_images, all_tables,
                     page_complexity
                 )
             else:
-                # TEXT_EXTRACTION: 표준 텍스트 추출
+                # TEXT_EXTRACTION: Standard text extraction
                 page_text = _process_page_text_extraction(
                     page, page_num, doc, processed_images, all_tables
                 )
@@ -490,15 +490,15 @@ def _process_page_text_extraction(
     all_tables: Dict[int, List[PageElement]]
 ) -> str:
     """
-    TEXT_EXTRACTION 전략 - 표준 텍스트 추출.
-    단순한 페이지에 적합합니다.
+    TEXT_EXTRACTION strategy - standard text extraction.
+    Suitable for simple pages.
     """
     page_elements: List[PageElement] = []
 
-    # 1. 페이지 테두리 분석
+    # 1. Page border analysis
     border_info = _detect_page_border(page)
 
-    # 1.5. 벡터 텍스트(Outlined/Path Text) 감지 및 OCR
+    # 1.5. Vector text (Outlined/Path Text) detection and OCR
     vector_text_engine = VectorTextOCREngine(page, page_num)
     vector_text_regions = vector_text_engine.detect_and_extract()
 
@@ -511,25 +511,25 @@ def _process_page_text_extraction(
                 page_num=page_num
             ))
 
-    # 2. 해당 페이지의 테이블 가져오기
+    # 2. Get tables for this page
     page_tables = all_tables.get(page_num, [])
     for table_element in page_tables:
         page_elements.append(table_element)
 
-    # 3. 테이블 영역 계산 (텍스트 필터링용)
+    # 3. Calculate table regions (for text filtering)
     table_bboxes = [elem.bbox for elem in page_tables]
 
-    # 4. 텍스트 추출 (테이블 영역 제외)
+    # 4. Extract text (excluding table regions)
     text_elements = _extract_text_blocks(page, page_num, table_bboxes, border_info)
     page_elements.extend(text_elements)
 
-    # 5. 이미지 추출
+    # 5. Extract images
     image_elements = _extract_images_from_page(
         page, page_num, doc, processed_images, table_bboxes
     )
     page_elements.extend(image_elements)
 
-    # 6. 요소 정렬 및 병합
+    # 6. Sort and merge elements
     return _merge_page_elements(page_elements)
 
 
@@ -539,16 +539,16 @@ def _process_page_hybrid(
     page_complexity: PageComplexity
 ) -> str:
     """
-    HYBRID 전략 - 텍스트 추출 + 복잡 영역 이미지화.
-    중간 복잡도의 페이지에 적합합니다.
-    복잡한 영역은 [image:{path}] 형태로 변환됩니다.
+    HYBRID strategy - text extraction + complex region imaging.
+    Suitable for medium complexity pages.
+    Complex regions are converted to [image:{path}] format.
     """
     page_elements: List[PageElement] = []
 
-    # 1. 기본 텍스트 추출
+    # 1. Basic text extraction
     border_info = _detect_page_border(page)
 
-    # 벡터 텍스트 OCR
+    # Vector text OCR
     vector_text_engine = VectorTextOCREngine(page, page_num)
     vector_text_regions = vector_text_engine.detect_and_extract()
 
@@ -561,20 +561,20 @@ def _process_page_hybrid(
                 page_num=page_num
             ))
 
-    # 2. 테이블 가져오기
+    # 2. Get tables
     page_tables = all_tables.get(page_num, [])
     for table_element in page_tables:
         page_elements.append(table_element)
 
     table_bboxes = [elem.bbox for elem in page_tables]
 
-    # 3. 복잡 영역과 단순 영역 분리
+    # 3. Separate complex and simple regions
     complex_bboxes = page_complexity.complex_regions
 
-    # 4. 단순 영역: 텍스트 추출
+    # 4. Simple regions: text extraction
     text_elements = _extract_text_blocks(page, page_num, table_bboxes, border_info)
 
-    # 복잡 영역과 겹치지 않는 텍스트만 사용
+    # Use only text that doesn't overlap with complex regions
     for elem in text_elements:
         is_in_complex = False
         for complex_bbox in complex_bboxes:
@@ -584,7 +584,7 @@ def _process_page_hybrid(
         if not is_in_complex:
             page_elements.append(elem)
 
-    # 5. 복잡 영역: 블록 이미지화 → 로컬 저장 → [image:path] 태그
+    # 5. Complex regions: block imaging → local save → [image:path] tag
     if complex_bboxes:
         block_engine = BlockImageEngine(page, page_num)
 
@@ -599,13 +599,13 @@ def _process_page_hybrid(
                     page_num=page_num
                 ))
 
-    # 6. 이미지 추출
+    # 6. Extract images
     image_elements = _extract_images_from_page(
         page, page_num, doc, processed_images, table_bboxes
     )
     page_elements.extend(image_elements)
 
-    # 7. 요소 정렬 및 병합
+    # 7. Sort and merge elements
     return _merge_page_elements(page_elements)
 
 
@@ -615,25 +615,25 @@ def _process_page_block_ocr(
     complex_regions: List[Tuple[float, float, float, float]]
 ) -> str:
     """
-    BLOCK_IMAGE_OCR 전략 - 복잡 영역을 이미지로 렌더링하고 로컬에 저장.
-    복잡한 페이지에 적합합니다.
-    복잡한 영역은 [image:{path}] 형태로 변환됩니다.
+    BLOCK_IMAGE_OCR strategy - render complex regions as images and save locally.
+    Suitable for complex pages.
+    Complex regions are converted to [image:{path}] format.
     """
     page_elements: List[PageElement] = []
 
-    # 1. 테이블 가져오기
+    # 1. Get tables
     page_tables = all_tables.get(page_num, [])
     for table_element in page_tables:
         page_elements.append(table_element)
 
     table_bboxes = [elem.bbox for elem in page_tables]
 
-    # 2. 복잡 영역: 블록 이미지화 → 로컬 저장 → [image:path] 태그
+    # 2. Complex regions: block imaging → local save → [image:path] tag
     if complex_regions:
         block_engine = BlockImageEngine(page, page_num)
 
         for complex_bbox in complex_regions:
-            # 테이블 영역과 겹치면 스킵
+            # Skip if overlaps with table region
             if any(_bbox_overlaps(complex_bbox, tb) for tb in table_bboxes):
                 continue
 
@@ -647,7 +647,7 @@ def _process_page_block_ocr(
                     page_num=page_num
                 ))
 
-    # 3. 단순 영역: 텍스트 추출
+    # 3. Simple regions: text extraction
     border_info = _detect_page_border(page)
     text_elements = _extract_text_blocks(page, page_num, table_bboxes, border_info)
 
@@ -658,7 +658,7 @@ def _process_page_block_ocr(
         if not is_in_complex:
             page_elements.append(elem)
 
-    # 4. 이미지 추출
+    # 4. Extract images
     image_elements = _extract_images_from_page(
         page, page_num, doc, processed_images, table_bboxes
     )
@@ -672,23 +672,23 @@ def _process_page_full_ocr(
     all_tables: Dict[int, List[PageElement]]
 ) -> str:
     """
-    FULL_PAGE_OCR 전략 - 고도화된 스마트 블록 처리
+    FULL_PAGE_OCR strategy - advanced smart block processing.
 
-    극도로 복잡한 페이지(신문, 잡지 등 다단 레이아웃)에 적합합니다.
+    Suitable for extremely complex pages (newspapers, magazines with multi-column layouts).
 
-    개선사항:
-    - 테이블 품질 분석 후 처리 가능한 테이블은 텍스트/구조로 추출
-    - 블록별로 최적의 처리 전략 선택
-    - 이미지 변환은 정말 필요한 영역만
+    Improvements:
+    - Analyze table quality first, extract processable tables as text/structure
+    - Select optimal processing strategy per block
+    - Image conversion only for truly necessary regions
 
-    처리 흐름:
-    1. 먼저 테이블 품질 분석하여 처리 가능 여부 확인
-    2. 처리 가능한 테이블은 구조화 추출
-    3. 나머지 복잡 영역만 블록 이미지화
+    Processing flow:
+    1. First analyze table quality to check processability
+    2. Extract processable tables structurally
+    3. Only image remaining complex regions
     """
     page_elements: List[PageElement] = []
 
-    # Phase 1: 테이블 품질 분석
+    # Phase 1: Table quality analysis
     table_quality_analyzer = TableQualityAnalyzer(page)
     table_quality_result = table_quality_analyzer.analyze_page_tables()
 
@@ -700,17 +700,17 @@ def _process_page_full_ocr(
             quality = table_info.get('quality', TableQuality.UNPROCESSABLE)
             bbox = table_info.get('bbox')
 
-            # EXCELLENT, GOOD, MODERATE = 처리 가능
+            # EXCELLENT, GOOD, MODERATE = processable
             if quality in (TableQuality.EXCELLENT, TableQuality.GOOD, TableQuality.MODERATE):
-                # 처리 가능한 테이블 → 구조화 추출
+                # Processable table → structured extraction
                 logger.info(f"[PDF] Page {page_num + 1}: Processable table found "
                            f"(quality={quality.name}) at {bbox}")
             else:
-                # 처리 불가 테이블 (POOR, UNPROCESSABLE) → 이미지화 대상
+                # Unprocessable table (POOR, UNPROCESSABLE) → image target
                 if bbox:
                     unprocessable_table_bboxes.append(bbox)
 
-    # Phase 2: 처리 가능한 테이블이 있으면 구조화 추출 시도
+    # Phase 2: If processable tables exist, try structured extraction
     page_tables = all_tables.get(page_num, [])
     has_processable_tables = len(page_tables) > 0 or (
         table_quality_result and
