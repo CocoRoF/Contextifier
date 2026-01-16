@@ -1,24 +1,24 @@
 """
 Text Quality Analyzer for PDF Handler
 
-PDF에서 추출된 텍스트의 품질을 분석하고, 깨진 텍스트(인코딩 문제, 
-ToUnicode CMap 누락 등)를 감지하여 OCR 폴백 필요 여부를 판단합니다.
+Analyzes the quality of text extracted from PDF and detects broken text
+(encoding issues, missing ToUnicode CMap, etc.) to determine whether OCR fallback is needed.
 
 =============================================================================
-깨진 텍스트의 특징:
+Characteristics of Broken Text:
 =============================================================================
-1. Private Use Area (PUA) 문자 다수 포함: U+E000 ~ U+F8FF
-2. 대체 문자 (Replacement Character): U+FFFD (�)
-3. 한글 조합 불가능한 문자 조합 (자음/모음만 연속)
-4. 의미없는 한글 음절 연속 (실제 단어가 아닌 무작위 조합)
-5. CJK 문자와 PUA/제어문자 혼합
+1. Contains many Private Use Area (PUA) characters: U+E000 ~ U+F8FF
+2. Replacement Character: U+FFFD (�)
+3. Invalid Korean character combinations (only consonants/vowels in sequence)
+4. Meaningless Korean syllable sequences (random combinations, not real words)
+5. Mixture of CJK characters with PUA/control characters
 
 =============================================================================
-해결 전략:
+Resolution Strategy:
 =============================================================================
-1. 텍스트 품질 점수 계산 (0.0 ~ 1.0)
-2. 품질이 임계값 이하이면 OCR 폴백 수행
-3. 페이지 전체 또는 특정 영역에 대해 OCR 적용
+1. Calculate text quality score (0.0 ~ 1.0)
+2. Perform OCR fallback if quality is below threshold
+3. Apply OCR to entire page or specific regions
 """
 
 import logging
@@ -39,43 +39,43 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 
 class TextQualityConfig:
-    """텍스트 품질 분석 설정"""
+    """Text quality analysis configuration."""
     
-    # 품질 판단 임계값
-    QUALITY_THRESHOLD = 0.7           # 이 값 이하면 OCR 폴백 (0.5 → 0.7로 상향)
-    MIN_TEXT_LENGTH = 10              # 품질 분석을 위한 최소 텍스트 길이
+    # Quality threshold
+    QUALITY_THRESHOLD = 0.7           # OCR fallback if below this value (raised from 0.5 to 0.7)
+    MIN_TEXT_LENGTH = 10              # Minimum text length for quality analysis
     
-    # PUA 기반 임계값 (PUA 비율이 이 이상이면 무조건 OCR)
-    PUA_RATIO_THRESHOLD = 0.1         # 10% 이상이면 OCR
+    # PUA-based threshold (force OCR if PUA ratio is above this)
+    PUA_RATIO_THRESHOLD = 0.1         # 10% or more triggers OCR
     
-    # PUA (Private Use Area) 범위
+    # PUA (Private Use Area) ranges
     PUA_RANGES = [
         (0xE000, 0xF8FF),     # BMP Private Use Area
         (0xF0000, 0xFFFFD),   # Supplementary PUA-A
         (0x100000, 0x10FFFD), # Supplementary PUA-B
     ]
     
-    # 제어 문자 및 특수 문자
+    # Control characters and special characters
     CONTROL_RANGES = [
         (0x0000, 0x001F),     # C0 controls
         (0x007F, 0x009F),     # C1 controls
         (0xFFF0, 0xFFFF),     # Specials
     ]
     
-    # OCR 설정
+    # OCR settings
     OCR_LANG = 'kor+eng'
     OCR_DPI = 300
     OCR_SCALE = 3.0
     
-    # 한글 음절 범위
+    # Korean syllable ranges
     HANGUL_SYLLABLE_RANGE = (0xAC00, 0xD7A3)
     HANGUL_JAMO_RANGE = (0x1100, 0x11FF)
     HANGUL_COMPAT_JAMO_RANGE = (0x3130, 0x318F)
     
-    # 품질 분석용 가중치
-    WEIGHT_PUA = 0.4              # PUA 문자 비율 가중치
-    WEIGHT_REPLACEMENT = 0.3      # 대체 문자 가중치
-    WEIGHT_VALID_RATIO = 0.3      # 유효 문자 비율 가중치
+    # Quality analysis weights
+    WEIGHT_PUA = 0.4              # PUA character ratio weight
+    WEIGHT_REPLACEMENT = 0.3      # Replacement character weight
+    WEIGHT_VALID_RATIO = 0.3      # Valid character ratio weight
 
 
 # ============================================================================
@@ -84,25 +84,25 @@ class TextQualityConfig:
 
 @dataclass
 class TextQualityResult:
-    """텍스트 품질 분석 결과"""
-    quality_score: float          # 0.0 ~ 1.0 (높을수록 품질 좋음)
-    total_chars: int              # 전체 문자 수
-    pua_count: int                # PUA 문자 수
-    replacement_count: int        # 대체 문자 수
-    valid_chars: int              # 유효 문자 수 (한글, 영문, 숫자)
-    control_chars: int            # 제어 문자 수
-    needs_ocr: bool               # OCR 필요 여부
-    details: Dict                 # 상세 정보
+    """Text quality analysis result."""
+    quality_score: float          # 0.0 ~ 1.0 (higher is better quality)
+    total_chars: int              # Total character count
+    pua_count: int                # PUA character count
+    replacement_count: int        # Replacement character count
+    valid_chars: int              # Valid character count (Korean, English, digits)
+    control_chars: int            # Control character count
+    needs_ocr: bool               # Whether OCR is needed
+    details: Dict                 # Detailed information
 
 
 @dataclass
 class PageTextAnalysis:
-    """페이지 텍스트 분석 결과"""
+    """Page text analysis result."""
     page_num: int
     quality_result: TextQualityResult
-    text_blocks: List[Dict]       # 개별 텍스트 블록 정보
-    problem_regions: List[Tuple[float, float, float, float]]  # 문제 있는 영역 bbox
-    ocr_text: Optional[str] = None  # OCR 결과 (수행된 경우)
+    text_blocks: List[Dict]       # Individual text block information
+    problem_regions: List[Tuple[float, float, float, float]]  # Bounding boxes of problematic regions
+    ocr_text: Optional[str] = None  # OCR result (if performed)
 
 
 # ============================================================================
@@ -111,17 +111,17 @@ class PageTextAnalysis:
 
 class TextQualityAnalyzer:
     """
-    텍스트 품질 분석기
+    Text Quality Analyzer.
     
-    PDF에서 추출된 텍스트의 품질을 분석하고,
-    깨진 텍스트를 감지하여 OCR 폴백 필요 여부를 판단합니다.
+    Analyzes the quality of text extracted from PDF and
+    detects broken text to determine whether OCR fallback is needed.
     """
     
     def __init__(self, page, page_num: int):
         """
         Args:
-            page: PyMuPDF page 객체
-            page_num: 페이지 번호 (0-indexed)
+            page: PyMuPDF page object
+            page_num: Page number (0-indexed)
         """
         self.page = page
         self.page_num = page_num
@@ -130,12 +130,12 @@ class TextQualityAnalyzer:
         
     def analyze_page(self) -> PageTextAnalysis:
         """
-        페이지 전체 텍스트 품질 분석
+        Analyze text quality for the entire page.
         
         Returns:
-            PageTextAnalysis 객체
+            PageTextAnalysis object
         """
-        # 텍스트 딕셔너리 추출
+        # Extract text dictionary
         text_dict = self.page.get_text("dict", sort=True)
         blocks = text_dict.get("blocks", [])
         
@@ -144,7 +144,7 @@ class TextQualityAnalyzer:
         problem_regions = []
         
         for block in blocks:
-            if block.get("type") != 0:  # 텍스트 블록만
+            if block.get("type") != 0:  # Text blocks only
                 continue
             
             block_bbox = block.get("bbox", (0, 0, 0, 0))
@@ -167,11 +167,11 @@ class TextQualityAnalyzer:
                     'quality': quality
                 })
                 
-                # 품질이 낮은 영역 기록
+                # Record low quality regions
                 if quality.needs_ocr:
                     problem_regions.append(block_bbox)
         
-        # 전체 텍스트 품질 분석
+        # Analyze overall text quality
         full_text = " ".join(all_text)
         overall_quality = self.analyze_text(full_text)
         
@@ -184,17 +184,17 @@ class TextQualityAnalyzer:
     
     def analyze_text(self, text: str) -> TextQualityResult:
         """
-        텍스트 품질 분석
+        Analyze text quality.
         
         Args:
-            text: 분석할 텍스트
+            text: Text to analyze
             
         Returns:
-            TextQualityResult 객체
+            TextQualityResult object
         """
         if not text or len(text) < TextQualityConfig.MIN_TEXT_LENGTH:
             return TextQualityResult(
-                quality_score=1.0,  # 텍스트가 없거나 너무 짧으면 OK로 처리
+                quality_score=1.0,  # Treat as OK if text is empty or too short
                 total_chars=len(text),
                 pua_count=0,
                 replacement_count=0,
@@ -208,32 +208,32 @@ class TextQualityAnalyzer:
         pua_count = 0
         replacement_count = 0
         control_count = 0
-        valid_chars = 0  # 한글, 영문, 숫자, 공백, 기본 구두점
+        valid_chars = 0  # Korean, English, digits, spaces, basic punctuation
         
-        # 문자별 분석
+        # Character-by-character analysis
         for char in text:
             code = ord(char)
             
-            # PUA 체크
+            # PUA check
             if self._is_pua(code):
                 pua_count += 1
                 continue
             
-            # 대체 문자 체크
+            # Replacement character check
             if code == 0xFFFD:
                 replacement_count += 1
                 continue
             
-            # 제어 문자 체크
+            # Control character check
             if self._is_control(code):
                 control_count += 1
                 continue
             
-            # 유효 문자 체크
+            # Valid character check
             if self._is_valid_char(char, code):
                 valid_chars += 1
         
-        # 품질 점수 계산
+        # Calculate quality score
         quality_score = self._calculate_quality_score(
             total_chars=total_chars,
             pua_count=pua_count,
@@ -241,7 +241,7 @@ class TextQualityAnalyzer:
             valid_chars=valid_chars
         )
         
-        # OCR 필요 여부 판단
+        # Determine OCR necessity
         pua_ratio = pua_count / total_chars if total_chars > 0 else 0
         needs_ocr = (
             quality_score < TextQualityConfig.QUALITY_THRESHOLD or
@@ -264,50 +264,50 @@ class TextQualityAnalyzer:
         )
     
     def _is_pua(self, code: int) -> bool:
-        """Private Use Area 문자 여부"""
+        """Check if character is in Private Use Area."""
         for start, end in TextQualityConfig.PUA_RANGES:
             if start <= code <= end:
                 return True
         return False
     
     def _is_control(self, code: int) -> bool:
-        """제어 문자 여부"""
+        """Check if character is a control character."""
         for start, end in TextQualityConfig.CONTROL_RANGES:
             if start <= code <= end:
                 return True
         return False
     
     def _is_valid_char(self, char: str, code: int) -> bool:
-        """유효 문자 여부 (한글, 영문, 숫자, 공백, 기본 구두점)"""
-        # 공백
+        """Check if character is valid (Korean, English, digits, spaces, basic punctuation)."""
+        # Whitespace
         if char.isspace():
             return True
         
-        # 영문, 숫자
+        # ASCII alphanumeric
         if char.isalnum() and code < 128:
             return True
         
-        # 한글 음절
+        # Korean syllables
         if TextQualityConfig.HANGUL_SYLLABLE_RANGE[0] <= code <= TextQualityConfig.HANGUL_SYLLABLE_RANGE[1]:
             return True
         
-        # 한글 자모
+        # Korean Jamo
         if TextQualityConfig.HANGUL_JAMO_RANGE[0] <= code <= TextQualityConfig.HANGUL_JAMO_RANGE[1]:
             return True
         
-        # 한글 호환 자모
+        # Korean compatibility Jamo
         if TextQualityConfig.HANGUL_COMPAT_JAMO_RANGE[0] <= code <= TextQualityConfig.HANGUL_COMPAT_JAMO_RANGE[1]:
             return True
         
-        # 기본 구두점
+        # Basic punctuation
         if char in '.,!?;:\'"()[]{}-–—…·•':
             return True
         
-        # CJK 문자 (중국어, 일본어)
+        # CJK characters (Chinese, Japanese)
         if 0x4E00 <= code <= 0x9FFF:  # CJK Unified Ideographs
             return True
         
-        # 일본어 히라가나/가타카나
+        # Japanese Hiragana/Katakana
         if 0x3040 <= code <= 0x30FF:
             return True
         
@@ -320,26 +320,26 @@ class TextQualityAnalyzer:
         replacement_count: int,
         valid_chars: int
     ) -> float:
-        """품질 점수 계산 (0.0 ~ 1.0)"""
+        """Calculate quality score (0.0 ~ 1.0)."""
         if total_chars == 0:
             return 1.0
         
-        # 각 비율 계산
+        # Calculate ratios
         pua_ratio = pua_count / total_chars
         replacement_ratio = replacement_count / total_chars
         valid_ratio = valid_chars / total_chars
         
-        # 가중 점수 계산
-        # PUA가 많을수록, 대체 문자가 많을수록, 유효 비율이 낮을수록 점수 하락
+        # Calculate weighted score
+        # Score decreases with more PUA chars, more replacement chars, lower valid ratio
         score = 1.0
         
-        # PUA 문자 페널티 (많을수록 감점)
+        # PUA character penalty (more = lower score)
         score -= pua_ratio * TextQualityConfig.WEIGHT_PUA * 2
         
-        # 대체 문자 페널티
+        # Replacement character penalty
         score -= replacement_ratio * TextQualityConfig.WEIGHT_REPLACEMENT * 3
         
-        # 유효 문자 비율 보정
+        # Valid character ratio adjustment
         score = score * (0.5 + valid_ratio * 0.5)
         
         return max(0.0, min(1.0, score))
@@ -351,17 +351,17 @@ class TextQualityAnalyzer:
 
 class PageOCRFallbackEngine:
     """
-    페이지 OCR 폴백 엔진
+    Page OCR Fallback Engine.
     
-    텍스트 품질이 낮은 페이지에 대해 전체 페이지 또는
-    특정 영역에 대해 OCR을 수행합니다.
+    Performs OCR on the entire page or specific regions
+    for pages with low text quality.
     """
     
     def __init__(self, page, page_num: int):
         """
         Args:
-            page: PyMuPDF page 객체
-            page_num: 페이지 번호 (0-indexed)
+            page: PyMuPDF page object
+            page_num: Page number (0-indexed)
         """
         self.page = page
         self.page_num = page_num
@@ -370,30 +370,30 @@ class PageOCRFallbackEngine:
     
     def ocr_full_page(self) -> str:
         """
-        전체 페이지 OCR 수행
+        Perform OCR on the entire page.
         
         Returns:
-            OCR로 추출된 텍스트
+            Text extracted via OCR
         """
         try:
-            # 고해상도로 페이지 렌더링
+            # Render page at high resolution
             mat = fitz.Matrix(TextQualityConfig.OCR_SCALE, TextQualityConfig.OCR_SCALE)
             pix = self.page.get_pixmap(matrix=mat)
             
-            # PIL Image로 변환
+            # Convert to PIL Image
             import io
             img_data = pix.tobytes("png")
             img = Image.open(io.BytesIO(img_data))
             
-            # OCR 수행 (한국어 우선)
-            ocr_config = '--psm 3 --oem 3'  # 자동 페이지 분할 + LSTM OCR
+            # Perform OCR (Korean priority)
+            ocr_config = '--psm 3 --oem 3'  # Automatic page segmentation + LSTM OCR
             text = pytesseract.image_to_string(
                 img,
                 lang=TextQualityConfig.OCR_LANG,
                 config=ocr_config
             )
             
-            # OCR 후처리: 노이즈 제거
+            # OCR post-processing: noise removal
             text = self._postprocess_ocr_text(text)
             
             logger.info(f"[PageOCR] Page {self.page_num + 1}: OCR extracted {len(text)} chars")
@@ -405,12 +405,12 @@ class PageOCRFallbackEngine:
     
     def _postprocess_ocr_text(self, text: str) -> str:
         """
-        OCR 결과 후처리
+        Post-process OCR results.
         
-        - 특수 기호로만 이루어진 라인 제거
-        - 너무 짧은 무의미한 라인 제거
-        - 반복 문자 정리
-        - OCR 노이즈 패턴 제거
+        - Remove lines consisting only of special symbols
+        - Remove meaningless short lines
+        - Clean up repeated characters
+        - Remove OCR noise patterns
         """
         if not text:
             return ""
@@ -418,13 +418,13 @@ class PageOCRFallbackEngine:
         lines = text.split('\n')
         cleaned_lines = []
         
-        # OCR 노이즈 패턴 (배경 그래픽에서 잘못 인식된 텍스트)
+        # OCR noise patterns (text incorrectly recognized from background graphics)
         noise_patterns = [
-            r'^[ri\-—maOANIUTLOG\s]+$',  # 배경 원형 그래픽에서 인식된 노이즈
-            r'^[0-9"\'\[\]\(\)°\s]{1,5}$',  # 짧은 숫자/기호 조합
-            r'^[A-Za-z\-—\s]{3,}$',  # 의미없는 영문 조합 (한글이 없는 경우)
-            r'^‥+\s*$',  # 점선만
-            r'^\s*[°·•○●□■◇◆△▲▽▼]+\s*$',  # 기호만
+            r'^[ri\-—maOANIUTLOG\s]+$',  # Noise from circular background graphics
+            r'^[0-9"\'\[\]\(\)°\s]{1,5}$',  # Short number/symbol combinations
+            r'^[A-Za-z\-—\s]{3,}$',  # Meaningless English combinations (when no Korean)
+            r'^‥+\s*$',  # Only dotted lines
+            r'^\s*[°·•○●□■◇◆△▲▽▼]+\s*$',  # Only symbols
         ]
         
         import re
@@ -432,15 +432,15 @@ class PageOCRFallbackEngine:
         for line in lines:
             line = line.strip()
             
-            # 빈 라인 스킵
+            # Skip empty lines
             if not line:
                 continue
             
-            # 특수 기호로만 이루어진 라인 제거
+            # Remove lines consisting only of special symbols
             if all(c in '.,;:!?@#$%^&*()[]{}|\\/<>~`\'"-_+=°·•○●□■◇◆△▲▽▼' or c.isspace() for c in line):
                 continue
             
-            # 노이즈 패턴 체크
+            # Check noise patterns
             is_noise = False
             for pattern in noise_patterns:
                 if re.match(pattern, line, re.IGNORECASE):
@@ -449,24 +449,24 @@ class PageOCRFallbackEngine:
             if is_noise:
                 continue
             
-            # 한글이 포함된 라인은 우선 유지
+            # Prioritize keeping lines with Korean
             korean_count = sum(1 for c in line if '가' <= c <= '힣')
             if korean_count > 0:
                 cleaned_lines.append(line)
                 continue
             
-            # 영문만 있는 경우 의미있는지 확인
+            # For English-only lines, check if meaningful
             alpha_count = sum(1 for c in line if c.isalpha())
             total_len = len(line.replace(' ', ''))
             
             if total_len > 0:
                 meaningful_ratio = alpha_count / total_len
-                # 의미있는 문자가 50% 이상이고 3글자 이상인 경우만 유지
+                # Keep only if meaningful characters >= 50% and at least 3 characters
                 if meaningful_ratio >= 0.5 and alpha_count >= 3:
-                    # 대문자 연속인 약어(PLATEER, IDT 등)는 유지
+                    # Keep uppercase abbreviations (PLATEER, IDT, etc.)
                     if line.isupper() or any(word.isupper() and len(word) >= 2 for word in line.split()):
                         cleaned_lines.append(line)
-                    # 일반 영문 텍스트 (Insight Report 등)
+                    # Regular English text (Insight Report, etc.)
                     elif any(c.islower() for c in line):
                         cleaned_lines.append(line)
         
@@ -474,18 +474,18 @@ class PageOCRFallbackEngine:
     
     def ocr_region(self, bbox: Tuple[float, float, float, float]) -> str:
         """
-        특정 영역 OCR 수행
+        Perform OCR on a specific region.
         
         Args:
-            bbox: 영역 (x0, y0, x1, y1)
+            bbox: Region coordinates (x0, y0, x1, y1)
             
         Returns:
-            OCR로 추출된 텍스트
+            Text extracted via OCR
         """
         try:
             x0, y0, x1, y1 = bbox
             
-            # 패딩 추가
+            # Add padding
             padding = 10
             clip = fitz.Rect(
                 max(0, x0 - padding),
@@ -494,24 +494,24 @@ class PageOCRFallbackEngine:
                 min(self.page_height, y1 + padding)
             )
             
-            # 고해상도로 영역 렌더링
+            # Render region at high resolution
             mat = fitz.Matrix(TextQualityConfig.OCR_SCALE, TextQualityConfig.OCR_SCALE)
             pix = self.page.get_pixmap(matrix=mat, clip=clip)
             
-            # PIL Image로 변환
+            # Convert to PIL Image
             import io
             img_data = pix.tobytes("png")
             img = Image.open(io.BytesIO(img_data))
             
-            # OCR 수행
-            ocr_config = '--psm 6 --oem 3'  # 균일한 텍스트 블록 + LSTM
+            # Perform OCR
+            ocr_config = '--psm 6 --oem 3'  # Uniform text block + LSTM
             text = pytesseract.image_to_string(
                 img,
                 lang=TextQualityConfig.OCR_LANG,
                 config=ocr_config
             )
             
-            # OCR 후처리
+            # OCR post-processing
             text = self._postprocess_ocr_text(text)
             
             return text.strip()
@@ -525,13 +525,13 @@ class PageOCRFallbackEngine:
         problem_regions: List[Tuple[float, float, float, float]]
     ) -> Dict[Tuple, str]:
         """
-        문제 영역들에 대해 OCR 수행
+        Perform OCR on problematic regions.
         
         Args:
-            problem_regions: 문제 있는 영역 bbox 목록
+            problem_regions: List of bounding boxes for problematic regions
             
         Returns:
-            {bbox: ocr_text} 딕셔너리
+            Dictionary mapping {bbox: ocr_text}
         """
         results = {}
         
@@ -549,18 +549,18 @@ class PageOCRFallbackEngine:
 
 class QualityAwareTextExtractor:
     """
-    품질 인식 텍스트 추출기
+    Quality-Aware Text Extractor.
     
-    텍스트 품질을 분석하고, 필요시 OCR 폴백을 수행하여
-    항상 고품질의 텍스트를 추출합니다.
+    Analyzes text quality and performs OCR fallback when necessary
+    to always extract high-quality text.
     """
     
     def __init__(self, page, page_num: int, quality_threshold: float = None):
         """
         Args:
-            page: PyMuPDF page 객체
-            page_num: 페이지 번호 (0-indexed)
-            quality_threshold: 품질 임계값 (기본값: TextQualityConfig.QUALITY_THRESHOLD)
+            page: PyMuPDF page object
+            page_num: Page number (0-indexed)
+            quality_threshold: Quality threshold (default: TextQualityConfig.QUALITY_THRESHOLD)
         """
         self.page = page
         self.page_num = page_num
@@ -571,12 +571,12 @@ class QualityAwareTextExtractor:
     
     def extract(self) -> Tuple[str, PageTextAnalysis]:
         """
-        품질을 고려한 텍스트 추출
+        Extract text with quality consideration.
         
         Returns:
-            (추출된 텍스트, 분석 결과) 튜플
+            Tuple of (extracted text, analysis result)
         """
-        # 1. 페이지 텍스트 품질 분석
+        # 1. Analyze page text quality
         analysis = self.analyzer.analyze_page()
         
         logger.debug(
@@ -586,29 +586,29 @@ class QualityAwareTextExtractor:
             f"valid={analysis.quality_result.valid_chars}"
         )
         
-        # 2. 품질이 좋으면 기존 텍스트 반환
+        # 2. Return existing text if quality is good
         if not analysis.quality_result.needs_ocr:
-            # 기존 방식으로 텍스트 추출
+            # Extract text using standard method
             text = self.page.get_text("text")
             return text, analysis
         
-        # 3. 품질이 낮으면 OCR 폴백
+        # 3. OCR fallback if quality is low
         logger.info(
             f"[QualityAware] Page {self.page_num + 1}: "
             f"Quality too low ({analysis.quality_result.quality_score:.2f}), "
             f"falling back to OCR"
         )
         
-        # 문제 영역이 적으면 해당 영역만 OCR
+        # If few problem regions, OCR only those regions
         if len(analysis.problem_regions) <= 3 and len(analysis.problem_regions) > 0:
-            # 문제 영역만 OCR
+            # OCR only problem regions
             ocr_results = self.ocr_engine.ocr_problem_regions(analysis.problem_regions)
             
-            # 기존 텍스트에서 문제 영역 텍스트를 OCR 결과로 대체
+            # Replace problem region text with OCR results
             text = self._merge_ocr_results(analysis, ocr_results)
             analysis.ocr_text = str(ocr_results)
         else:
-            # 전체 페이지 OCR
+            # Full page OCR
             text = self.ocr_engine.ocr_full_page()
             analysis.ocr_text = text
         
@@ -620,10 +620,10 @@ class QualityAwareTextExtractor:
         ocr_results: Dict[Tuple, str]
     ) -> str:
         """
-        기존 텍스트와 OCR 결과 병합
+        Merge existing text with OCR results.
         
-        좋은 품질의 블록은 그대로 사용하고,
-        문제 있는 블록은 OCR 결과로 대체합니다.
+        Uses existing text for good quality blocks,
+        replaces problematic blocks with OCR results.
         """
         merged_parts = []
         
@@ -632,10 +632,10 @@ class QualityAwareTextExtractor:
             quality = block['quality']
             
             if quality.needs_ocr and bbox in ocr_results:
-                # OCR 결과 사용
+                # Use OCR result
                 merged_parts.append(ocr_results[bbox])
             else:
-                # 기존 텍스트 사용
+                # Use existing text
                 merged_parts.append(block['text'])
         
         return "\n".join(merged_parts)
