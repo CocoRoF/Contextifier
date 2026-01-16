@@ -1,7 +1,7 @@
 """
 PDF Helpers Package
 
-PDF 처리에 필요한 헬퍼 모듈들을 포함합니다.
+Contains helper modules for PDF processing.
 """
 
 from libs.core.processor.pdf_helpers.pdf_helper import (
@@ -10,7 +10,6 @@ from libs.core.processor.pdf_helpers.pdf_helper import (
     escape_html,
     calculate_overlap_ratio,
     is_inside_any_bbox,
-    bboxes_overlap,
     find_image_position,
     get_text_lines_with_positions,
 )
@@ -96,7 +95,6 @@ __all__ = [
     'escape_html',
     'calculate_overlap_ratio',
     'is_inside_any_bbox',
-    'bboxes_overlap',
     'find_image_position',
     'get_text_lines_with_positions',
     # types

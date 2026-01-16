@@ -197,12 +197,6 @@ logger = logging.getLogger("document-processor")
 # PyMuPDF import
 import fitz
 
-# pdfplumber import
-import pdfplumber
-
-# pytesseract import (for outlined/vector text OCR)
-import pytesseract
-
 
 # ============================================================================
 # 설정 확장 (PDFConfig 기반)

@@ -1,8 +1,8 @@
 """
 Table Quality Validator for PDF Handler
 
-감지된 테이블 후보가 실제 테이블인지 검증합니다.
-그래픽 영역이 테이블로 오인되는 것을 방지합니다.
+Validates whether detected table candidates are actual tables.
+Prevents graphic regions from being misidentified as tables.
 """
 
 import logging
@@ -20,26 +20,26 @@ logger = logging.getLogger(__name__)
 
 class TableQualityValidator:
     """
-    테이블 품질 검증기
+    Table Quality Validator
     
-    감지된 테이블 후보가 실제 테이블인지 검증합니다.
+    Validates whether detected table candidates are actual tables.
     
-    검증 기준:
-    1. 채워진 셀 비율 (너무 낮으면 가짜)
-    2. 빈 행/열 비율
-    3. 텍스트 밀도
-    4. 데이터 유효성 (의미 있는 텍스트)
-    5. 그리드 규칙성
-    6. 긴 텍스트 셀 감지 (텍스트 블록이 테이블로 오인된 경우)
-    7. 문단 텍스트 감지 (본문 텍스트가 테이블로 오인된 경우)
-    8. 2열 테이블 특별 검증 (본문이 테이블로 오인되기 쉬움)
+    Validation Criteria:
+    1. Filled cell ratio (too low indicates fake table)
+    2. Empty row/column ratio
+    3. Text density
+    4. Data validity (meaningful text)
+    5. Grid regularity
+    6. Long text cell detection (text blocks misidentified as tables)
+    7. Paragraph text detection (body text misidentified as tables)
+    8. Two-column table special validation (body text easily misidentified as table)
     """
     
     def __init__(self, page, graphic_detector: Optional[GraphicRegionDetector] = None):
         """
         Args:
-            page: PyMuPDF page 객체
-            graphic_detector: 그래픽 영역 감지기 (선택)
+            page: PyMuPDF page object
+            graphic_detector: Graphic region detector (optional)
         """
         self.page = page
         self.page_width = page.rect.width

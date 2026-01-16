@@ -1,45 +1,29 @@
 # libs/core/processor/pdf_helpers/pdf_helper.py
 """
-PDF 처리 공통 헬퍼 모듈
+PDF Processing Common Helper Module
 
-PDF 핸들러에서 공통으로 사용하는 유틸리티 함수들을 정의합니다.
+Defines utility functions commonly used by PDF handlers.
 """
 import logging
-import os
-import io
-import tempfile
-import hashlib
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
-from PIL import Image
-
-# 이미지 처리 모듈
-from libs.core.functions.img_processor import ImageProcessor
-
 logger = logging.getLogger("document-processor")
-
-# 모듈 레벨 이미지 프로세서
-_image_processor = ImageProcessor(
-    directory_path="temp/images",
-    tag_prefix="[image:",
-    tag_suffix="]"
-)
 
 
 # ============================================================================
-# PDF 메타데이터 추출
+# PDF Metadata Extraction
 # ============================================================================
 
 def extract_pdf_metadata(doc) -> Dict[str, Any]:
     """
-    PDF 문서에서 메타데이터를 추출합니다.
+    Extract metadata from a PDF document.
 
     Args:
-        doc: PyMuPDF 문서 객체
+        doc: PyMuPDF document object
 
     Returns:
-        메타데이터 딕셔너리
+        Metadata dictionary
     """
     metadata = {}
 
@@ -78,13 +62,13 @@ def extract_pdf_metadata(doc) -> Dict[str, Any]:
 
 def parse_pdf_date(date_str: str) -> Optional[datetime]:
     """
-    PDF 날짜 문자열을 datetime으로 변환합니다.
+    Convert a PDF date string to datetime.
 
     Args:
-        date_str: PDF 날짜 문자열 (예: "D:20231215120000")
+        date_str: PDF date string (e.g., "D:20231215120000")
 
     Returns:
-        datetime 객체 또는 None
+        datetime object or None
     """
     if not date_str:
         return None
@@ -106,13 +90,13 @@ def parse_pdf_date(date_str: str) -> Optional[datetime]:
 
 def format_metadata(metadata: Dict[str, Any]) -> str:
     """
-    메타데이터를 문자열로 포맷합니다.
+    Format metadata as a string.
 
     Args:
-        metadata: 메타데이터 딕셔너리
+        metadata: Metadata dictionary
 
     Returns:
-        포맷된 메타데이터 문자열
+        Formatted metadata string
     """
     if not metadata:
         return ""
@@ -120,12 +104,12 @@ def format_metadata(metadata: Dict[str, Any]) -> str:
     lines = ["<Document-Metadata>"]
 
     field_names = {
-        'title': '제목',
-        'subject': '주제',
-        'author': '작성자',
-        'keywords': '키워드',
-        'create_time': '작성일',
-        'last_saved_time': '마지막 수정일'
+        'title': 'Title',
+        'subject': 'Subject',
+        'author': 'Author',
+        'keywords': 'Keywords',
+        'create_time': 'Created',
+        'last_saved_time': 'Last Modified'
     }
 
     for key, label in field_names.items():
@@ -141,18 +125,18 @@ def format_metadata(metadata: Dict[str, Any]) -> str:
 
 
 # ============================================================================
-# HTML 이스케이프
+# HTML Escape
 # ============================================================================
 
 def escape_html(text: str) -> str:
     """
-    HTML 특수문자를 이스케이프합니다.
+    Escape HTML special characters.
 
     Args:
-        text: 원본 텍스트
+        text: Original text
 
     Returns:
-        이스케이프된 텍스트
+        Escaped text
     """
     if not text:
         return ""
@@ -164,7 +148,7 @@ def escape_html(text: str) -> str:
 
 
 # ============================================================================
-# bbox 관련 유틸리티
+# Bounding Box Utilities
 # ============================================================================
 
 def calculate_overlap_ratio(
@@ -172,14 +156,14 @@ def calculate_overlap_ratio(
     bbox2: Tuple[float, float, float, float]
 ) -> float:
     """
-    두 bbox의 겹침 비율을 계산합니다.
+    Calculate the overlap ratio between two bounding boxes.
 
     Args:
-        bbox1: 첫 번째 bbox (x0, y0, x1, y1)
-        bbox2: 두 번째 bbox (x0, y0, x1, y1)
+        bbox1: First bbox (x0, y0, x1, y1)
+        bbox2: Second bbox (x0, y0, x1, y1)
 
     Returns:
-        bbox1 기준 겹침 비율 (0.0 ~ 1.0)
+        Overlap ratio relative to bbox1 (0.0 ~ 1.0)
     """
     x0 = max(bbox1[0], bbox2[0])
     y0 = max(bbox1[1], bbox2[1])
@@ -204,15 +188,15 @@ def is_inside_any_bbox(
     threshold: float = 0.5
 ) -> bool:
     """
-    bbox가 bbox_list 중 하나에 포함되는지 확인합니다.
+    Check if a bbox is contained within any bbox in the list.
 
     Args:
-        bbox: 확인할 bbox
-        bbox_list: bbox 목록
-        threshold: 겹침 비율 임계값
+        bbox: Bounding box to check
+        bbox_list: List of bounding boxes
+        threshold: Overlap ratio threshold
 
     Returns:
-        포함 여부
+        True if contained, False otherwise
     """
     for target_bbox in bbox_list:
         overlap = calculate_overlap_ratio(bbox, target_bbox)
@@ -221,55 +205,20 @@ def is_inside_any_bbox(
     return False
 
 
-def bboxes_overlap(
-    bbox1: Tuple[float, float, float, float],
-    bbox2: Tuple[float, float, float, float],
-    threshold: float = 0.5
-) -> bool:
-    """
-    두 bbox가 겹치는지 확인합니다.
-
-    Args:
-        bbox1: 첫 번째 bbox
-        bbox2: 두 번째 bbox
-        threshold: 겹침 비율 임계값
-
-    Returns:
-        겹침 여부
-    """
-    x0 = max(bbox1[0], bbox2[0])
-    y0 = max(bbox1[1], bbox2[1])
-    x1 = min(bbox1[2], bbox2[2])
-    y1 = min(bbox1[3], bbox2[3])
-
-    if x1 <= x0 or y1 <= y0:
-        return False
-
-    overlap_area = (x1 - x0) * (y1 - y0)
-    bbox1_area = (bbox1[2] - bbox1[0]) * (bbox1[3] - bbox1[1])
-    bbox2_area = (bbox2[2] - bbox2[0]) * (bbox2[3] - bbox2[1])
-
-    min_area = min(bbox1_area, bbox2_area)
-    if min_area <= 0:
-        return False
-
-    return overlap_area / min_area >= threshold
-
-
 # ============================================================================
-# 이미지 위치 찾기
+# Image Position Detection
 # ============================================================================
 
 def find_image_position(page, xref: int) -> Optional[Tuple[float, float, float, float]]:
     """
-    이미지의 페이지 내 위치를 찾습니다.
+    Find the position of an image within a page.
 
     Args:
-        page: PyMuPDF 페이지 객체
-        xref: 이미지 xref
+        page: PyMuPDF page object
+        xref: Image xref
 
     Returns:
-        bbox 또는 None
+        Bounding box or None
     """
     try:
         image_list = page.get_image_info(xrefs=True)
@@ -288,18 +237,18 @@ def find_image_position(page, xref: int) -> Optional[Tuple[float, float, float, 
 
 
 # ============================================================================
-# 텍스트 라인 추출
+# Text Line Extraction
 # ============================================================================
 
 def get_text_lines_with_positions(page) -> List[Dict]:
     """
-    페이지에서 텍스트 라인과 위치 정보를 추출합니다.
+    Extract text lines and position information from a page.
 
     Args:
-        page: PyMuPDF 페이지 객체
+        page: PyMuPDF page object
 
     Returns:
-        텍스트 라인 정보 목록
+        List of text line information
     """
     lines = []
     page_dict = page.get_text("dict", sort=True)

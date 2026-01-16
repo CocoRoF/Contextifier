@@ -1,7 +1,7 @@
 """
 PDF Handler Types and Configuration
 
-PDF 엔진에서 사용하는 모든 데이터 클래스와 설정값을 정의합니다.
+Defines all data classes and configuration values used by the PDF engine.
 """
 
 from dataclasses import dataclass, field
@@ -14,22 +14,22 @@ from typing import Optional, List, Dict, Tuple, Any
 # ============================================================================
 
 class LineThickness(Enum):
-    """선 두께 분류"""
-    THIN = auto()      # 테이블 내부선 (0.3-0.5pt)
-    NORMAL = auto()    # 일반 테두리 (0.5-1.5pt)
-    THICK = auto()     # 강조/헤더 구분선 (1.5pt+)
+    """Line thickness classification"""
+    THIN = auto()      # Table inner lines (0.3-0.5pt)
+    NORMAL = auto()    # Regular borders (0.5-1.5pt)
+    THICK = auto()     # Emphasis/header divider lines (1.5pt+)
 
 
 class TableDetectionStrategy(Enum):
-    """테이블 감지 전략"""
-    PYMUPDF_NATIVE = auto()        # PyMuPDF 내장 테이블 감지
-    PDFPLUMBER_LINES = auto()      # pdfplumber 선 기반 감지
-    HYBRID_ANALYSIS = auto()       # 선 분석 기반 하이브리드
-    BORDERLESS_HEURISTIC = auto()  # 선 없는 테이블 휴리스틱
+    """Table detection strategy"""
+    PYMUPDF_NATIVE = auto()        # PyMuPDF built-in table detection
+    PDFPLUMBER_LINES = auto()      # pdfplumber line-based detection
+    HYBRID_ANALYSIS = auto()       # Line analysis-based hybrid
+    BORDERLESS_HEURISTIC = auto()  # Borderless table heuristic
 
 
 class ElementType(Enum):
-    """페이지 요소 유형"""
+    """Page element type"""
     TEXT = "text"
     TABLE = "table"
     IMAGE = "image"
@@ -41,52 +41,52 @@ class ElementType(Enum):
 # ============================================================================
 
 class PDFConfig:
-    """PDF 엔진 설정 상수"""
+    """PDF engine configuration constants"""
     
-    # 선 두께 임계값 (pt)
+    # Line thickness thresholds (pt)
     THIN_LINE_MAX = 0.5
     NORMAL_LINE_MAX = 1.5
     
-    # 테이블 감지 설정
+    # Table detection settings
     MIN_TABLE_ROWS = 2
     MIN_TABLE_COLS = 2
-    TABLE_MERGE_TOLERANCE = 5.0  # 테이블 병합 허용 오차 (pt)
+    TABLE_MERGE_TOLERANCE = 5.0  # Table merge tolerance (pt)
     
-    # 이중선 병합 설정
-    DOUBLE_LINE_TOLERANCE = 3.0  # 이중선 판단 거리 (pt)
+    # Double line merge settings
+    DOUBLE_LINE_TOLERANCE = 3.0  # Double line detection distance (pt)
     
-    # 셀 분석 설정
+    # Cell analysis settings
     CELL_PADDING = 2.0
     MIN_CELL_WIDTH = 10.0
     MIN_CELL_HEIGHT = 8.0
     
-    # 텍스트 추출 설정
+    # Text extraction settings
     TEXT_BLOCK_TOLERANCE = 3.0
     
-    # 신뢰도 임계값
+    # Confidence threshold
     CONFIDENCE_THRESHOLD = 0.5
     
-    # 페이지 테두리 감지 설정
-    BORDER_MARGIN = 30.0        # 페이지 가장자리로부터의 최대 거리
-    BORDER_LENGTH_RATIO = 0.8   # 페이지 크기 대비 최소 테두리 길이 비율
+    # Page border detection settings
+    BORDER_MARGIN = 30.0        # Maximum distance from page edge
+    BORDER_LENGTH_RATIO = 0.8   # Minimum border length ratio relative to page size
     
-    # 그래픽 영역 감지 설정
-    GRAPHIC_CURVE_RATIO_THRESHOLD = 0.3   # 곡선 비율 임계값
-    GRAPHIC_MIN_CURVE_COUNT = 10          # 최소 곡선 개수
-    GRAPHIC_FILL_RATIO_THRESHOLD = 0.2    # 채우기 비율 임계값
-    GRAPHIC_COLOR_VARIETY_THRESHOLD = 3   # 색상 다양성 임계값
+    # Graphic region detection settings
+    GRAPHIC_CURVE_RATIO_THRESHOLD = 0.3   # Curve ratio threshold
+    GRAPHIC_MIN_CURVE_COUNT = 10          # Minimum curve count
+    GRAPHIC_FILL_RATIO_THRESHOLD = 0.2    # Fill ratio threshold
+    GRAPHIC_COLOR_VARIETY_THRESHOLD = 3   # Color variety threshold
     
-    # 테이블 품질 검증 설정
-    TABLE_MIN_FILLED_CELL_RATIO = 0.15    # 최소 채워진 셀 비율
-    TABLE_MAX_EMPTY_ROW_RATIO = 0.7       # 최대 빈 행 비율
-    TABLE_MIN_MEANINGFUL_CELLS = 2        # 최소 의미있는 셀 수
-    TABLE_MIN_VALID_ROWS = 2              # 최소 유효 행 수
-    TABLE_MIN_TEXT_DENSITY = 0.005        # 최소 텍스트 밀도
+    # Table quality validation settings
+    TABLE_MIN_FILLED_CELL_RATIO = 0.15    # Minimum filled cell ratio
+    TABLE_MAX_EMPTY_ROW_RATIO = 0.7       # Maximum empty row ratio
+    TABLE_MIN_MEANINGFUL_CELLS = 2        # Minimum meaningful cell count
+    TABLE_MIN_VALID_ROWS = 2              # Minimum valid row count
+    TABLE_MIN_TEXT_DENSITY = 0.005        # Minimum text density
     
-    # 셀 텍스트 길이 설정
-    TABLE_MAX_CELL_TEXT_LENGTH = 300      # 셀당 최대 텍스트 길이
-    TABLE_EXTREME_CELL_LENGTH = 800       # 극단적으로 긴 셀
-    TABLE_MAX_LONG_CELLS_RATIO = 0.4      # 긴 셀 최대 비율
+    # Cell text length settings
+    TABLE_MAX_CELL_TEXT_LENGTH = 300      # Maximum text length per cell
+    TABLE_EXTREME_CELL_LENGTH = 800       # Extremely long cell threshold
+    TABLE_MAX_LONG_CELLS_RATIO = 0.4      # Maximum long cell ratio
 
 
 # ============================================================================
@@ -95,7 +95,7 @@ class PDFConfig:
 
 @dataclass
 class LineInfo:
-    """선 정보"""
+    """Line information"""
     x0: float
     y0: float
     x1: float
@@ -107,40 +107,40 @@ class LineInfo:
     
     @property
     def length(self) -> float:
-        """선 길이"""
+        """Line length"""
         import math
         return math.sqrt((self.x1 - self.x0) ** 2 + (self.y1 - self.y0) ** 2)
     
     @property
     def midpoint(self) -> Tuple[float, float]:
-        """중점"""
+        """Midpoint"""
         return ((self.x0 + self.x1) / 2, (self.y0 + self.y1) / 2)
 
 
 @dataclass 
 class GridInfo:
-    """그리드 정보"""
-    h_lines: List[float] = field(default_factory=list)  # Y 좌표
-    v_lines: List[float] = field(default_factory=list)  # X 좌표
+    """Grid information"""
+    h_lines: List[float] = field(default_factory=list)  # Y coordinates
+    v_lines: List[float] = field(default_factory=list)  # X coordinates
     cells: List['CellInfo'] = field(default_factory=list)
     bbox: Tuple[float, float, float, float] = (0, 0, 0, 0)
-    is_complete: bool = False  # 완전한 테두리 여부
-    reconstructed: bool = False  # 복구된 테두리 여부
+    is_complete: bool = False  # Whether border is complete
+    reconstructed: bool = False  # Whether border was reconstructed
     
     @property
     def row_count(self) -> int:
-        """행 수 (가로선 사이의 영역 수)"""
+        """Row count (number of regions between horizontal lines)"""
         return max(0, len(self.h_lines) - 1)
     
     @property
     def col_count(self) -> int:
-        """열 수 (세로선 사이의 영역 수)"""
+        """Column count (number of regions between vertical lines)"""
         return max(0, len(self.v_lines) - 1)
 
 
 @dataclass
 class CellInfo:
-    """셀 정보"""
+    """Cell information"""
     row: int
     col: int
     bbox: Tuple[float, float, float, float]
@@ -153,7 +153,7 @@ class CellInfo:
 
 @dataclass
 class AnnotationInfo:
-    """주석 정보"""
+    """Annotation information"""
     type: str
     bbox: Tuple[float, float, float, float]
     content: str = ""
@@ -167,15 +167,15 @@ class AnnotationInfo:
 @dataclass
 class VectorTextRegion:
     """
-    벡터 텍스트(Outlined/Path Text) 영역 정보
+    Vector text (Outlined/Path Text) region information
     """
     bbox: Tuple[float, float, float, float]
-    drawing_count: int              # 포함된 드로잉 수
-    curve_count: int                # 곡선 수 (c 아이템)
-    fill_count: int                 # 채워진 경로 수
-    ocr_text: str = ""              # OCR 결과
-    confidence: float = 0.0         # 신뢰도
-    is_vector_text: bool = False    # 벡터 텍스트 여부
+    drawing_count: int              # Number of drawings contained
+    curve_count: int                # Curve count (c items)
+    fill_count: int                 # Filled path count
+    ocr_text: str = ""              # OCR result
+    confidence: float = 0.0         # Confidence score
+    is_vector_text: bool = False    # Whether this is vector text
 
 
 # ============================================================================
@@ -185,17 +185,17 @@ class VectorTextRegion:
 @dataclass
 class GraphicRegionInfo:
     """
-    그래픽 영역 정보 (차트, 다이어그램, 아이콘 등)
+    Graphic region information (charts, diagrams, icons, etc.)
     """
     bbox: Tuple[float, float, float, float]
-    curve_count: int = 0            # 곡선 수
-    line_count: int = 0             # 직선 수
-    rect_count: int = 0             # 사각형 수
-    fill_count: int = 0             # 채워진 도형 수
-    color_count: int = 0            # 사용된 색상 수
-    is_graphic: bool = False        # 그래픽 영역 여부
-    confidence: float = 0.0         # 신뢰도
-    reason: str = ""                # 판단 근거
+    curve_count: int = 0            # Curve count
+    line_count: int = 0             # Straight line count
+    rect_count: int = 0             # Rectangle count
+    fill_count: int = 0             # Filled shape count
+    color_count: int = 0            # Number of colors used
+    is_graphic: bool = False        # Whether this is a graphic region
+    confidence: float = 0.0         # Confidence score
+    reason: str = ""                # Reasoning for determination
 
 
 # ============================================================================
@@ -204,29 +204,29 @@ class GraphicRegionInfo:
 
 @dataclass
 class TableCandidate:
-    """테이블 후보"""
+    """Table candidate"""
     strategy: TableDetectionStrategy
     confidence: float
     bbox: Tuple[float, float, float, float]
     grid: Optional[GridInfo] = None
     cells: List['CellInfo'] = field(default_factory=list)
     data: List[List[Optional[str]]] = field(default_factory=list)
-    raw_table: Any = None  # 원본 테이블 객체
+    raw_table: Any = None  # Original table object
     
     @property
     def row_count(self) -> int:
-        """행 수"""
+        """Row count"""
         return len(self.data)
     
     @property
     def col_count(self) -> int:
-        """열 수"""
+        """Column count"""
         return max(len(row) for row in self.data) if self.data else 0
 
 
 @dataclass
 class PageElement:
-    """페이지 요소"""
+    """Page element"""
     element_type: ElementType
     content: str
     bbox: Tuple[float, float, float, float]
@@ -240,7 +240,7 @@ class PageElement:
 
 @dataclass
 class PageBorderInfo:
-    """페이지 테두리 정보"""
+    """Page border information"""
     has_border: bool = False
     border_bbox: Optional[Tuple[float, float, float, float]] = None
     border_lines: Dict[str, bool] = field(default_factory=lambda: {

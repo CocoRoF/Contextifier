@@ -1,10 +1,10 @@
 """
 Line Analysis Engine for PDF Handler
 
-PDF의 drawings에서 선을 추출하고 분석합니다.
-- 얇은 선 감지
-- 이중선 병합
-- 불완전 테두리 복구
+Extracts and analyzes lines from PDF drawings.
+- Thin line detection
+- Double line merging
+- Incomplete border reconstruction
 """
 
 import logging
@@ -24,15 +24,15 @@ logger = logging.getLogger(__name__)
 
 class LineAnalysisEngine:
     """
-    선 분석 엔진
+    Line Analysis Engine
     
-    PDF의 drawings에서 선을 추출하고 분석합니다.
-    - 얇은 선 감지
-    - 이중선 병합
-    - 불완전 테두리 복구
+    Extracts and analyzes lines from PDF drawings.
+    - Thin line detection
+    - Double line merging
+    - Incomplete border reconstruction
     """
     
-    # 설정 상수 (PDFConfig에서 가져오거나 기본값 사용)
+    # Configuration constants (from PDFConfig or default values)
     THIN_LINE_THRESHOLD = getattr(PDFConfig, 'THIN_LINE_THRESHOLD', 0.5)
     THICK_LINE_THRESHOLD = getattr(PDFConfig, 'THICK_LINE_THRESHOLD', 2.0)
     DOUBLE_LINE_GAP = getattr(PDFConfig, 'DOUBLE_LINE_GAP', 5.0)
@@ -42,23 +42,23 @@ class LineAnalysisEngine:
     def __init__(self, page, page_width: float, page_height: float):
         """
         Args:
-            page: PyMuPDF page 객체
-            page_width: 페이지 너비
-            page_height: 페이지 높이
+            page: PyMuPDF page object
+            page_width: Page width
+            page_height: Page height
         """
         self.page = page
         self.page_width = page_width
         self.page_height = page_height
         self.all_lines: List[LineInfo] = []
-        self.h_lines: List[LineInfo] = []  # 가로선
-        self.v_lines: List[LineInfo] = []  # 세로선
+        self.h_lines: List[LineInfo] = []  # Horizontal lines
+        self.v_lines: List[LineInfo] = []  # Vertical lines
         
     def analyze(self) -> Tuple[List[LineInfo], List[LineInfo]]:
         """
-        선 분석 수행
+        Perform line analysis
         
         Returns:
-            (가로선 목록, 세로선 목록) 튜플
+            Tuple of (horizontal lines list, vertical lines list)
         """
         self._extract_all_lines()
         self._classify_lines()
@@ -66,40 +66,40 @@ class LineAnalysisEngine:
         return self.h_lines, self.v_lines
     
     def _extract_all_lines(self):
-        """모든 선 추출"""
+        """Extract all lines"""
         drawings = self.page.get_drawings()
         if not drawings:
             return
         
         for drawing in drawings:
-            # 선 정보 추출
+            # Extract line information
             items = drawing.get('items', [])
             rect = drawing.get('rect')
             
             if not rect:
                 continue
             
-            # rect 기반 선 분석
+            # Rect-based line analysis
             x0, y0, x1, y1 = rect.x0, rect.y0, rect.x1, rect.y1
             w = abs(x1 - x0)
             h = abs(y1 - y0)
             
-            # 선 두께 추정
+            # Estimate line thickness
             stroke_width = drawing.get('width', 1.0) or 1.0
             
-            # 선인지 판단 (가로선 또는 세로선)
+            # Determine if it's a line (horizontal or vertical)
             is_h_line = h <= max(3.0, stroke_width * 2) and w > 10
             is_v_line = w <= max(3.0, stroke_width * 2) and h > 10
             
             if not (is_h_line or is_v_line):
-                # items에서 'l' (line) 추출 시도
+                # Try to extract 'l' (line) from items
                 for item in items:
                     if item[0] == 'l':  # line
                         p1, p2 = item[1], item[2]
                         self._add_line_from_points(p1, p2, stroke_width)
                 continue
             
-            # 두께 분류
+            # Classify thickness
             thickness_class = self._classify_thickness(stroke_width)
             
             line_info = LineInfo(
@@ -116,14 +116,14 @@ class LineAnalysisEngine:
             self.all_lines.append(line_info)
     
     def _add_line_from_points(self, p1, p2, stroke_width: float):
-        """두 점에서 선 생성"""
+        """Create a line from two points"""
         x0, y0 = p1.x, p1.y
         x1, y1 = p2.x, p2.y
         
         dx = abs(x1 - x0)
         dy = abs(y1 - y0)
         
-        # 선 방향 판단 (허용 오차 내에서)
+        # Determine line direction (within tolerance)
         is_horizontal = dy < 3 and dx > 10
         is_vertical = dx < 3 and dy > 10
         
@@ -146,7 +146,7 @@ class LineAnalysisEngine:
         self.all_lines.append(line_info)
     
     def _classify_thickness(self, thickness: float) -> LineThickness:
-        """선 두께 분류"""
+        """Classify line thickness"""
         if thickness < self.THIN_LINE_THRESHOLD:
             return LineThickness.THIN
         elif thickness > self.THICK_LINE_THRESHOLD:
@@ -154,7 +154,7 @@ class LineAnalysisEngine:
         return LineThickness.NORMAL
     
     def _classify_lines(self):
-        """가로선/세로선 분류"""
+        """Classify horizontal/vertical lines"""
         for line in self.all_lines:
             if line.is_horizontal:
                 self.h_lines.append(line)
@@ -162,21 +162,21 @@ class LineAnalysisEngine:
                 self.v_lines.append(line)
     
     def _merge_double_lines(self):
-        """이중선 병합"""
-        # 가로선 병합
+        """Merge double lines"""
+        # Merge horizontal lines
         self.h_lines = self._merge_parallel_lines(self.h_lines, is_horizontal=True)
-        # 세로선 병합
+        # Merge vertical lines
         self.v_lines = self._merge_parallel_lines(self.v_lines, is_horizontal=False)
     
     def _merge_parallel_lines(self, lines: List[LineInfo], is_horizontal: bool) -> List[LineInfo]:
-        """평행한 이중선 병합"""
+        """Merge parallel double lines"""
         if len(lines) < 2:
             return lines
         
         merged = []
         used = set()
         
-        # 위치로 정렬
+        # Sort by position
         if is_horizontal:
             sorted_lines = sorted(lines, key=lambda l: (l.y0, l.x0))
         else:
@@ -194,9 +194,9 @@ class LineAnalysisEngine:
                 
                 line2 = sorted_lines[j]
                 
-                # 이중선 판단
+                # Check if double line
                 if self._is_double_line(line1, line2, is_horizontal):
-                    # 두 선을 병합 (중간 위치, 최대 범위)
+                    # Merge two lines (middle position, maximum range)
                     merged_line = self._merge_two_lines(merged_line, line2, is_horizontal)
                     used.add(j)
             
@@ -206,36 +206,36 @@ class LineAnalysisEngine:
         return merged
     
     def _is_double_line(self, line1: LineInfo, line2: LineInfo, is_horizontal: bool) -> bool:
-        """두 선이 이중선인지 판단"""
+        """Determine if two lines form a double line"""
         if is_horizontal:
-            # Y 좌표 차이가 작고 X 범위가 겹치면 이중선
+            # Double line if Y coordinate difference is small and X ranges overlap
             y_gap = abs(line1.y0 - line2.y0)
             if y_gap > self.DOUBLE_LINE_GAP:
                 return False
             
-            # X 범위 겹침 확인
+            # Check X range overlap
             x_overlap = min(line1.x1, line2.x1) - max(line1.x0, line2.x0)
             min_length = min(self._get_line_length(line1), self._get_line_length(line2))
             return x_overlap > min_length * 0.5
         else:
-            # X 좌표 차이가 작고 Y 범위가 겹치면 이중선
+            # Double line if X coordinate difference is small and Y ranges overlap
             x_gap = abs(line1.x0 - line2.x0)
             if x_gap > self.DOUBLE_LINE_GAP:
                 return False
             
-            # Y 범위 겹침 확인
+            # Check Y range overlap
             y_overlap = min(line1.y1, line2.y1) - max(line1.y0, line2.y0)
             min_length = min(self._get_line_length(line1), self._get_line_length(line2))
             return y_overlap > min_length * 0.5
     
     def _get_line_length(self, line: LineInfo) -> float:
-        """선 길이 계산"""
+        """Calculate line length"""
         return math.sqrt((line.x1 - line.x0) ** 2 + (line.y1 - line.y0) ** 2)
     
     def _merge_two_lines(self, line1: LineInfo, line2: LineInfo, is_horizontal: bool) -> LineInfo:
-        """두 선 병합"""
+        """Merge two lines"""
         if is_horizontal:
-            # 중간 Y, 최대 X 범위
+            # Middle Y, maximum X range
             avg_y = (line1.y0 + line2.y0) / 2
             return LineInfo(
                 x0=min(line1.x0, line2.x0),
@@ -248,7 +248,7 @@ class LineAnalysisEngine:
                 is_vertical=False
             )
         else:
-            # 중간 X, 최대 Y 범위
+            # Middle X, maximum Y range
             avg_x = (line1.x0 + line2.x0) / 2
             return LineInfo(
                 x0=avg_x,
@@ -263,15 +263,15 @@ class LineAnalysisEngine:
     
     def build_grid(self, tolerance: float = None) -> Optional[GridInfo]:
         """
-        선들로부터 그리드 구성
+        Build grid from lines
         
-        불완전한 테두리를 복구하고 그리드 구조를 반환합니다.
+        Reconstructs incomplete borders and returns grid structure.
         
         Args:
-            tolerance: 위치 클러스터링 허용 오차
+            tolerance: Position clustering tolerance
             
         Returns:
-            GridInfo 또는 None
+            GridInfo or None
         """
         if tolerance is None:
             tolerance = self.LINE_MERGE_TOLERANCE
@@ -279,13 +279,13 @@ class LineAnalysisEngine:
         if not self.h_lines and not self.v_lines:
             return None
         
-        # Y 좌표 수집 (가로선)
+        # Collect Y coordinates (horizontal lines)
         h_positions = self._cluster_positions(
             [line.y0 for line in self.h_lines],
             tolerance
         )
         
-        # X 좌표 수집 (세로선)
+        # Collect X coordinates (vertical lines)
         v_positions = self._cluster_positions(
             [line.x0 for line in self.v_lines],
             tolerance
@@ -294,13 +294,13 @@ class LineAnalysisEngine:
         if len(h_positions) < 2 or len(v_positions) < 2:
             return None
         
-        # bbox 계산
+        # Calculate bbox
         x0 = min(v_positions)
         y0 = min(h_positions)
         x1 = max(v_positions)
         y1 = max(h_positions)
         
-        # 테두리 완전성 확인
+        # Check border completeness
         is_complete = self._check_border_completeness(h_positions, v_positions)
         
         return GridInfo(
@@ -312,7 +312,7 @@ class LineAnalysisEngine:
         )
     
     def _cluster_positions(self, positions: List[float], tolerance: float) -> List[float]:
-        """유사한 위치를 클러스터링"""
+        """Cluster similar positions"""
         if not positions:
             return []
         
@@ -325,22 +325,22 @@ class LineAnalysisEngine:
             else:
                 clusters.append([pos])
         
-        # 각 클러스터의 중앙값 반환
+        # Return the mean value of each cluster
         return [sum(c) / len(c) for c in clusters]
     
     def _check_border_completeness(self, h_positions: List[float], v_positions: List[float]) -> bool:
-        """테두리 완전성 확인"""
+        """Check border completeness"""
         if len(h_positions) < 2 or len(v_positions) < 2:
             return False
         
         y_min, y_max = min(h_positions), max(h_positions)
         x_min, x_max = min(v_positions), max(v_positions)
         
-        # 상단/하단에 충분한 가로선이 있는지
+        # Check if there are enough horizontal lines at top/bottom
         has_top = any(line.y0 <= y_min + self.LINE_MERGE_TOLERANCE for line in self.h_lines)
         has_bottom = any(line.y0 >= y_max - self.LINE_MERGE_TOLERANCE for line in self.h_lines)
         
-        # 좌측/우측에 충분한 세로선이 있는지
+        # Check if there are enough vertical lines at left/right
         has_left = any(line.x0 <= x_min + self.LINE_MERGE_TOLERANCE for line in self.v_lines)
         has_right = any(line.x0 >= x_max - self.LINE_MERGE_TOLERANCE for line in self.v_lines)
         
@@ -348,15 +348,15 @@ class LineAnalysisEngine:
     
     def reconstruct_incomplete_border(self, grid: GridInfo) -> GridInfo:
         """
-        불완전한 테두리 복구
+        Reconstruct incomplete border
         
-        3면 이상 존재할 경우 4면으로 완성합니다.
+        Completes to 4 sides if 3 or more sides exist.
         
         Args:
-            grid: 기존 GridInfo
+            grid: Existing GridInfo
             
         Returns:
-            복구된 GridInfo
+            Reconstructed GridInfo
         """
         if grid.is_complete:
             return grid
@@ -369,26 +369,26 @@ class LineAnalysisEngine:
         
         reconstructed = False
         
-        # 상단 가로선 확인/추가
+        # Check/add top horizontal line
         has_top = any(abs(y - y_min) < self.LINE_MERGE_TOLERANCE for y in h_lines)
         if not has_top and len(h_lines) >= 2:
-            # 상단 경계 추정
+            # Estimate top border
             h_lines.insert(0, y_min - self.BORDER_EXTENSION_MARGIN)
             reconstructed = True
         
-        # 하단 가로선 확인/추가
+        # Check/add bottom horizontal line
         has_bottom = any(abs(y - y_max) < self.LINE_MERGE_TOLERANCE for y in h_lines)
         if not has_bottom and len(h_lines) >= 2:
             h_lines.append(y_max + self.BORDER_EXTENSION_MARGIN)
             reconstructed = True
         
-        # 좌측 세로선 확인/추가
+        # Check/add left vertical line
         has_left = any(abs(x - x_min) < self.LINE_MERGE_TOLERANCE for x in v_lines)
         if not has_left and len(v_lines) >= 2:
             v_lines.insert(0, x_min - self.BORDER_EXTENSION_MARGIN)
             reconstructed = True
         
-        # 우측 세로선 확인/추가
+        # Check/add right vertical line
         has_right = any(abs(x - x_max) < self.LINE_MERGE_TOLERANCE for x in v_lines)
         if not has_right and len(v_lines) >= 2:
             v_lines.append(x_max + self.BORDER_EXTENSION_MARGIN)

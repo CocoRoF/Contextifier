@@ -1,9 +1,9 @@
 """
 Table Detection Engine for PDF Handler
 
-다중 전략을 사용하여 테이블을 감지하고 최선의 결과를 선택합니다.
-그래픽 영역 제외 및 가짜 테이블 필터링 기능 포함.
-셀 추출 정확도 개선.
+Detects tables using multiple strategies and selects the best results.
+Includes graphic region exclusion and fake table filtering capabilities.
+Improved cell extraction accuracy.
 """
 
 import logging
@@ -32,20 +32,21 @@ logger = logging.getLogger(__name__)
 
 class TableDetectionEngine:
     """
-    테이블 감지 엔진 
+    Table Detection Engine
 
-    다중 전략을 사용하여 테이블을 감지하고 최선의 결과를 선택합니다.
+    Detects tables using multiple strategies and selects the best results.
 
-        - GraphicRegionDetector 통합으로 벡터 그래픽 영역 제외
-    - TableQualityValidator 통합으로 가짜 테이블 필터링
+    Features:
+        - GraphicRegionDetector integration to exclude vector graphic regions
+        - TableQualityValidator integration to filter fake tables
 
-    지원 전략:
-    1. PyMuPDF find_tables() - 가장 정확, 우선 사용
-    2. pdfplumber - 선 기반 감지
-    3. Line-based - 직접 선 분석
+    Supported Strategies:
+        1. PyMuPDF find_tables() - Most accurate, preferred
+        2. pdfplumber - Line-based detection
+        3. Line-based - Direct line analysis
     """
 
-    # 설정 상수
+    # Configuration constants
     CONFIDENCE_THRESHOLD = getattr(PDFConfig, 'CONFIDENCE_THRESHOLD', 0.5)
     MIN_TABLE_ROWS = getattr(PDFConfig, 'MIN_TABLE_ROWS', 2)
     MIN_TABLE_COLS = getattr(PDFConfig, 'MIN_TABLE_COLS', 2)
@@ -53,9 +54,9 @@ class TableDetectionEngine:
     def __init__(self, page, page_num: int, file_path: str):
         """
         Args:
-            page: PyMuPDF page 객체
-            page_num: 페이지 번호 (0-indexed)
-            file_path: PDF 파일 경로
+            page: PyMuPDF page object
+            page_num: Page number (0-indexed)
+            file_path: PDF file path
         """
         self.page = page
         self.page_num = page_num
@@ -63,30 +64,30 @@ class TableDetectionEngine:
         self.page_width = page.rect.width
         self.page_height = page.rect.height
 
-        # 선 분석 엔진
+        # Line analysis engine
         self.line_engine = LineAnalysisEngine(page, self.page_width, self.page_height)
         self.h_lines, self.v_lines = self.line_engine.analyze()
 
-        # 그래픽 영역 감지기
+        # Graphic region detector
         self.graphic_detector = GraphicRegionDetector(page, page_num)
         self.graphic_regions = self.graphic_detector.detect()
 
-        # 테이블 품질 검증기
+        # Table quality validator
         self.quality_validator = TableQualityValidator(page, self.graphic_detector)
 
     def detect_tables(self) -> List[TableCandidate]:
         """
-        모든 전략을 사용하여 테이블 감지
+        Detect tables using all strategies.
 
         Returns:
-            신뢰도 순으로 정렬된 테이블 후보 목록
+            List of table candidates sorted by confidence.
         """
         candidates: List[TableCandidate] = []
 
         # Strategy 1: PyMuPDF
         pymupdf_candidates = self._detect_with_pymupdf()
 
-        # 인접 헤더-데이터 테이블 사전 병합 (검증 전)
+        # Pre-merge adjacent header-data tables (before validation)
         pymupdf_candidates = self._merge_header_data_tables(pymupdf_candidates)
         candidates.extend(pymupdf_candidates)
 
@@ -96,14 +97,14 @@ class TableDetectionEngine:
         candidates.extend(pdfplumber_candidates)
 
         # Strategy 3: Line-based (HYBRID_ANALYSIS)
-        # PyMuPDF와 pdfplumber가 테이블을 찾지 못한 경우에만 사용
-        # 또는 찾았더라도 추가로 사용하되, 더 엄격한 검증 적용
+        # Used only when PyMuPDF and pdfplumber don't find tables
+        # Or used additionally with stricter validation
         line_candidates = self._detect_with_lines()
 
-        # HYBRID 결과에 대한 교차 검증 강화
+        # Enhanced cross-validation for HYBRID results
         if line_candidates and not pymupdf_candidates:
-            # PyMuPDF가 테이블을 찾지 못했는데 HYBRID가 찾은 경우
-            # 더 높은 신뢰도 임계값 적용 (0.65 이상)
+            # When PyMuPDF didn't find tables but HYBRID did
+            # Apply higher confidence threshold (0.65 or above)
             line_candidates = [
                 c for c in line_candidates
                 if c.confidence >= 0.65
@@ -113,28 +114,28 @@ class TableDetectionEngine:
 
         candidates.extend(line_candidates)
 
-        # 품질 검증을 통한 가짜 테이블 필터링
+        # Filter fake tables through quality validation
         validated_candidates = self._validate_candidates(candidates)
 
-        # 신뢰도 기반 최선의 후보 선택
+        # Select best candidates based on confidence
         selected = self._select_best_candidates(validated_candidates)
 
         return selected
 
     def _merge_header_data_tables(self, candidates: List[TableCandidate]) -> List[TableCandidate]:
         """
-        인접한 헤더-데이터 테이블을 병합합니다.
+        Merge adjacent header-data tables.
 
-        조건:
-        1. 첫 번째 테이블이 1-2행 (헤더로 추정)
-        2. 두 번째 테이블이 바로 아래에 있음 (Y gap < 30pt)
-        3. X 범위가 유사함 (80% 이상 겹침)
-        4. 열 수 관계: 헤더 열 수 <= 데이터 열 수
+        Conditions:
+            1. First table has 1-2 rows (assumed to be header)
+            2. Second table is directly below (Y gap < 30pt)
+            3. X range is similar (80% or more overlap)
+            4. Column count relationship: header columns <= data columns
         """
         if len(candidates) < 2:
             return candidates
 
-        # Y 위치로 정렬
+        # Sort by Y position
         sorted_candidates = sorted(candidates, key=lambda c: c.bbox[1])
         merged = []
         skip_indices = set()
@@ -143,12 +144,12 @@ class TableDetectionEngine:
             if i in skip_indices:
                 continue
 
-            # 헤더 후보 조건 확인 (1-2행)
+            # Check header candidate condition (1-2 rows)
             if len(header_cand.data) > 2:
                 merged.append(header_cand)
                 continue
 
-            # 다음 테이블과 병합 가능한지 확인
+            # Check if can merge with next table
             merged_cand = header_cand
             for j in range(i + 1, len(sorted_candidates)):
                 if j in skip_indices:
@@ -170,13 +171,13 @@ class TableDetectionEngine:
         return merged
 
     def _can_merge_header_data(self, header: TableCandidate, data: TableCandidate) -> bool:
-        """헤더와 데이터 테이블이 병합 가능한지 판단"""
-        # Y gap 확인
+        """Determine if header and data tables can be merged."""
+        # Check Y gap
         y_gap = data.bbox[1] - header.bbox[3]
-        if y_gap < -5 or y_gap > 40:  # 약간의 겹침 허용, 최대 40pt 간격
+        if y_gap < -5 or y_gap > 40:  # Allow slight overlap, max 40pt gap
             return False
 
-        # X 범위 겹침 확인
+        # Check X range overlap
         x_overlap_start = max(header.bbox[0], data.bbox[0])
         x_overlap_end = min(header.bbox[2], data.bbox[2])
         x_overlap = max(0, x_overlap_end - x_overlap_start)
@@ -188,19 +189,19 @@ class TableDetectionEngine:
         if max_width > 0 and x_overlap / max_width < 0.7:
             return False
 
-        # 열 수 관계 확인
+        # Check column count relationship
         header_cols = max(len(row) for row in header.data) if header.data else 0
         data_cols = max(len(row) for row in data.data) if data.data else 0
 
-        # 헤더 열 수가 데이터 열 수보다 많으면 병합하지 않음
+        # Don't merge if header has more columns than data
         if header_cols > data_cols + 1:
             return False
 
         return True
 
     def _do_merge_header_data(self, header: TableCandidate, data: TableCandidate) -> TableCandidate:
-        """헤더와 데이터 테이블 병합 수행 (서브헤더 감지 포함)"""
-        # 새 bbox
+        """Perform header and data table merge (includes subheader detection)."""
+        # New bbox
         merged_bbox = (
             min(header.bbox[0], data.bbox[0]),
             header.bbox[1],
@@ -208,28 +209,28 @@ class TableDetectionEngine:
             data.bbox[3]
         )
 
-        # 열 수 결정
+        # Determine column count
         header_cols = max(len(row) for row in header.data) if header.data else 0
         data_cols = max(len(row) for row in data.data) if data.data else 0
         merged_cols = max(header_cols, data_cols)
 
-        # 헤더와 데이터 사이의 서브헤더 감지
+        # Detect subheader between header and data
         subheader_row = self._detect_subheader_between(header, data, merged_cols)
 
-        # 데이터 병합
+        # Merge data
         merged_data = []
         merged_cells = []
 
-        # 헤더 행 처리
+        # Process header rows
         for row_idx, row in enumerate(header.data):
             if len(row) < merged_cols:
-                # 헤더의 열이 적으면 colspan 처리
+                # Apply colspan if header has fewer columns
                 adjusted_row = list(row)
                 col_diff = merged_cols - len(row)
 
-                # 두 번째 열(시험결과)에 colspan 적용
+                # Apply colspan to second column
                 if len(row) >= 2 and col_diff > 0:
-                    # colspan 정보 저장
+                    # Store colspan info
                     merged_cells.append({
                         'row': row_idx,
                         'col': 1,
@@ -237,7 +238,7 @@ class TableDetectionEngine:
                         'colspan': 1 + col_diff,
                         'bbox': None
                     })
-                    # 빈 열 추가
+                    # Add empty columns
                     for _ in range(col_diff):
                         adjusted_row.insert(2, '')
                 else:
@@ -247,12 +248,12 @@ class TableDetectionEngine:
             else:
                 merged_data.append(list(row))
 
-        # 서브헤더 행 삽입 (헤더 셀 정보)
+        # Insert subheader row (header cell info)
         header_row_count = len(header.data)
         if subheader_row:
             merged_data.append(subheader_row)
-            # 서브헤더 행에 대한 셀 정보 추가 (각 셀은 colspan=1)
-            subheader_row_idx = header_row_count  # 헤더 다음 행
+            # Add cell info for subheader row (each cell has colspan=1)
+            subheader_row_idx = header_row_count  # Row after header
             for col_idx, cell_value in enumerate(subheader_row):
                 merged_cells.append({
                     'row': subheader_row_idx,
@@ -264,7 +265,7 @@ class TableDetectionEngine:
             header_row_count += 1
             logger.debug(f"[TableDetection] Added subheader row with cell info: {subheader_row}")
 
-        # 헤더 셀 정보
+        # Header cell info
         if header.cells:
             for cell in header.cells:
                 if not any(c['row'] == cell.row and c['col'] == cell.col for c in merged_cells):
@@ -276,7 +277,7 @@ class TableDetectionEngine:
                         'bbox': cell.bbox
                     })
 
-        # 데이터 행 처리
+        # Process data rows
         for row_idx, row in enumerate(data.data):
             if len(row) < merged_cols:
                 adjusted_row = list(row) + [''] * (merged_cols - len(row))
@@ -284,7 +285,7 @@ class TableDetectionEngine:
                 adjusted_row = list(row)
             merged_data.append(adjusted_row)
 
-        # 데이터 셀 정보 (행 offset 적용)
+        # Data cell info (apply row offset)
         if data.cells:
             for cell in data.cells:
                 merged_cells.append({
@@ -295,14 +296,14 @@ class TableDetectionEngine:
                     'bbox': cell.bbox
                 })
 
-        # 셀 정보를 CellInfo 객체로 변환
+        # Convert cell info to CellInfo objects
         cell_objects = [
             CellInfo(
                 row=c['row'],
                 col=c['col'],
                 rowspan=c.get('rowspan', 1),
                 colspan=c.get('colspan', 1),
-                # bbox가 None이거나 없을 경우 기본값 사용
+                # Use default value if bbox is None or missing
                 bbox=c.get('bbox') or (0, 0, 0, 0)
             )
             for c in merged_cells
@@ -321,19 +322,19 @@ class TableDetectionEngine:
     def _detect_subheader_between(self, header: TableCandidate, data: TableCandidate,
                                    num_cols: int) -> Optional[List[str]]:
         """
-        헤더와 데이터 테이블 사이의 서브헤더 행을 감지합니다.
+        Detect subheader row between header and data tables.
 
-        예: (A), (B) 등의 하위 컬럼 헤더
+        Example: Sub-column headers like (A), (B), etc.
         """
         header_bottom = header.bbox[3]
         data_top = data.bbox[1]
 
-        # 헤더와 데이터 사이에 충분한 간격이 있어야 함
+        # Must have sufficient gap between header and data
         gap = data_top - header_bottom
         if gap < 5 or gap > 50:
             return None
 
-        # 페이지에서 해당 영역의 텍스트 추출
+        # Extract text from the region on the page
         page_dict = self.page.get_text("dict", sort=True)
 
         subheader_texts = []
@@ -345,9 +346,9 @@ class TableDetectionEngine:
                 line_bbox = line.get("bbox", (0, 0, 0, 0))
                 line_y = (line_bbox[1] + line_bbox[3]) / 2
 
-                # 헤더와 데이터 사이에 위치하는지 확인
+                # Check if located between header and data
                 if header_bottom - 5 <= line_y <= data_top + 5:
-                    # 테이블 X 범위 내에 있는지 확인
+                    # Check if within table X range
                     if line_bbox[0] >= header.bbox[0] - 10 and line_bbox[2] <= data.bbox[2] + 10:
                         for span in line.get("spans", []):
                             text = span.get("text", "").strip()
@@ -362,12 +363,12 @@ class TableDetectionEngine:
         if not subheader_texts:
             return None
 
-        # 서브헤더 패턴 확인: (A), (B) 등
+        # Check subheader pattern: (A), (B), etc.
         has_subheader_pattern = any('(' in t['text'] and ')' in t['text'] for t in subheader_texts)
         if not has_subheader_pattern:
             return None
 
-        # 서브헤더 행 구성
+        # Construct subheader row
         table_left = min(header.bbox[0], data.bbox[0])
         table_width = max(header.bbox[2], data.bbox[2]) - table_left
         col_width = table_width / num_cols
@@ -383,7 +384,7 @@ class TableDetectionEngine:
             else:
                 subheader_row[col_idx] = item['text']
 
-        # 서브헤더가 유효한지 확인 (최소 하나의 (A), (B) 패턴이 있어야 함)
+        # Validate subheader (must have at least one (A), (B) pattern)
         valid_count = sum(1 for s in subheader_row if '(' in s and ')' in s)
         if valid_count < 1:
             return None
@@ -392,32 +393,32 @@ class TableDetectionEngine:
 
     def _validate_candidates(self, candidates: List[TableCandidate]) -> List[TableCandidate]:
         """
-        테이블 후보들을 품질 검증합니다.
+        Validate table candidates for quality.
 
-        검증 기준:
-        1. 그래픽 영역과 겹치지 않는지 (PyMuPDF 제외 - 텍스트 기반으로 신뢰도 높음)
-        2. 채워진 셀 비율이 충분한지
-        3. 의미 있는 데이터가 있는지
+        Validation criteria:
+            1. Not overlapping with graphic regions (except PyMuPDF - text-based, high reliability)
+            2. Sufficient filled cell ratio
+            3. Has meaningful data
 
-        PyMuPDF 전략으로 감지된 테이블은 그래픽 영역 체크를 건너뜁니다.
-        이유: PyMuPDF는 텍스트 기반으로 테이블을 감지하므로, 배경색이 있는 셀이
-        그래픽으로 오인되는 경우에도 정확하게 테이블을 인식합니다.
+        Tables detected with PyMuPDF strategy skip graphic region check.
+        Reason: PyMuPDF detects tables based on text, so it accurately recognizes
+        tables even when cells with background colors are mistaken as graphics.
         """
         validated = []
 
         for candidate in candidates:
-            # PyMuPDF 전략은 그래픽 영역 체크를 건너뜀
+            # PyMuPDF strategy skips graphic region check
             skip_graphic_check = (candidate.strategy == TableDetectionStrategy.PYMUPDF_NATIVE)
 
             is_valid, new_confidence, reason = self.quality_validator.validate(
                 data=candidate.data,
                 bbox=candidate.bbox,
                 cells_info=candidate.cells,
-                skip_graphic_check=skip_graphic_check  # 새 파라미터
+                skip_graphic_check=skip_graphic_check  # New parameter
             )
 
             if is_valid:
-                # 검증 결과로 신뢰도 조정
+                # Adjust confidence based on validation result
                 adjusted_confidence = min(candidate.confidence, new_confidence)
 
                 validated.append(TableCandidate(
@@ -436,19 +437,19 @@ class TableDetectionEngine:
         return validated
 
     def _detect_with_pymupdf(self) -> List[TableCandidate]:
-        """PyMuPDF find_tables() 사용 (tolerance 설정으로 이중선 문제 해결)"""
+        """Use PyMuPDF find_tables() (tolerance settings to resolve double-line issues)."""
         candidates = []
 
         if not hasattr(self.page, 'find_tables'):
             return candidates
 
         try:
-            # pdf_handler.py와 동일한 tolerance 설정 적용
-            # 이중선/삼중선 테두리로 인한 가짜 열 생성 문제를 해결
-            # snap_tolerance: 근접한 좌표들을 스냅하여 하나로 처리
-            # join_tolerance: 근접한 선들을 하나로 합침
-            # edge_min_length: 짧은 선(테두리 선)을 무시
-            # intersection_tolerance: 교차점 판단 허용 오차
+            # Apply same tolerance settings as pdf_handler.py
+            # Resolves fake column creation due to double/triple line borders
+            # snap_tolerance: Snaps nearby coordinates together
+            # join_tolerance: Joins nearby lines together
+            # edge_min_length: Ignores short lines (border lines)
+            # intersection_tolerance: Intersection detection tolerance
             tabs = self.page.find_tables(
                 snap_tolerance=7,
                 join_tolerance=7,
@@ -463,18 +464,18 @@ class TableDetectionEngine:
                     if not table_data or not any(any(cell for cell in row if cell) for row in table_data):
                         continue
 
-                    # 좁은 열 병합 처리
+                    # Narrow column merge processing
                     merged_data, col_mapping = self._merge_narrow_columns(
                         table_data, table.cells if hasattr(table, 'cells') else None
                     )
 
-                    # 신뢰도 계산 (병합된 데이터로)
+                    # Calculate confidence (with merged data)
                     confidence = self._calculate_pymupdf_confidence(table, merged_data)
 
                     if confidence < self.CONFIDENCE_THRESHOLD:
                         continue
 
-                    # 셀 정보 추출 (col_mapping 적용)
+                    # Extract cell info (apply col_mapping)
                     cells = self._extract_cells_from_pymupdf_with_mapping(table, col_mapping)
 
                     candidates.append(TableCandidate(
@@ -503,44 +504,44 @@ class TableDetectionEngine:
         min_col_width: float = 15.0
     ) -> Tuple[List[List[str]], Dict[int, int]]:
         """
-        좁은 열들을 인접 열과 병합합니다.
+        Merge narrow columns with adjacent columns.
 
-        PDF의 이중선/삼중선 테두리로 인해 생성된 가짜 열들을 제거합니다.
+        Removes fake columns generated by double/triple line borders in PDF.
 
         Args:
-            data: 테이블 데이터
-            cells: PyMuPDF 셀 bbox 리스트
-            min_col_width: 최소 열 너비 (pt)
+            data: Table data
+            cells: PyMuPDF cell bbox list
+            min_col_width: Minimum column width (pt)
 
         Returns:
-            (병합된 데이터, 원본 열 -> 새 열 매핑)
+            (merged data, original column -> new column mapping)
         """
         if not data or not data[0]:
             return data, {}
 
         num_cols = max(len(row) for row in data)
 
-        # 셀 정보가 없으면 텍스트 기반으로 열 분석
+        # Analyze columns based on text if no cell info
         if not cells:
             return self._merge_columns_by_content(data)
 
-        # 열별 너비 계산
+        # Calculate width per column
         col_widths = self._calculate_column_widths(cells, num_cols)
 
-        # 병합할 열 그룹 결정
+        # Determine column groups to merge
         col_groups = self._determine_column_groups(col_widths, min_col_width)
 
         if len(col_groups) == num_cols:
-            # 병합 필요 없음
+            # No merge needed
             return data, {i: i for i in range(num_cols)}
 
-        # 열 매핑 생성
+        # Create column mapping
         col_mapping = {}
         for new_idx, group in enumerate(col_groups):
             for old_idx in group:
                 col_mapping[old_idx] = new_idx
 
-        # 데이터 병합
+        # Merge data
         merged_data = []
         for row in data:
             new_row = [''] * len(col_groups)
@@ -559,22 +560,22 @@ class TableDetectionEngine:
         return merged_data, col_mapping
 
     def _calculate_column_widths(self, cells: List[Tuple], num_cols: int) -> List[float]:
-        """셀 bbox에서 열별 너비 계산"""
+        """Calculate column widths from cell bbox."""
         if not cells:
             return [0.0] * num_cols
 
-        # X 좌표 수집
+        # Collect X coordinates
         x_coords = sorted(set([c[0] for c in cells if c] + [c[2] for c in cells if c]))
 
         if len(x_coords) < 2:
             return [0.0] * num_cols
 
-        # 열 너비 계산
+        # Calculate column widths
         widths = []
         for i in range(len(x_coords) - 1):
             widths.append(x_coords[i + 1] - x_coords[i])
 
-        # num_cols와 맞추기
+        # Match num_cols
         if len(widths) < num_cols:
             widths.extend([0.0] * (num_cols - len(widths)))
         elif len(widths) > num_cols:
@@ -588,9 +589,9 @@ class TableDetectionEngine:
         min_width: float
     ) -> List[List[int]]:
         """
-        열 너비를 기반으로 병합할 열 그룹을 결정합니다.
+        Determine column groups to merge based on column widths.
 
-        좁은 열들은 다음 넓은 열과 병합됩니다.
+        Narrow columns are merged with the next wider column.
         """
         groups = []
         current_group = []
@@ -598,17 +599,17 @@ class TableDetectionEngine:
         for idx, width in enumerate(col_widths):
             current_group.append(idx)
 
-            # 현재 그룹의 총 너비가 최소 너비 이상이면 그룹 확정
+            # Finalize group when total width meets minimum
             group_width = sum(col_widths[i] for i in current_group)
 
             if group_width >= min_width:
                 groups.append(current_group)
                 current_group = []
 
-        # 마지막 그룹 처리
+        # Handle last group
         if current_group:
             if groups:
-                # 이전 그룹에 합치기
+                # Merge with previous group
                 groups[-1].extend(current_group)
             else:
                 groups.append(current_group)
@@ -617,9 +618,9 @@ class TableDetectionEngine:
 
     def _merge_columns_by_content(self, data: List[List]) -> Tuple[List[List[str]], Dict[int, int]]:
         """
-        텍스트 내용을 기반으로 빈 열들을 병합합니다.
+        Merge empty columns based on text content.
 
-        대부분의 행에서 빈 열은 인접 열과 병합됩니다.
+        Columns empty in most rows are merged with adjacent columns.
         """
         if not data or not data[0]:
             return data, {}
@@ -627,7 +628,7 @@ class TableDetectionEngine:
         num_cols = max(len(row) for row in data)
         num_rows = len(data)
 
-        # 각 열의 "비어있음" 비율 계산
+        # Calculate "emptiness" ratio for each column
         empty_ratios = []
         for col_idx in range(num_cols):
             empty_count = 0
@@ -636,19 +637,19 @@ class TableDetectionEngine:
                     empty_count += 1
             empty_ratios.append(empty_count / num_rows if num_rows > 0 else 1.0)
 
-        # 빈 비율이 90% 이상인 열을 찾아 인접 열과 병합
+        # Find columns with 90%+ empty ratio and merge with adjacent
         groups = []
         current_group = []
 
         for col_idx, empty_ratio in enumerate(empty_ratios):
             current_group.append(col_idx)
 
-            # 비어있지 않은 열이면 그룹 확정
+            # Finalize group for non-empty columns
             if empty_ratio < 0.9:
                 groups.append(current_group)
                 current_group = []
 
-        # 마지막 그룹 처리
+        # Handle last group
         if current_group:
             if groups:
                 groups[-1].extend(current_group)
@@ -658,13 +659,13 @@ class TableDetectionEngine:
         if len(groups) == num_cols:
             return data, {i: i for i in range(num_cols)}
 
-        # 열 매핑 생성
+        # Create column mapping
         col_mapping = {}
         for new_idx, group in enumerate(groups):
             for old_idx in group:
                 col_mapping[old_idx] = new_idx
 
-        # 데이터 병합
+        # Merge data
         merged_data = []
         for row in data:
             new_row = [''] * len(groups)
@@ -688,7 +689,7 @@ class TableDetectionEngine:
         col_mapping: Dict[int, int]
     ) -> List[CellInfo]:
         """
-        열 매핑을 적용하여 셀 정보 추출
+        Extract cell info with column mapping applied.
         """
         if not col_mapping:
             return self._extract_cells_from_pymupdf(table)
@@ -698,10 +699,10 @@ class TableDetectionEngine:
         if not cells:
             return cells
 
-        # 매핑된 열 수 계산
+        # Calculate mapped column count
         new_col_count = max(col_mapping.values()) + 1 if col_mapping else 0
 
-        # 셀 정보 재매핑
+        # Remap cell info
         remapped_cells = []
         processed_positions = set()
 
@@ -709,11 +710,11 @@ class TableDetectionEngine:
             old_col = cell.col
             new_col = col_mapping.get(old_col, old_col)
 
-            # 같은 위치에 이미 셀이 있으면 colspan 확장
+            # Skip if cell already exists at same position
             if (cell.row, new_col) in processed_positions:
                 continue
 
-            # colspan 재계산: 병합된 열들을 고려
+            # Recalculate colspan: consider merged columns
             new_colspan = 1
             for c in range(cell.col, cell.col + cell.colspan):
                 mapped_c = col_mapping.get(c, c)
@@ -730,7 +731,7 @@ class TableDetectionEngine:
                 bbox=cell.bbox
             ))
 
-            # 커버된 위치 기록
+            # Record covered positions
             for r in range(cell.row, cell.row + cell.rowspan):
                 for c in range(new_col, new_col + max(1, new_colspan)):
                     processed_positions.add((r, c))
@@ -739,25 +740,26 @@ class TableDetectionEngine:
 
     def _calculate_pymupdf_confidence(self, table, data: List[List]) -> float:
         """
-        PyMuPDF 결과 신뢰도 계산 
+        Calculate PyMuPDF result confidence.
 
-                - 기본 점수 상향 (PyMuPDF 결과 신뢰)
-        - 패널티 완화
-        - 셀 정보 보너스 강화
+        Features:
+            - Higher base score (trusting PyMuPDF results)
+            - Relaxed penalties
+            - Stronger cell info bonus
         """
         score = 0.0
 
-        # 기본 점수 상향 (PyMuPDF는 신뢰도 높음)
+        # Higher base score (PyMuPDF is highly reliable)
         score += 0.6
 
-        # 행/열 수에 따른 점수
+        # Score based on row/column count
         num_rows = len(data)
         if num_rows >= self.MIN_TABLE_ROWS:
             score += 0.1
         if table.col_count >= self.MIN_TABLE_COLS:
             score += 0.1
 
-        # 데이터 밀도에 따른 점수 (패널티 완화)
+        # Score based on data density (relaxed penalties)
         total_cells = sum(len(row) for row in data)
         filled_cells = sum(1 for row in data for cell in row if cell and str(cell).strip())
 
@@ -765,18 +767,18 @@ class TableDetectionEngine:
             density = filled_cells / total_cells
 
             if density < 0.05:
-                # 매우 낮은 밀도에서만 패널티
+                # Penalty only for very low density
                 score -= 0.2
             elif density < 0.1:
                 score -= 0.1
             else:
                 score += density * 0.15
 
-        # 셀 정보가 있으면 추가 점수 (보너스 강화)
+        # Additional score for cell info (stronger bonus)
         if hasattr(table, 'cells') and table.cells:
             score += 0.15
 
-        # 의미 있는 셀 수 체크 (패널티 완화)
+        # Check meaningful cell count (relaxed penalty)
         meaningful_count = sum(
             1 for row in data for cell in row
             if cell and len(str(cell).strip()) >= 2
@@ -785,12 +787,12 @@ class TableDetectionEngine:
         if meaningful_count < 2:
             score -= 0.1
 
-        # 유효 행 수 체크 (패널티 완화)
+        # Check valid row count (relaxed penalty)
         valid_rows = sum(1 for row in data if any(cell and str(cell).strip() for cell in row))
         if valid_rows <= 1:
             score -= 0.1
 
-        # 그래픽 영역 겹침 확인 (패널티 완화)
+        # Check graphic region overlap (relaxed penalty)
         if self.graphic_detector:
             if self.graphic_detector.is_bbox_in_graphic_region(table.bbox, threshold=0.5):
                 score -= 0.15
@@ -799,29 +801,29 @@ class TableDetectionEngine:
 
     def _extract_cells_from_pymupdf(self, table) -> List[CellInfo]:
         """
-        PyMuPDF 테이블에서 셀 정보 추출 
+        Extract cell info from PyMuPDF table.
 
-        pdf_handler_default의 _extract_cell_spans_from_table() 로직 적용:
-        1. table.cells에서 각 셀의 물리적 bbox 추출
-        2. Y 좌표를 행 인덱스로, X 좌표를 열 인덱스로 매핑
-        3. 셀 bbox가 여러 그리드 셀을 차지하면 rowspan/colspan 계산
+        Applies logic from pdf_handler_default's _extract_cell_spans_from_table():
+            1. Extract physical bbox for each cell from table.cells
+            2. Map Y coordinates to row indices, X coordinates to column indices
+            3. Calculate rowspan/colspan if cell bbox spans multiple grid cells
         """
         cells = []
 
         if not hasattr(table, 'cells') or not table.cells:
-            # 셀 정보가 없으면 빈 리스트 반환 (CellAnalysisEngine에서 처리)
+            # Return empty list if no cell info (handled by CellAnalysisEngine)
             return cells
 
         raw_cells = table.cells
         if not raw_cells:
             return cells
 
-        # X, Y 경계선 추출 (pdf_handler_default와 동일한 방식)
+        # Extract X, Y boundary lines (same approach as pdf_handler_default)
         x_coords = sorted(set([c[0] for c in raw_cells if c] + [c[2] for c in raw_cells if c]))
         y_coords = sorted(set([c[1] for c in raw_cells if c] + [c[3] for c in raw_cells if c]))
 
         if len(x_coords) < 2 or len(y_coords) < 2:
-            # 그리드를 구성할 수 없으면 기본 셀 정보 반환
+            # Return basic cell info if grid cannot be constructed
             for idx, cell_bbox in enumerate(raw_cells):
                 if cell_bbox is None:
                     continue
@@ -837,15 +839,15 @@ class TableDetectionEngine:
                 ))
             return cells
 
-        # 좌표를 그리드 인덱스로 매핑하는 함수 (pdf_handler_default와 동일)
+        # Function to map coordinates to grid indices (same as pdf_handler_default)
         def coord_to_index(coord: float, coords: List[float], tolerance: float = 3.0) -> int:
             for i, c in enumerate(coords):
                 if abs(coord - c) <= tolerance:
                     return i
-            # 가장 가까운 인덱스 반환
+            # Return closest index
             return min(range(len(coords)), key=lambda i: abs(coords[i] - coord))
 
-        # 처리된 그리드 위치 추적
+        # Track processed grid positions
         processed_positions: Set[Tuple[int, int]] = set()
 
         for cell_bbox in raw_cells:
@@ -875,7 +877,7 @@ class TableDetectionEngine:
                 bbox=cell_bbox
             ))
 
-            # 병합된 영역의 다른 셀들 마킹
+            # Mark other cells in merged area
             for r in range(row_start, row_start + rowspan):
                 for c in range(col_start, col_start + colspan):
                     if (r, c) != (row_start, col_start):
@@ -885,9 +887,9 @@ class TableDetectionEngine:
 
     def _cluster_grid_positions(self, positions: List[float], tolerance: float = 3.0) -> List[float]:
         """
-        그리드 위치 클러스터링
+        Cluster grid positions.
 
-        근접한 라인들을 하나로 병합합니다.
+        Merge nearby lines into one.
         """
         if not positions:
             return []
@@ -904,25 +906,25 @@ class TableDetectionEngine:
             else:
                 clusters.append([pos])
 
-        # 각 클러스터의 평균값 반환
+        # Return average value of each cluster
         return [sum(c) / len(c) for c in clusters]
 
     def _find_grid_index_v2(self, value: float, grid_lines: List[float],
                             tolerance: float = 5.0) -> Optional[int]:
         """
-        그리드 라인에서 값의 인덱스 찾기 (개선 버전)
+        Find index of value in grid lines (improved version).
 
-        정확한 매칭이 실패하면 가장 가까운 라인 선택
+        If exact matching fails, select the closest line.
         """
         if not grid_lines:
             return None
 
-        # 정확한 매칭 시도
+        # Try exact matching
         for i, line in enumerate(grid_lines):
             if abs(value - line) <= tolerance:
                 return i
 
-        # 가장 가까운 라인 찾기
+        # Find closest line
         min_diff = float('inf')
         closest_idx = 0
 
@@ -932,18 +934,18 @@ class TableDetectionEngine:
                 min_diff = diff
                 closest_idx = i
 
-        # 허용 오차의 3배 이내면 반환
+        # Return if within 3x tolerance
         if min_diff <= tolerance * 3:
             return closest_idx
 
         return None
 
     def _find_grid_index(self, value: float, grid_lines: List[float], tolerance: float = 3.0) -> Optional[int]:
-        """그리드 라인에서 값의 인덱스 찾기 (호환성 유지)"""
+        """Find index of value in grid lines (for compatibility)."""
         return self._find_grid_index_v2(value, grid_lines, tolerance)
 
     def _detect_with_pdfplumber(self) -> List[TableCandidate]:
-        """pdfplumber 사용"""
+        """Use pdfplumber for table detection."""
         candidates = []
 
         try:
@@ -953,7 +955,7 @@ class TableDetectionEngine:
 
                 plumber_page = pdf.pages[self.page_num]
 
-                # 테이블 설정
+                # Table settings
                 settings = {
                     "vertical_strategy": "lines",
                     "horizontal_strategy": "lines",
@@ -967,7 +969,7 @@ class TableDetectionEngine:
                     if not table_data or not any(any(cell for cell in row if cell) for row in table_data):
                         continue
 
-                    # bbox 추정
+                    # Estimate bbox
                     bbox = self._estimate_table_bbox_pdfplumber(plumber_page, table_data)
 
                     if not bbox:
@@ -994,7 +996,7 @@ class TableDetectionEngine:
         return candidates
 
     def _estimate_table_bbox_pdfplumber(self, page, data: List[List]) -> Optional[Tuple[float, float, float, float]]:
-        """pdfplumber 테이블 bbox 추정"""
+        """Estimate pdfplumber table bbox."""
         try:
             words = page.extract_words()
             if not words:
@@ -1026,10 +1028,10 @@ class TableDetectionEngine:
             return None
 
     def _calculate_pdfplumber_confidence(self, data: List[List]) -> float:
-        """pdfplumber 결과 신뢰도 계산"""
+        """Calculate pdfplumber result confidence."""
         score = 0.0
 
-        # 기본 점수 (PyMuPDF보다 약간 낮음)
+        # Base score (slightly lower than PyMuPDF)
         score += 0.4
 
         num_rows = len(data)
@@ -1040,7 +1042,7 @@ class TableDetectionEngine:
         if col_count >= self.MIN_TABLE_COLS:
             score += 0.1
 
-        # 데이터 밀도
+        # Data density
         total_cells = sum(len(row) for row in data)
         filled_cells = sum(1 for row in data for cell in row if cell and str(cell).strip())
 
@@ -1054,7 +1056,7 @@ class TableDetectionEngine:
             else:
                 score += density * 0.2
 
-        # 의미 있는 셀 수
+        # Meaningful cell count
         meaningful_count = sum(
             1 for row in data for cell in row
             if cell and len(str(cell).strip()) >= 2
@@ -1063,12 +1065,12 @@ class TableDetectionEngine:
         if meaningful_count < 2:
             score -= 0.3
 
-        # 유효 행 수
+        # Valid row count
         valid_rows = sum(1 for row in data if any(cell and str(cell).strip() for cell in row))
         if valid_rows <= 1:
             score -= 0.2
 
-        # 빈 행 비율
+        # Empty row ratio
         empty_rows = num_rows - valid_rows
         if num_rows > 0 and empty_rows / num_rows > 0.5:
             score -= 0.2
@@ -1076,35 +1078,35 @@ class TableDetectionEngine:
         return max(0.0, min(1.0, score))
 
     def _detect_with_lines(self) -> List[TableCandidate]:
-        """선 분석 기반 테이블 감지"""
+        """Line analysis based table detection."""
         candidates = []
 
-        # 그리드 구성
+        # Build grid
         grid = self.line_engine.build_grid()
 
         if not grid:
             return candidates
 
-        # 불완전 테두리 복구
+        # Recover incomplete border
         if not grid.is_complete:
             grid = self.line_engine.reconstruct_incomplete_border(grid)
             if not grid.is_complete:
                 return candidates
 
-        # 그리드가 유효한지 확인
+        # Check if grid is valid
         if grid.row_count < self.MIN_TABLE_ROWS or grid.col_count < self.MIN_TABLE_COLS:
             return candidates
 
-        # 셀 내 텍스트 추출
+        # Extract text from cells
         data = self._extract_text_from_grid(grid)
 
         if not data or not any(any(cell for cell in row if cell) for row in data):
             return candidates
 
-        # 셀 정보 생성
+        # Create cell info
         cells = self._create_cells_from_grid(grid)
 
-        # 신뢰도 계산
+        # Calculate confidence
         confidence = self._calculate_line_based_confidence(grid, data)
 
         if confidence < self.CONFIDENCE_THRESHOLD:
@@ -1123,7 +1125,7 @@ class TableDetectionEngine:
         return candidates
 
     def _extract_text_from_grid(self, grid: GridInfo) -> List[List[Optional[str]]]:
-        """그리드 셀에서 텍스트 추출"""
+        """Extract text from grid cells."""
         data = []
 
         page_dict = self.page.get_text("dict", sort=True)
@@ -1146,7 +1148,7 @@ class TableDetectionEngine:
         return data
 
     def _get_text_in_bbox(self, page_dict: dict, bbox: Tuple[float, float, float, float]) -> str:
-        """bbox 내의 텍스트 추출"""
+        """Extract text within bbox."""
         x0, y0, x1, y1 = bbox
         texts = []
 
@@ -1170,7 +1172,7 @@ class TableDetectionEngine:
         return " ".join(texts)
 
     def _bbox_overlaps(self, bbox1: Tuple, bbox2: Tuple, threshold: float = 0.3) -> bool:
-        """두 bbox가 겹치는지 확인"""
+        """Check if two bboxes overlap."""
         x0 = max(bbox1[0], bbox2[0])
         y0 = max(bbox1[1], bbox2[1])
         x1 = min(bbox1[2], bbox2[2])
@@ -1188,7 +1190,7 @@ class TableDetectionEngine:
         return overlap_area / bbox1_area >= threshold
 
     def _create_cells_from_grid(self, grid: GridInfo) -> List[CellInfo]:
-        """그리드에서 셀 정보 생성"""
+        """Create cell info from grid."""
         cells = []
 
         for row_idx in range(grid.row_count):
@@ -1210,25 +1212,25 @@ class TableDetectionEngine:
         return cells
 
     def _calculate_line_based_confidence(self, grid: GridInfo, data: List[List]) -> float:
-        """선 기반 결과 신뢰도 계산"""
+        """Calculate line-based result confidence."""
         score = 0.0
 
-        # 기본 점수 (다른 전략보다 낮음)
+        # Base score (lower than other strategies)
         score += 0.3
 
-        # 그리드 완전성
+        # Grid completeness
         if grid.is_complete:
             score += 0.2
         elif grid.reconstructed:
             score += 0.1
 
-        # 행/열 수
+        # Row/column count
         if grid.row_count >= self.MIN_TABLE_ROWS:
             score += 0.1
         if grid.col_count >= self.MIN_TABLE_COLS:
             score += 0.1
 
-        # 데이터 밀도
+        # Data density
         total_cells = sum(len(row) for row in data)
         filled_cells = sum(1 for row in data for cell in row if cell and str(cell).strip())
 
@@ -1242,7 +1244,7 @@ class TableDetectionEngine:
             else:
                 score += density * 0.2
 
-        # 의미 있는 셀 수
+        # Meaningful cell count
         meaningful_count = sum(
             1 for row in data for cell in row
             if cell and len(str(cell).strip()) >= 2
@@ -1251,12 +1253,12 @@ class TableDetectionEngine:
         if meaningful_count < 2:
             score -= 0.2
 
-        # 유효 행 수
+        # Valid row count
         valid_rows = sum(1 for row in data if any(cell and str(cell).strip() for cell in row))
         if valid_rows <= 1:
             score -= 0.2
 
-        # 그래픽 영역 겹침 확인
+        # Check graphic region overlap
         if self.graphic_detector:
             if self.graphic_detector.is_bbox_in_graphic_region(grid.bbox, threshold=0.3):
                 score -= 0.3
@@ -1265,16 +1267,16 @@ class TableDetectionEngine:
 
     def _select_best_candidates(self, candidates: List[TableCandidate]) -> List[TableCandidate]:
         """
-        최선의 테이블 후보 선택
+        Select best table candidates.
 
-        전략 우선순위를 더 강하게 반영
-        - PyMuPDF가 가장 정확하므로, 같은 영역에서 PyMuPDF 결과 우선
-        - 신뢰도 차이가 0.2 미만이면 전략 우선순위로 선택
+        Strongly reflects strategy priority:
+            - PyMuPDF is most accurate, so PyMuPDF results are preferred in the same region
+            - If confidence difference is less than 0.2, select by strategy priority
         """
         if not candidates:
             return []
 
-        # 전략 우선순위: PYMUPDF > PDFPLUMBER > HYBRID
+        # Strategy priority: PYMUPDF > PDFPLUMBER > HYBRID
         priority_order = {
             TableDetectionStrategy.PYMUPDF_NATIVE: 0,
             TableDetectionStrategy.PDFPLUMBER_LINES: 1,
@@ -1282,11 +1284,11 @@ class TableDetectionEngine:
             TableDetectionStrategy.BORDERLESS_HEURISTIC: 3,
         }
 
-        # 정렬 키 변경 - 전략 우선순위를 더 중요하게
-        # 신뢰도 차이가 크지 않으면 전략 우선순위로 결정
+        # Changed sort key - prioritize strategy order more
+        # If confidence difference is not large, decide by strategy priority
         def sort_key(c):
-            # 전략 우선순위 * 0.15를 신뢰도에서 뺌
-            # 이렇게 하면 PyMuPDF(priority=0)가 pdfplumber(priority=1)보다 유리해짐
+            # Subtract strategy priority * 0.15 from confidence
+            # This makes PyMuPDF (priority=0) more favorable than pdfplumber (priority=1)
             adjusted_confidence = c.confidence - (priority_order.get(c.strategy, 99) * 0.15)
             return (-adjusted_confidence, priority_order.get(c.strategy, 99))
 
@@ -1309,9 +1311,9 @@ class TableDetectionEngine:
 
     def _tables_overlap_any(self, bbox1: Tuple, bbox2: Tuple, threshold: float = 0.3) -> bool:
         """
-        두 테이블이 겹치는지 확인 (개선된 버전).
+        Check if two tables overlap (improved version).
 
-        둘 중 하나라도 상대방에 의해 threshold 이상 커버되면 True 반환.
+        Returns True if either one is covered by the other by threshold or more.
         """
         x0 = max(bbox1[0], bbox2[0])
         y0 = max(bbox1[1], bbox2[1])
@@ -1328,7 +1330,7 @@ class TableDetectionEngine:
         if bbox1_area <= 0 or bbox2_area <= 0:
             return False
 
-        # 어느 한 쪽이라도 상대에 의해 threshold 이상 커버되면 겹침으로 판단
+        # Consider overlapping if either side is covered by threshold or more
         ratio1 = overlap_area / bbox1_area
         ratio2 = overlap_area / bbox2_area
 
