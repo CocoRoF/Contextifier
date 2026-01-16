@@ -44,7 +44,6 @@ from libs.ocr.ocr_processor import (
     convert_image_to_text_with_llm,
     process_text_with_ocr,
     process_text_with_ocr_progress,
-    process_batch_texts_with_ocr,
     _b64_from_file,
     _get_mime_type,
 )
@@ -64,5 +63,4 @@ __all__ = [
     "convert_image_to_text_with_llm",
     "process_text_with_ocr",
     "process_text_with_ocr_progress",
-    "process_batch_texts_with_ocr",
 ]

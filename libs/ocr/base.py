@@ -164,21 +164,5 @@ class BaseOCR(ABC):
 
         return result_text
 
-    def process_batch_texts(self, texts: list) -> list:
-        """
-        Perform OCR processing on multiple texts.
-
-        Args:
-            texts: List of texts
-
-        Returns:
-            List of OCR processed texts
-        """
-        results = []
-        for text in texts:
-            processed = self.process_text(text)
-            results.append(processed)
-        return results
-
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(provider='{self.provider}')"

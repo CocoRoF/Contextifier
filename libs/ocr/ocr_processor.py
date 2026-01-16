@@ -374,26 +374,3 @@ def process_text_with_ocr_progress(
                 })
 
     return result_text
-
-
-def process_batch_texts_with_ocr(
-    texts: List[str],
-    llm_client: Any,
-    provider: str
-) -> List[str]:
-    """
-    Perform OCR processing on multiple texts.
-
-    Args:
-        texts: List of texts
-        llm_client: LangChain LLM client
-        provider: LLM provider
-
-    Returns:
-        List of OCR processed texts
-    """
-    results = []
-    for text in texts:
-        processed = process_text_with_ocr(text, llm_client, provider)
-        results.append(processed)
-    return results

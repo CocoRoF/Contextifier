@@ -131,7 +131,6 @@ class DocumentProcessor:
         file_path: Union[str, Path],
         file_extension: Optional[str] = None,
         *,
-        process_type: str = "default",
         extract_metadata: bool = True,
         ocr_processing: bool = False,
         **kwargs
@@ -142,7 +141,6 @@ class DocumentProcessor:
         Args:
             file_path: File path
             file_extension: File extension (if None, auto-extracted from file_path)
-            process_type: Processing type ('default', 'enhanced', 'enhanced_v4', 'enhanced_ocr', etc.)
             extract_metadata: Whether to extract metadata
             ocr_processing: Whether to perform OCR on image tags in extracted text
                            - If True and ocr_engine is set, processes [Image:...] tags
@@ -187,59 +185,6 @@ class DocumentProcessor:
             self._logger.warning("OCR processing requested but no ocr_engine is configured. Skipping OCR.")
 
         return text
-
-    def extract_text_batch(
-        self,
-        file_paths: List[Union[str, Path]],
-        *,
-        process_type: str = "default",
-        extract_metadata: bool = True,
-        ocr_processing: bool = False,
-        max_concurrent: int = 5,
-        **kwargs
-    ) -> List[Dict[str, Any]]:
-        """
-        Extract text from multiple files in batch.
-
-        Args:
-            file_paths: List of file paths
-            process_type: Processing type
-            extract_metadata: Whether to extract metadata
-            ocr_processing: Whether to perform OCR on image tags
-            max_concurrent: Maximum concurrent processing count (unused in sync mode)
-            **kwargs: Additional handler-specific options
-
-        Returns:
-            List of extraction result dictionaries
-            [{"file_path": str, "text": str, "success": bool, "error": Optional[str]}, ...]
-        """
-        results = []
-
-        for fp in file_paths:
-            try:
-                text = self.extract_text(
-                    fp,
-                    process_type=process_type,
-                    extract_metadata=extract_metadata,
-                    ocr_processing=ocr_processing,
-                    **kwargs
-                )
-                results.append({
-                    "file_path": str(fp),
-                    "text": text,
-                    "success": True,
-                    "error": None
-                })
-            except Exception as e:
-                self._logger.error(f"Error processing {fp}: {e}")
-                results.append({
-                    "file_path": str(fp),
-                    "text": "",
-                    "success": False,
-                    "error": str(e)
-                })
-
-        return results
 
     # =========================================================================
     # Public Methods - Text Chunking

@@ -82,25 +82,6 @@ text = processor.extract_text(
 )
 ```
 
-### Batch Processing
-
-```python
-processor = DocumentProcessor()
-
-results = processor.extract_text_batch(
-    ["doc1.pdf", "doc2.docx", "doc3.xlsx"],
-    max_concurrent=5,
-    ocr_processing=True
-)
-
-for result in results:
-    if result["success"]:
-        print(f"{result['file_path']}: {len(result['text'])} chars")
-    else:
-        print(f"{result['file_path']}: Error - {result['error']}")
-```
-```
-
 ## Supported Formats
 
 | Category | Extensions |
