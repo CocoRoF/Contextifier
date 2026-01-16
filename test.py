@@ -4,7 +4,6 @@ DocumentProcessor Test Script
 
 HWP 파일을 사용하여 DocumentProcessor 기능 테스트
 """
-import asyncio
 import logging
 
 # 로깅 설정
@@ -16,7 +15,7 @@ logging.basicConfig(
 from libs.core.document_processor import DocumentProcessor
 
 
-async def main():
+def main():
     # 테스트할 HWP 파일 경로
     file_path = r"C:\local_workspace\x2bee_github_push\Contextify\9.플래티어_품질관리_v1.1.hwp"
 
@@ -28,7 +27,7 @@ async def main():
     print("=" * 80)
 
     # 1. HWP를 텍스트로 변환
-    text = await processor.extract_text(file_path, ocr_processing=False)
+    text = processor.extract_text(file_path, ocr_processing=False)
     print(text)
 
     print("\n" + "=" * 80)
@@ -59,4 +58,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

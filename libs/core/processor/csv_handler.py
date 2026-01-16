@@ -43,7 +43,7 @@ logger = logging.getLogger("document-processor")
 
 # === 메인 함수 ===
 
-async def extract_text_from_csv(
+def extract_text_from_csv(
     file_path: str,
     current_config: Dict[str, Any] = None,
     encoding: str = None,
@@ -83,7 +83,7 @@ async def extract_text_from_csv(
         result_parts = []
 
         # 파일 읽기 (인코딩 자동 감지)
-        content, detected_encoding = await read_file_with_encoding(file_path, encoding)
+        content, detected_encoding = read_file_with_encoding(file_path, encoding)
 
         # 구분자 자동 감지
         if delimiter is None:
@@ -127,7 +127,7 @@ async def extract_text_from_csv(
 
 # === 유틸리티 함수 ===
 
-async def get_csv_metadata(file_path: str) -> CSVMetadata:
+def get_csv_metadata(file_path: str) -> CSVMetadata:
     """
     CSV 파일의 메타데이터를 반환합니다.
 
@@ -143,7 +143,7 @@ async def get_csv_metadata(file_path: str) -> CSVMetadata:
         modified_time = datetime.fromtimestamp(file_stat.st_mtime)
         file_name = os.path.basename(file_path)
 
-        content, encoding = await read_file_with_encoding(file_path)
+        content, encoding = read_file_with_encoding(file_path)
         delimiter = detect_delimiter(content)
         rows = parse_csv_content(content, delimiter)
         has_header = detect_header(rows) if rows else False
@@ -164,7 +164,7 @@ async def get_csv_metadata(file_path: str) -> CSVMetadata:
         raise
 
 
-async def validate_csv(file_path: str) -> Tuple[bool, Optional[str]]:
+def validate_csv(file_path: str) -> Tuple[bool, Optional[str]]:
     """
     CSV 파일의 유효성을 검증합니다.
 
@@ -175,7 +175,7 @@ async def validate_csv(file_path: str) -> Tuple[bool, Optional[str]]:
         (is_valid, error_message) 튜플
     """
     try:
-        content, _ = await read_file_with_encoding(file_path)
+        content, _ = read_file_with_encoding(file_path)
         delimiter = detect_delimiter(content)
         rows = parse_csv_content(content, delimiter)
 

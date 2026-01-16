@@ -21,7 +21,7 @@ _image_processor = ImageProcessor(
 logger = logging.getLogger("document-processor")
 
 
-async def process_hwpx_images(
+def process_hwpx_images(
     zf: zipfile.ZipFile,
     image_files: List[str]
 ) -> str:

@@ -128,7 +128,7 @@ def find_zlib_streams(raw_data: bytes, min_size: int = 50) -> List[Tuple[int, by
     return decompressed_chunks
 
 
-async def recover_images_from_raw(raw_data: bytes) -> str:
+def recover_images_from_raw(raw_data: bytes) -> str:
     """
     raw 바이너리 데이터에서 이미지 시그니처(JPEG, PNG)를 스캔하여 로컬에 저장합니다.
 

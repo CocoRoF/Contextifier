@@ -187,7 +187,7 @@ class BlockImageEngine:
         # 처리된 이미지 해시 (중복 방지)
         self._processed_hashes: set = set()
 
-    async def process_region(
+    def process_region(
         self,
         bbox: Tuple[float, float, float, float],
         region_type: str = "complex_region"
@@ -276,7 +276,7 @@ class BlockImageEngine:
                 error=str(e)
             )
 
-    async def process_full_page(self, region_type: str = "full_page") -> BlockImageResult:
+    def process_full_page(self, region_type: str = "full_page") -> BlockImageResult:
         """
         전체 페이지를 이미지로 렌더링하고 로컬에 저장합니다.
 
@@ -287,9 +287,9 @@ class BlockImageEngine:
             BlockImageResult 객체
         """
         bbox = (0, 0, self.page_width, self.page_height)
-        return await self.process_region(bbox, region_type)
+        return self.process_region(bbox, region_type)
 
-    async def process_regions(
+    def process_regions(
         self,
         bboxes: List[Tuple[float, float, float, float]],
         region_type: str = "complex_region"
@@ -306,7 +306,7 @@ class BlockImageEngine:
         """
         results = []
         for bbox in bboxes:
-            result = await self.process_region(bbox, region_type)
+            result = self.process_region(bbox, region_type)
             results.append(result)
         return results
 
@@ -384,7 +384,7 @@ class BlockImageEngine:
     # 고도화된 블록 처리 (V4)
     # ========================================================================
 
-    async def process_page_as_semantic_blocks(self) -> MultiBlockResult:
+    def process_page_as_semantic_blocks(self) -> MultiBlockResult:
         """
         ★ 고도화된 처리: 페이지를 의미론적 블록 단위로 분할하여 처리합니다.
 
@@ -408,7 +408,7 @@ class BlockImageEngine:
 
             if not layout_result.blocks:
                 logger.warning(f"[BlockImageEngine] No blocks detected, falling back to full page")
-                return await self._fallback_to_full_page()
+                return self._fallback_to_full_page()
 
             logger.info(f"[BlockImageEngine] Page {self.page_num + 1}: "
                        f"Detected {len(layout_result.blocks)} semantic blocks in {layout_result.column_count} columns")
@@ -423,7 +423,7 @@ class BlockImageEngine:
                     logger.debug(f"[BlockImageEngine] Skipping small block: area={block.area:.0f}")
                     continue
 
-                result = await self.process_region(
+                result = self.process_region(
                     block.bbox,
                     region_type=block.block_type.name if block.block_type else "unknown"
                 )
@@ -438,7 +438,7 @@ class BlockImageEngine:
 
             if not block_results:
                 logger.warning(f"[BlockImageEngine] No valid blocks, falling back to full page")
-                return await self._fallback_to_full_page()
+                return self._fallback_to_full_page()
 
             # 3. 읽기 순서대로 정렬
             block_results.sort(key=lambda r: r.reading_order)
@@ -459,9 +459,9 @@ class BlockImageEngine:
 
         except Exception as e:
             logger.error(f"[BlockImageEngine] Semantic block processing failed: {e}")
-            return await self._fallback_to_full_page()
+            return self._fallback_to_full_page()
 
-    async def process_page_as_grid_blocks(
+    def process_page_as_grid_blocks(
         self,
         rows: Optional[int] = None,
         cols: Optional[int] = None
@@ -502,7 +502,7 @@ class BlockImageEngine:
                     if self.config.SKIP_EMPTY_BLOCKS and self._is_empty_region(bbox):
                         continue
 
-                    result = await self.process_region(bbox, region_type="grid_cell")
+                    result = self.process_region(bbox, region_type="grid_cell")
                     result.reading_order = reading_order
                     result.column_index = col
 
@@ -525,9 +525,9 @@ class BlockImageEngine:
 
         except Exception as e:
             logger.error(f"[BlockImageEngine] Grid processing failed: {e}")
-            return await self._fallback_to_full_page()
+            return self._fallback_to_full_page()
 
-    async def process_page_smart(self) -> MultiBlockResult:
+    def process_page_smart(self) -> MultiBlockResult:
         """
         ★ 스마트 처리: 최적의 전략을 자동 선택합니다.
 
@@ -539,7 +539,7 @@ class BlockImageEngine:
             MultiBlockResult 객체
         """
         # 1. 의미론적 블록 분할 시도
-        result = await self.process_page_as_semantic_blocks()
+        result = self.process_page_as_semantic_blocks()
 
         if result.success and result.successful_blocks >= 1:
             # 충분한 블록이 감지되었으면 사용
@@ -562,7 +562,7 @@ class BlockImageEngine:
             cols = max(2, layout_result.column_count)
             rows = max(2, int(self.page_height / self.page_width * cols))
 
-            result = await self.process_page_as_grid_blocks(rows=rows, cols=cols)
+            result = self.process_page_as_grid_blocks(rows=rows, cols=cols)
 
             if result.success and result.successful_blocks >= 2:
                 logger.info(f"[BlockImageEngine] Smart: Using grid {rows}x{cols} "
@@ -573,11 +573,11 @@ class BlockImageEngine:
 
         # 3. 전체 페이지 폴백
         logger.info(f"[BlockImageEngine] Smart: Falling back to full page")
-        return await self._fallback_to_full_page()
+        return self._fallback_to_full_page()
 
-    async def _fallback_to_full_page(self) -> MultiBlockResult:
+    def _fallback_to_full_page(self) -> MultiBlockResult:
         """전체 페이지 이미지화 폴백"""
-        result = await self.process_full_page()
+        result = self.process_full_page()
 
         return MultiBlockResult(
             page_num=self.page_num,

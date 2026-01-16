@@ -365,7 +365,7 @@ class TableInfo:
 # 메인 함수
 # ============================================================================
 
-async def extract_text_from_pdf(
+def extract_text_from_pdf(
     file_path: str,
     current_config: Dict[str, Any] = None,
     extract_default_metadata: bool = True
@@ -391,14 +391,14 @@ async def extract_text_from_pdf(
         current_config = {}
 
     logger.info(f"[PDF] Processing: {file_path}")
-    return await _extract_pdf_enhanced(file_path, current_config, extract_default_metadata)
+    return _extract_pdf_enhanced(file_path, current_config, extract_default_metadata)
 
 
 # ============================================================================
 # 핵심 처리 로직
 # ============================================================================
 
-async def _extract_pdf_enhanced(
+def _extract_pdf_enhanced(
     file_path: str,
     current_config: Dict[str, Any],
     extract_default_metadata: bool = True
@@ -454,24 +454,24 @@ async def _extract_pdf_enhanced(
 
             if strategy == ProcessingStrategy.FULL_PAGE_OCR:
                 # 전체 페이지 OCR
-                page_text = await _process_page_full_ocr(
+                page_text = _process_page_full_ocr(
                     page, page_num, doc, processed_images, all_tables
                 )
             elif strategy == ProcessingStrategy.BLOCK_IMAGE_OCR:
                 # 복잡 영역 블록 이미지화 + OCR
-                page_text = await _process_page_block_ocr(
+                page_text = _process_page_block_ocr(
                     page, page_num, doc, processed_images, all_tables,
                     page_complexity.complex_regions
                 )
             elif strategy == ProcessingStrategy.HYBRID:
                 # 하이브리드 (텍스트 + 부분 OCR)
-                page_text = await _process_page_hybrid(
+                page_text = _process_page_hybrid(
                     page, page_num, doc, processed_images, all_tables,
                     page_complexity
                 )
             else:
                 # TEXT_EXTRACTION: 표준 텍스트 추출
-                page_text = await _process_page_text_extraction(
+                page_text = _process_page_text_extraction(
                     page, page_num, doc, processed_images, all_tables
                 )
 
@@ -491,7 +491,7 @@ async def _extract_pdf_enhanced(
         raise
 
 
-async def _process_page_text_extraction(
+def _process_page_text_extraction(
     page, page_num: int, doc, processed_images: Set[int],
     all_tables: Dict[int, List[PageElement]]
 ) -> str:
@@ -530,7 +530,7 @@ async def _process_page_text_extraction(
     page_elements.extend(text_elements)
 
     # 5. 이미지 추출
-    image_elements = await _extract_images_from_page(
+    image_elements = _extract_images_from_page(
         page, page_num, doc, processed_images, table_bboxes
     )
     page_elements.extend(image_elements)
@@ -539,7 +539,7 @@ async def _process_page_text_extraction(
     return _merge_page_elements(page_elements)
 
 
-async def _process_page_hybrid(
+def _process_page_hybrid(
     page, page_num: int, doc, processed_images: Set[int],
     all_tables: Dict[int, List[PageElement]],
     page_complexity: PageComplexity
@@ -595,7 +595,7 @@ async def _process_page_hybrid(
         block_engine = BlockImageEngine(page, page_num)
 
         for complex_bbox in complex_bboxes:
-            result = await block_engine.process_region(complex_bbox, region_type="complex_region")
+            result = block_engine.process_region(complex_bbox, region_type="complex_region")
 
             if result.success and result.image_tag:
                 page_elements.append(PageElement(
@@ -606,7 +606,7 @@ async def _process_page_hybrid(
                 ))
 
     # 6. 이미지 추출
-    image_elements = await _extract_images_from_page(
+    image_elements = _extract_images_from_page(
         page, page_num, doc, processed_images, table_bboxes
     )
     page_elements.extend(image_elements)
@@ -615,7 +615,7 @@ async def _process_page_hybrid(
     return _merge_page_elements(page_elements)
 
 
-async def _process_page_block_ocr(
+def _process_page_block_ocr(
     page, page_num: int, doc, processed_images: Set[int],
     all_tables: Dict[int, List[PageElement]],
     complex_regions: List[Tuple[float, float, float, float]]
@@ -643,7 +643,7 @@ async def _process_page_block_ocr(
             if any(_bbox_overlaps(complex_bbox, tb) for tb in table_bboxes):
                 continue
 
-            result = await block_engine.process_region(complex_bbox, region_type="complex_region")
+            result = block_engine.process_region(complex_bbox, region_type="complex_region")
 
             if result.success and result.image_tag:
                 page_elements.append(PageElement(
@@ -665,7 +665,7 @@ async def _process_page_block_ocr(
             page_elements.append(elem)
 
     # 4. 이미지 추출
-    image_elements = await _extract_images_from_page(
+    image_elements = _extract_images_from_page(
         page, page_num, doc, processed_images, table_bboxes
     )
     page_elements.extend(image_elements)
@@ -673,7 +673,7 @@ async def _process_page_block_ocr(
     return _merge_page_elements(page_elements)
 
 
-async def _process_page_full_ocr(
+def _process_page_full_ocr(
     page, page_num: int, doc, processed_images: Set[int],
     all_tables: Dict[int, List[PageElement]]
 ) -> str:
@@ -739,7 +739,7 @@ async def _process_page_full_ocr(
         page_elements.extend(text_elements)
 
         # 테이블 영역 외의 이미지 추출
-        image_elements = await _extract_images_from_page(
+        image_elements = _extract_images_from_page(
             page, page_num, doc, processed_images, table_bboxes
         )
         page_elements.extend(image_elements)
@@ -752,7 +752,7 @@ async def _process_page_full_ocr(
 
     # Phase 3: 테이블 처리가 불가능하면 스마트 블록 처리
     block_engine = BlockImageEngine(page, page_num)
-    multi_result: MultiBlockResult = await block_engine.process_page_smart()
+    multi_result: MultiBlockResult = block_engine.process_page_smart()
 
     if multi_result.success and multi_result.block_results:
         # 블록별 이미지 태그를 페이지 요소로 변환
@@ -773,7 +773,7 @@ async def _process_page_full_ocr(
         logger.warning(f"[PDF] Page {page_num + 1}: Smart processing failed, "
                       f"falling back to full page image")
 
-        result = await block_engine.process_full_page(region_type="full_page")
+        result = block_engine.process_full_page(region_type="full_page")
 
         if result.success and result.image_tag:
             page_elements.append(PageElement(
@@ -797,7 +797,7 @@ async def _process_page_full_ocr(
             text_elements = _extract_text_blocks(page, page_num, table_bboxes, border_info)
             page_elements.extend(text_elements)
 
-            image_elements = await _extract_images_from_page(
+            image_elements = _extract_images_from_page(
                 page, page_num, doc, processed_images, table_bboxes
             )
             page_elements.extend(image_elements)
@@ -1776,7 +1776,7 @@ def _split_ocr_text_to_blocks(
 # 이미지 추출
 # ============================================================================
 
-async def _extract_images_from_page(
+def _extract_images_from_page(
     page,
     page_num: int,
     doc,

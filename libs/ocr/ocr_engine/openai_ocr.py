@@ -30,11 +30,11 @@ class OpenAIOCR(BaseOCR):
         ocr = OpenAIOCR(llm_client=llm)
 
         # Single image conversion
-        result = await ocr.convert_image_to_text("/path/to/image.png")
+        result = ocr.convert_image_to_text("/path/to/image.png")
 
         # Process image tags in text
         text = "Document content [Image:/path/to/image.png] continues..."
-        processed = await ocr.process_text(text)
+        processed = ocr.process_text(text)
         ```
     """
 

@@ -42,7 +42,7 @@ logger = logging.getLogger("document-processor")
 
 # === 메인 함수 ===
 
-async def extract_text_from_docx(
+def extract_text_from_docx(
     file_path: str,
     current_config: Dict[str, Any] = None,
     extract_default_metadata: bool = True
@@ -64,12 +64,12 @@ async def extract_text_from_docx(
     logger.info(f"DOCX processing: {file_path}")
 
     # 모든 경우에 enhanced 처리 사용
-    return await _extract_docx_enhanced(file_path, extract_default_metadata)
+    return _extract_docx_enhanced(file_path, extract_default_metadata)
 
 
 # === 고도화된 DOCX 처리 ===
 
-async def _extract_docx_enhanced(
+def _extract_docx_enhanced(
     file_path: str,
     extract_default_metadata: bool = True
 ) -> str:

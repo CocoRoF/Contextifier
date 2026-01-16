@@ -48,23 +48,19 @@ uv add contextify
 ### Basic Usage
 
 ```python
-import asyncio
 from libs.core.document_processor import DocumentProcessor
 
-async def main():
-    # Create processor instance
-    processor = DocumentProcessor()
-    
-    # Extract text from a document
-    text = await processor.extract_text("document.pdf")
-    print(text)
-    
-    # Chunk the extracted text
-    chunks = processor.chunk_text(text, chunk_size=1000, chunk_overlap=200)
-    for chunk in chunks:
-        print(chunk)
+# Create processor instance
+processor = DocumentProcessor()
 
-asyncio.run(main())
+# Extract text from a document
+text = processor.extract_text("document.pdf")
+print(text)
+
+# Chunk the extracted text
+chunks = processor.chunk_text(text, chunk_size=1000, chunk_overlap=200)
+for chunk in chunks:
+    print(chunk)
 ```
 
 ### With OCR Processing
@@ -80,7 +76,7 @@ ocr_engine = OpenAIOCR(api_key="sk-...", model="gpt-4o")
 processor = DocumentProcessor(ocr_engine=ocr_engine)
 
 # Extract text with OCR processing enabled
-text = await processor.extract_text(
+text = processor.extract_text(
     "scanned_document.pdf",
     ocr_processing=True
 )
@@ -91,7 +87,7 @@ text = await processor.extract_text(
 ```python
 processor = DocumentProcessor()
 
-results = await processor.extract_text_batch(
+results = processor.extract_text_batch(
     ["doc1.pdf", "doc2.docx", "doc3.xlsx"],
     max_concurrent=5,
     ocr_processing=True
@@ -102,6 +98,7 @@ for result in results:
         print(f"{result['file_path']}: {len(result['text'])} chars")
     else:
         print(f"{result['file_path']}: Error - {result['error']}")
+```
 ```
 
 ## Supported Formats

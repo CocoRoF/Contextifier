@@ -5,7 +5,6 @@ CSV 인코딩 감지 및 파일 읽기
 파일의 인코딩을 자동 감지하고 올바르게 디코딩합니다.
 BOM 감지, chardet 라이브러리, 휴리스틱 방식을 사용합니다.
 """
-import aiofiles
 import logging
 from typing import Optional, Tuple
 import chardet
@@ -38,7 +37,7 @@ def detect_bom(data: bytes) -> Optional[str]:
     return None
 
 
-async def read_file_with_encoding(
+def read_file_with_encoding(
     file_path: str,
     preferred_encoding: str = None
 ) -> Tuple[str, str]:
@@ -60,8 +59,8 @@ async def read_file_with_encoding(
         (content, detected_encoding) 튜플
     """
     # 바이너리로 먼저 읽기
-    async with aiofiles.open(file_path, mode='rb') as f:
-        raw_data = await f.read()
+    with open(file_path, mode='rb') as f:
+        raw_data = f.read()
 
     # BOM 확인
     bom_encoding = detect_bom(raw_data)

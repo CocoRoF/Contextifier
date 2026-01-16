@@ -78,7 +78,7 @@ class BaseOCR(ABC):
         """
         pass
 
-    async def convert_image_to_text(self, image_path: str) -> Optional[str]:
+    def convert_image_to_text(self, image_path: str) -> Optional[str]:
         """
         Convert image to text.
 
@@ -101,7 +101,7 @@ class BaseOCR(ABC):
             content = self.build_message_content(b64_image, mime_type)
             message = HumanMessage(content=content)
 
-            response = await self.llm_client.ainvoke([message])
+            response = self.llm_client.invoke([message])
             result = response.content.strip()
 
             # Wrap result in [Figure:...] format
@@ -114,7 +114,7 @@ class BaseOCR(ABC):
             logger.error(f"[{self.provider.upper()}] Image to text conversion failed: {e}")
             return f"[Image conversion error: {str(e)}]"
 
-    async def process_text(self, text: str) -> str:
+    def process_text(self, text: str) -> str:
         """
         Detect image tags in text and replace with OCR results.
 
@@ -153,7 +153,7 @@ class BaseOCR(ABC):
                 logger.warning(f"[{self.provider.upper()}] Image load failed, keeping original tag: {img_path}")
                 continue
 
-            ocr_result = await self.convert_image_to_text(local_path)
+            ocr_result = self.convert_image_to_text(local_path)
 
             if ocr_result is None or ocr_result.startswith("[Image conversion error:"):
                 logger.warning(f"[{self.provider.upper()}] Image conversion failed, keeping original tag: {img_path}")
@@ -164,7 +164,7 @@ class BaseOCR(ABC):
 
         return result_text
 
-    async def process_batch_texts(self, texts: list) -> list:
+    def process_batch_texts(self, texts: list) -> list:
         """
         Perform OCR processing on multiple texts.
 
@@ -176,7 +176,7 @@ class BaseOCR(ABC):
         """
         results = []
         for text in texts:
-            processed = await self.process_text(text)
+            processed = self.process_text(text)
             results.append(processed)
         return results
 

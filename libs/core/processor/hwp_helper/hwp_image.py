@@ -223,7 +223,7 @@ def extract_and_upload_image(
     return None
 
 
-async def process_images_from_bindata(
+def process_images_from_bindata(
     ole: olefile.OleFileIO,
     processed_images: Optional[Set[str]] = None
 ) -> str:

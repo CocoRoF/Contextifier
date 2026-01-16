@@ -1,6 +1,5 @@
 # libs/core/document_processor.py
-"""
-DocumentProcessor - Document Processing Class
+"""DocumentProcessor - Document Processing Class
 
 Main document processing class for the Contextify library.
 Provides a unified interface for extracting text from various document formats
@@ -17,10 +16,10 @@ Usage Example:
     processor = DocumentProcessor(ocr_engine=ocr_engine)
 
     # Extract text from file
-    text = await processor.extract_text(file_path, file_extension)
+    text = processor.extract_text(file_path, file_extension)
 
     # Extract text with OCR processing
-    text = await processor.extract_text(file_path, file_extension, ocr_processing=True)
+    text = processor.extract_text(file_path, file_extension, ocr_processing=True)
 
     # Chunk text
     chunks = processor.chunk_text(text, chunk_size=1000)
@@ -45,7 +44,7 @@ class DocumentProcessor:
 
     Example:
         >>> processor = DocumentProcessor()
-        >>> text = await processor.extract_text("document.pdf", "pdf")
+        >>> text = processor.extract_text("document.pdf", "pdf")
         >>> chunks = processor.chunk_text(text, chunk_size=1000)
     """
 
@@ -127,7 +126,7 @@ class DocumentProcessor:
     # Public Methods - Text Extraction
     # =========================================================================
 
-    async def extract_text(
+    def extract_text(
         self,
         file_path: Union[str, Path],
         file_extension: Optional[str] = None,
@@ -178,18 +177,18 @@ class DocumentProcessor:
 
         # Get handler and extract text
         handler = self._get_handler(ext)
-        text = await self._invoke_handler(handler, file_path_str, ext, extract_metadata, **kwargs)
+        text = self._invoke_handler(handler, file_path_str, ext, extract_metadata, **kwargs)
 
         # Apply OCR processing if enabled and ocr_engine is available
         if ocr_processing and self._ocr_engine is not None:
             self._logger.info(f"Applying OCR processing with {self._ocr_engine}")
-            text = await self._ocr_engine.process_text(text)
+            text = self._ocr_engine.process_text(text)
         elif ocr_processing and self._ocr_engine is None:
             self._logger.warning("OCR processing requested but no ocr_engine is configured. Skipping OCR.")
 
         return text
 
-    async def extract_text_batch(
+    def extract_text_batch(
         self,
         file_paths: List[Union[str, Path]],
         *,
@@ -207,47 +206,40 @@ class DocumentProcessor:
             process_type: Processing type
             extract_metadata: Whether to extract metadata
             ocr_processing: Whether to perform OCR on image tags
-            max_concurrent: Maximum concurrent processing count
+            max_concurrent: Maximum concurrent processing count (unused in sync mode)
             **kwargs: Additional handler-specific options
 
         Returns:
             List of extraction result dictionaries
             [{"file_path": str, "text": str, "success": bool, "error": Optional[str]}, ...]
         """
-        import asyncio
-
-        semaphore = asyncio.Semaphore(max_concurrent)
         results = []
 
-        async def process_single(fp: Union[str, Path]) -> Dict[str, Any]:
-            async with semaphore:
-                try:
-                    text = await self.extract_text(
-                        fp,
-                        process_type=process_type,
-                        extract_metadata=extract_metadata,
-                        ocr_processing=ocr_processing,
-                        **kwargs
-                    )
-                    return {
-                        "file_path": str(fp),
-                        "text": text,
-                        "success": True,
-                        "error": None
-                    }
-                except Exception as e:
-                    self._logger.error(f"Error processing {fp}: {e}")
-                    return {
-                        "file_path": str(fp),
-                        "text": "",
-                        "success": False,
-                        "error": str(e)
-                    }
+        for fp in file_paths:
+            try:
+                text = self.extract_text(
+                    fp,
+                    process_type=process_type,
+                    extract_metadata=extract_metadata,
+                    ocr_processing=ocr_processing,
+                    **kwargs
+                )
+                results.append({
+                    "file_path": str(fp),
+                    "text": text,
+                    "success": True,
+                    "error": None
+                })
+            except Exception as e:
+                self._logger.error(f"Error processing {fp}: {e}")
+                results.append({
+                    "file_path": str(fp),
+                    "text": "",
+                    "success": False,
+                    "error": str(e)
+                })
 
-        tasks = [process_single(fp) for fp in file_paths]
-        results = await asyncio.gather(*tasks)
-
-        return list(results)
+        return results
 
     # =========================================================================
     # Public Methods - Text Chunking
@@ -480,7 +472,7 @@ class DocumentProcessor:
         registry = self._get_handler_registry()
         return registry.get(ext)
 
-    async def _invoke_handler(
+    def _invoke_handler(
         self,
         handler: Optional[Callable],
         file_path: str,
@@ -519,30 +511,22 @@ class DocumentProcessor:
 
         if ext in text_extensions:
             # text_handler signature: (file_path, file_type, encodings, is_code)
-            return await handler(file_path, ext, is_code=is_code)
+            return handler(file_path, ext, is_code=is_code)
 
         # Standard handler signature: (file_path, config, extract_default_metadata)
-        return await handler(file_path, self._config, extract_default_metadata=extract_metadata)
+        return handler(file_path, self._config, extract_default_metadata=extract_metadata)
 
     # =========================================================================
     # Context Manager Support
     # =========================================================================
 
-    async def __aenter__(self) -> "DocumentProcessor":
-        """Async context manager entry."""
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        """Async context manager exit."""
-        # Perform resource cleanup here if needed
-        pass
-
     def __enter__(self) -> "DocumentProcessor":
-        """Sync context manager entry."""
+        """Context manager entry."""
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        """Sync context manager exit."""
+        """Context manager exit."""
+        # Perform resource cleanup here if needed
         pass
 
     # =========================================================================

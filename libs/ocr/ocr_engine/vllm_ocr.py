@@ -44,7 +44,7 @@ class VllmOCR(BaseOCR):
         ocr = VllmOCR(llm_client=llm)
 
         # Single image conversion
-        result = await ocr.convert_image_to_text("/path/to/image.png")
+        result = ocr.convert_image_to_text("/path/to/image.png")
         ```
     """
 

@@ -288,7 +288,7 @@ def _clean_rtf_text(text: str) -> str:
         return text
 
 
-async def _extract_text_from_rtf(
+def _extract_text_from_rtf(
     file_path: str,
     extract_default_metadata: bool = True
 ) -> str:
@@ -396,15 +396,15 @@ async def _extract_text_from_rtf(
 
         # 폴백: striprtf 라이브러리 사용
         try:
-            return await _extract_text_from_rtf_fallback(file_path)
+            return _extract_text_from_rtf_fallback(file_path)
         except Exception as e2:
             logger.error(f"striprtf fallback also failed: {e2}")
 
         # 최종 폴백: LibreOffice 변환
-        return await _convert_with_libreoffice(file_path)
+        return _convert_with_libreoffice(file_path)
 
 
-async def _extract_text_from_rtf_fallback(
+def _extract_text_from_rtf_fallback(
     file_path: str,
     extract_default_metadata: bool = True
 ) -> str:
@@ -687,7 +687,7 @@ def _extract_ole_images(ole: olefile.OleFileIO, processed_images: Set[str]) -> L
     return images
 
 
-async def _extract_text_from_ole(
+def _extract_text_from_ole(
     file_path: str,
     extract_default_metadata: bool = True
 ) -> str:
@@ -729,7 +729,7 @@ async def _extract_text_from_ole(
 
     # LibreOffice로 텍스트 변환
     try:
-        converted_text = await _convert_with_libreoffice(file_path, skip_metadata=True, extract_default_metadata=extract_default_metadata)
+        converted_text = _convert_with_libreoffice(file_path, skip_metadata=True, extract_default_metadata=extract_default_metadata)
 
         if converted_text:
             result_parts.append("<페이지 번호> 1 </페이지 번호>\n")
@@ -765,7 +765,7 @@ async def _extract_text_from_ole(
 
 # === HTML 처리 ===
 
-async def _extract_text_from_html_doc(
+def _extract_text_from_html_doc(
     file_path: str,
     extract_default_metadata: bool = True
 ) -> str:
@@ -874,7 +874,7 @@ async def _extract_text_from_html_doc(
         logger.error(f"Error processing HTML DOC: {e}")
         logger.debug(traceback.format_exc())
         # 폴백: LibreOffice 변환
-        return await _convert_with_libreoffice(file_path)
+        return _convert_with_libreoffice(file_path)
 
 
 def _extract_html_metadata(soup: BeautifulSoup) -> Dict[str, Any]:
@@ -916,7 +916,7 @@ def _extract_html_metadata(soup: BeautifulSoup) -> Dict[str, Any]:
 
 # === LibreOffice 변환 ===
 
-async def _convert_with_libreoffice(
+def _convert_with_libreoffice(
     file_path: str,
     skip_metadata: bool = False,
     extract_default_metadata: bool = True
@@ -1064,7 +1064,7 @@ async def _convert_with_libreoffice(
 
 # === DOCX 처리 (잘못된 확장자) ===
 
-async def _extract_text_from_docx_misnamed(
+def _extract_text_from_docx_misnamed(
     file_path: str,
     extract_default_metadata: bool = True
 ) -> str:
@@ -1093,7 +1093,7 @@ async def _extract_text_from_docx_misnamed(
 
         try:
             # docx_handler로 처리
-            result = await extract_text_from_docx(temp_path, None, extract_default_metadata)
+            result = extract_text_from_docx(temp_path, None, extract_default_metadata)
             logger.info(f"Misnamed DOCX processing completed")
             return result
         finally:
@@ -1109,7 +1109,7 @@ async def _extract_text_from_docx_misnamed(
 
 # === 메인 함수 ===
 
-async def extract_text_from_doc(
+def extract_text_from_doc(
     file_path: str,
     current_config: Dict[str, Any] = None,
     extract_default_metadata: bool = True
@@ -1144,24 +1144,24 @@ async def extract_text_from_doc(
     try:
         if doc_format == DocFormat.RTF:
             # RTF 형식 처리
-            return await _extract_text_from_rtf(file_path, extract_default_metadata)
+            return _extract_text_from_rtf(file_path, extract_default_metadata)
 
         elif doc_format == DocFormat.OLE:
             # OLE Compound Document 처리
-            return await _extract_text_from_ole(file_path, extract_default_metadata)
+            return _extract_text_from_ole(file_path, extract_default_metadata)
 
         elif doc_format == DocFormat.HTML:
             # HTML 형식 처리
-            return await _extract_text_from_html_doc(file_path, extract_default_metadata)
+            return _extract_text_from_html_doc(file_path, extract_default_metadata)
 
         elif doc_format == DocFormat.DOCX:
             # 잘못된 확장자의 DOCX 처리
-            return await _extract_text_from_docx_misnamed(file_path, extract_default_metadata)
+            return _extract_text_from_docx_misnamed(file_path, extract_default_metadata)
 
         else:
             # 알 수 없는 형식 - LibreOffice 변환 시도
             logger.warning(f"Unknown DOC format, trying LibreOffice conversion")
-            return await _convert_with_libreoffice(file_path, extract_default_metadata)
+            return _convert_with_libreoffice(file_path, extract_default_metadata)
 
     except Exception as e:
         logger.error(f"Error in DOC processing: {e}")
@@ -1169,7 +1169,7 @@ async def extract_text_from_doc(
 
         # 최종 폴백: LibreOffice 변환
         try:
-            return await _convert_with_libreoffice(file_path, extract_default_metadata)
+            return _convert_with_libreoffice(file_path, extract_default_metadata)
         except Exception as e2:
             logger.error(f"LibreOffice fallback also failed: {e2}")
             return f"[DOC 파일 처리 실패: {str(e)}]"

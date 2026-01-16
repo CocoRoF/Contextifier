@@ -40,5 +40,4 @@ dependencies = [
     "striprtf==0.0.29",
     "matplotlib==3.10.8",
     "cachetools==6.2.4",
-    "aiofiles==24.1.0",
 ]

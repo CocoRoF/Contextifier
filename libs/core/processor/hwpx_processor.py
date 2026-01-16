@@ -32,7 +32,7 @@ class HwpxProcessor:
     def __init__(self, config: Dict[str, Any] = None):
         self.config = config or {}
 
-    async def process_hwpx(self, file_path: str, extract_default_metadata: bool = True) -> str:
+    def process_hwpx(self, file_path: str, extract_default_metadata: bool = True) -> str:
         """
         Process HWPX (Zip/XML) file.
         Extracts text, tables (as HTML/Markdown), and images inline.
@@ -77,7 +77,7 @@ class HwpxProcessor:
                 remaining_images = get_remaining_images(zf, processed_images)
 
                 if remaining_images:
-                    image_text = await process_hwpx_images(zf, remaining_images)
+                    image_text = process_hwpx_images(zf, remaining_images)
                     if image_text:
                         text_content.append("\n\n=== Extracted Images (Not Inline) ===\n")
                         text_content.append(image_text)
@@ -96,7 +96,7 @@ class HwpxProcessor:
         return final_result
 
 
-async def extract_text_from_hwpx(file_path: str, config: Dict[str, Any], extract_default_metadata: bool = True) -> str:
+def extract_text_from_hwpx(file_path: str, config: Dict[str, Any], extract_default_metadata: bool = True) -> str:
     """HWPX 파일에서 텍스트 추출 (외부 호출용 함수)"""
     processor = HwpxProcessor(config)
-    return await processor.process_hwpx(file_path, extract_default_metadata=extract_default_metadata)
+    return processor.process_hwpx(file_path, extract_default_metadata=extract_default_metadata)

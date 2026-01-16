@@ -51,7 +51,7 @@ logger = logging.getLogger("document-processor")
 
 # === 메인 함수 ===
 
-async def extract_text_from_ppt(
+def extract_text_from_ppt(
     file_path: str,
     current_config: Dict[str, Any] = None,
     extract_default_metadata: bool = True
@@ -72,12 +72,12 @@ async def extract_text_from_ppt(
     logger.info(f"PPT processing: {file_path}")
 
     # enhanced가 기본이며, 모든 경우에 고도화된 파싱 사용
-    return await _extract_ppt_enhanced(file_path, extract_default_metadata)
+    return _extract_ppt_enhanced(file_path, extract_default_metadata)
 
 
 # === 고도화된 PPT 처리 함수들 ===
 
-async def _extract_ppt_enhanced(
+def _extract_ppt_enhanced(
     file_path: str,
     extract_default_metadata: bool = True
 ) -> str:
@@ -267,7 +267,7 @@ def _extract_ppt_simple_text(file_path: str) -> str:
         return f"[PPT 파일 처리 실패: {str(e)}]"
 
 
-async def _extract_ppt_text_only(file_path: str) -> str:
+def _extract_ppt_text_only(file_path: str) -> str:
     """
     텍스트만 추출합니다 (이미지/테이블 태그 없음).
     """

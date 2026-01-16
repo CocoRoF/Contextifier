@@ -60,7 +60,7 @@ logger = logging.getLogger("document-processor")
 
 # === 메인 함수 ===
 
-async def extract_text_from_excel(
+def extract_text_from_excel(
     file_path: str,
     current_config: Dict[str, Any] = None,
     extract_default_metadata: bool = True
@@ -80,10 +80,10 @@ async def extract_text_from_excel(
     logger.info(f"Excel processing: {file_path}, ext: {ext}")
 
     if ext == '.xlsx':
-        return await _extract_xlsx(file_path, extract_default_metadata)
+        return _extract_xlsx(file_path, extract_default_metadata)
 
     elif ext == '.xls':
-        return await _extract_xls(file_path, extract_default_metadata)
+        return _extract_xls(file_path, extract_default_metadata)
 
     else:
         raise ValueError(f"지원하지 않는 Excel 형식입니다: {ext}")
@@ -91,7 +91,7 @@ async def extract_text_from_excel(
 
 # === XLSX 처리 ===
 
-async def _extract_xlsx(
+def _extract_xlsx(
     file_path: str,
     extract_default_metadata: bool = True
 ) -> str:
@@ -318,7 +318,7 @@ def _process_remaining_charts(
 
 # === XLS 처리 ===
 
-async def _extract_xls(
+def _extract_xls(
     file_path: str,
     extract_default_metadata: bool = True
 ) -> str:

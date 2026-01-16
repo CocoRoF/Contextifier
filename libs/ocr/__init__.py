@@ -12,19 +12,19 @@ Usage Examples:
 
     # OCR processing with OpenAI Vision model
     ocr = OpenAIOCR(api_key="sk-...", model="gpt-4o")
-    result = await ocr.convert_image_to_text("/path/to/image.png")
+    result = ocr.convert_image_to_text("/path/to/image.png")
 
     # OCR processing with Anthropic Claude Vision model
     ocr = AnthropicOCR(api_key="sk-ant-...", model="claude-sonnet-4-20250514")
-    result = await ocr.convert_image_to_text("/path/to/image.png")
+    result = ocr.convert_image_to_text("/path/to/image.png")
 
     # OCR processing with Google Gemini Vision model
     ocr = GeminiOCR(api_key="...", model="gemini-2.0-flash")
-    result = await ocr.convert_image_to_text("/path/to/image.png")
+    result = ocr.convert_image_to_text("/path/to/image.png")
 
     # OCR processing with vLLM-based Vision model
     ocr = VllmOCR(base_url="http://localhost:8000/v1", model="Qwen/Qwen2-VL-7B-Instruct")
-    result = await ocr.convert_image_to_text("/path/to/image.png")
+    result = ocr.convert_image_to_text("/path/to/image.png")
     ```
 
 Classes:

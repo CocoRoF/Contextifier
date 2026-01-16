@@ -63,7 +63,7 @@ class HwpProcessor:
     # Main Entry Point
     # ==========================================================================
 
-    async def process(self, file_path: str, extract_default_metadata: bool = True) -> str:
+    def process(self, file_path: str, extract_default_metadata: bool = True) -> str:
         """
         HWP (5.0 OLE) 파일을 처리합니다.
 
@@ -76,7 +76,7 @@ class HwpProcessor:
         """
         # OLE 파일인지 확인
         if not olefile.isOleFile(file_path):
-            return await self._handle_non_ole_file(file_path, extract_default_metadata)
+            return self._handle_non_ole_file(file_path, extract_default_metadata)
 
         text_content = []
         processed_images: Set[str] = set()
@@ -98,7 +98,7 @@ class HwpProcessor:
                 text_content.extend(section_texts)
 
                 # 4. BinData에서 이미지 추출
-                image_text = await process_images_from_bindata(ole, processed_images=processed_images)
+                image_text = process_images_from_bindata(ole, processed_images=processed_images)
                 if image_text:
                     text_content.append("\n\n=== Extracted Images (Not Inline) ===\n")
                     text_content.append(image_text)
@@ -120,12 +120,12 @@ class HwpProcessor:
     # File Type Detection
     # ==========================================================================
 
-    async def _handle_non_ole_file(self, file_path: str, extract_default_metadata: bool) -> str:
+    def _handle_non_ole_file(self, file_path: str, extract_default_metadata: bool) -> str:
         """비-OLE 파일 처리 (HWPX 또는 손상된 파일)"""
         # HWPX(ZIP) 형식인지 확인 (.hwp 확장자이지만 실제로는 HWPX인 경우)
         if zipfile.is_zipfile(file_path):
             logger.info(f"File {file_path} has .hwp extension but is a Zip file. Processing as HWPX.")
-            return await extract_text_from_hwpx(file_path, self.config, extract_default_metadata)
+            return extract_text_from_hwpx(file_path, self.config, extract_default_metadata)
 
         # HWP 3.0 확인
         try:
@@ -138,7 +138,7 @@ class HwpProcessor:
 
         logger.error(f"Not a valid OLE file: {file_path}")
         # Fallback: 손상된 파일 복구 시도
-        return await self._process_corrupted_hwp(file_path)
+        return self._process_corrupted_hwp(file_path)
 
     # ==========================================================================
     # Metadata Extraction
@@ -528,7 +528,7 @@ class HwpProcessor:
     # Corrupted File Recovery
     # ==========================================================================
 
-    async def _process_corrupted_hwp(self, file_path: str) -> str:
+    def _process_corrupted_hwp(self, file_path: str) -> str:
         """손상되었거나 비-OLE HWP 파일에서 텍스트와 이미지 복구를 시도합니다."""
         logger.info(f"Starting forensic recovery for: {file_path}")
         text_content = []
@@ -555,7 +555,7 @@ class HwpProcessor:
                 logger.warning("Forensic text scan found no valid text.")
 
             # 이미지 복구
-            image_text = await self._recover_images_from_raw(raw_data)
+            image_text = self._recover_images_from_raw(raw_data)
             if image_text:
                 text_content.append(image_text)
 
@@ -596,11 +596,11 @@ class HwpProcessor:
 
         return decompressed_chunks
 
-    async def _recover_images_from_raw(self, raw_data: bytes) -> Optional[str]:
+    def _recover_images_from_raw(self, raw_data: bytes) -> Optional[str]:
         """raw 데이터에서 이미지 복구"""
         logger.info("Starting forensic image recovery...")
         try:
-            image_text = await recover_images_from_raw(raw_data)
+            image_text = recover_images_from_raw(raw_data)
             if image_text:
                 return f"\n\n=== Forensically Recovered Images ===\n{image_text}"
             logger.info("Forensic image recovery complete.")
@@ -614,11 +614,11 @@ class HwpProcessor:
 # Convenience Functions
 # ==========================================================================
 
-async def extract_text_from_hwp(
+def extract_text_from_hwp(
     file_path: str,
     config: Dict[str, Any] = None,
     extract_default_metadata: bool = True
 ) -> str:
     """HWP 파일에서 텍스트를 추출하는 편의 함수"""
     processor = HwpProcessor(config)
-    return await processor.process(file_path, extract_default_metadata=extract_default_metadata)
+    return processor.process(file_path, extract_default_metadata=extract_default_metadata)

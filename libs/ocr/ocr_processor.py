@@ -76,7 +76,7 @@ def load_image_from_path(image_path: str) -> Optional[str]:
         return None
 
 
-async def convert_image_to_text_with_llm(
+def convert_image_to_text_with_llm(
     image_path: str,
     llm_client: Any,
     provider: str
@@ -184,7 +184,7 @@ async def convert_image_to_text_with_llm(
         else:
             return None  # Unsupported provider
 
-        response = await llm_client.ainvoke([message])
+        response = llm_client.invoke([message])
         result = response.content.strip()
 
         # Wrap result in [Figure:...] format
@@ -198,7 +198,7 @@ async def convert_image_to_text_with_llm(
         return f"[Image conversion error: {str(e)}]"
 
 
-async def process_text_with_ocr(
+def process_text_with_ocr(
     text: str,
     llm_client: Any,
     provider: str
@@ -242,7 +242,7 @@ async def process_text_with_ocr(
             continue
 
         # Convert image to text using VL model
-        ocr_result = await convert_image_to_text_with_llm(
+        ocr_result = convert_image_to_text_with_llm(
             image_path=local_path,
             llm_client=llm_client,
             provider=provider
@@ -260,7 +260,7 @@ async def process_text_with_ocr(
     return result_text
 
 
-async def process_text_with_ocr_progress(
+def process_text_with_ocr_progress(
     text: str,
     llm_client: Any,
     provider: str,
@@ -299,7 +299,7 @@ async def process_text_with_ocr_progress(
     for idx, img_path in enumerate(image_paths):
         # Progress callback - processing started
         if progress_callback:
-            await progress_callback({
+            progress_callback({
                 'event': 'ocr_tag_processing',
                 'chunk_index': idx,
                 'total_chunks': total_chunks,
@@ -317,7 +317,7 @@ async def process_text_with_ocr_progress(
             logger.warning(f"[OCR] Image load failed, keeping original tag: {img_path}")
             failed_count += 1
             if progress_callback:
-                await progress_callback({
+                progress_callback({
                     'event': 'ocr_chunk_processed',
                     'chunk_index': idx,
                     'total_chunks': total_chunks,
@@ -328,7 +328,7 @@ async def process_text_with_ocr_progress(
 
         try:
             # Convert image to text using VL model
-            ocr_result = await convert_image_to_text_with_llm(
+            ocr_result = convert_image_to_text_with_llm(
                 image_path=local_path,
                 llm_client=llm_client,
                 provider=provider
@@ -339,7 +339,7 @@ async def process_text_with_ocr_progress(
                 logger.warning(f"[OCR] Image conversion failed, keeping original tag: {img_path}")
                 failed_count += 1
                 if progress_callback:
-                    await progress_callback({
+                    progress_callback({
                         'event': 'ocr_chunk_processed',
                         'chunk_index': idx,
                         'total_chunks': total_chunks,
@@ -354,7 +354,7 @@ async def process_text_with_ocr_progress(
             logger.info(f"[OCR] Tag replacement completed: {img_path[:50]}...")
 
             if progress_callback:
-                await progress_callback({
+                progress_callback({
                     'event': 'ocr_chunk_processed',
                     'chunk_index': idx,
                     'total_chunks': total_chunks,
@@ -365,7 +365,7 @@ async def process_text_with_ocr_progress(
             logger.error(f"[OCR] Image processing error: {img_path}, error: {e}")
             failed_count += 1
             if progress_callback:
-                await progress_callback({
+                progress_callback({
                     'event': 'ocr_chunk_processed',
                     'chunk_index': idx,
                     'total_chunks': total_chunks,
@@ -376,7 +376,7 @@ async def process_text_with_ocr_progress(
     return result_text
 
 
-async def process_batch_texts_with_ocr(
+def process_batch_texts_with_ocr(
     texts: List[str],
     llm_client: Any,
     provider: str
@@ -394,6 +394,6 @@ async def process_batch_texts_with_ocr(
     """
     results = []
     for text in texts:
-        processed = await process_text_with_ocr(text, llm_client, provider)
+        processed = process_text_with_ocr(text, llm_client, provider)
         results.append(processed)
     return results
