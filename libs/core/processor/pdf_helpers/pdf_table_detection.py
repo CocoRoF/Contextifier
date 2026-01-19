@@ -19,9 +19,9 @@ from libs.core.processor.pdf_helpers.types import (
     CellInfo,
     TableCandidate,
 )
-from libs.core.processor.pdf_helpers.line_analysis import LineAnalysisEngine
-from libs.core.processor.pdf_helpers.graphic_detector import GraphicRegionDetector
-from libs.core.processor.pdf_helpers.table_validator import TableQualityValidator
+from libs.core.processor.pdf_helpers.pdf_line_analysis import LineAnalysisEngine
+from libs.core.processor.pdf_helpers.pdf_graphic_detector import GraphicRegionDetector
+from libs.core.processor.pdf_helpers.pdf_table_validator import TableQualityValidator
 
 logger = logging.getLogger(__name__)
 

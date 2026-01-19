@@ -9,7 +9,7 @@ import logging
 from typing import List, Tuple, Optional
 
 from libs.core.processor.pdf_helpers.types import PDFConfig
-from libs.core.processor.pdf_helpers.graphic_detector import GraphicRegionDetector
+from libs.core.processor.pdf_helpers.pdf_graphic_detector import GraphicRegionDetector
 
 logger = logging.getLogger(__name__)
 

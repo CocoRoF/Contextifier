@@ -398,7 +398,7 @@ class BlockImageEngine:
         """
         try:
             # 1. Layout block detection
-            from libs.core.processor.pdf_helpers.layout_block_detector import (
+            from libs.core.processor.pdf_helpers.pdf_layout_block_detector import (
                 LayoutBlockDetector,
                 LayoutBlock,
             )
@@ -553,7 +553,7 @@ class BlockImageEngine:
 
         # Determine grid based on column count
         try:
-            from libs.core.processor.pdf_helpers.layout_block_detector import (
+            from libs.core.processor.pdf_helpers.pdf_layout_block_detector import (
                 LayoutBlockDetector,
             )
             detector = LayoutBlockDetector(self.page, self.page_num)

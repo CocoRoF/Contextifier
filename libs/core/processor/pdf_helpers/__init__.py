@@ -4,14 +4,56 @@ PDF Helpers Package
 Contains helper modules for PDF processing.
 """
 
-from libs.core.processor.pdf_helpers.pdf_helper import (
+# Backward compatibility - import from new modules
+from libs.core.processor.pdf_helpers.pdf_metadata import (
     extract_pdf_metadata,
     format_metadata,
+    parse_pdf_date,
+)
+
+from libs.core.processor.pdf_helpers.pdf_utils import (
     escape_html,
     calculate_overlap_ratio,
     is_inside_any_bbox,
     find_image_position,
     get_text_lines_with_positions,
+    bbox_overlaps,
+)
+
+from libs.core.processor.pdf_helpers.pdf_image import (
+    extract_images_from_page,
+    get_image_processor,
+)
+
+from libs.core.processor.pdf_helpers.pdf_text_extractor import (
+    extract_text_blocks,
+    split_ocr_text_to_blocks,
+)
+
+from libs.core.processor.pdf_helpers.pdf_page_analyzer import (
+    detect_page_border,
+    is_table_likely_border,
+)
+
+from libs.core.processor.pdf_helpers.pdf_element_merger import (
+    merge_page_elements,
+)
+
+from libs.core.processor.pdf_helpers.pdf_table_processor import (
+    TableInfo,
+    AnnotationInfo as TableAnnotationInfo,
+    extract_all_tables,
+    find_and_insert_annotations,
+    add_annotation_to_table,
+    merge_adjacent_tables,
+    should_merge_tables,
+    do_merge_tables,
+    process_table_continuity,
+    extract_last_category,
+    is_single_column_table,
+    convert_single_column_to_text,
+    convert_table_to_html,
+    generate_html_from_cells,
 )
 
 from libs.core.processor.pdf_helpers.types import (
@@ -30,32 +72,32 @@ from libs.core.processor.pdf_helpers.types import (
     PageBorderInfo,
 )
 
-from libs.core.processor.pdf_helpers.vector_text_ocr import (
+from libs.core.processor.pdf_helpers.pdf_vector_text_ocr import (
     VectorTextConfig,
     VectorTextOCREngine,
 )
 
-from libs.core.processor.pdf_helpers.graphic_detector import (
+from libs.core.processor.pdf_helpers.pdf_graphic_detector import (
     GraphicRegionDetector,
 )
 
-from libs.core.processor.pdf_helpers.table_validator import (
+from libs.core.processor.pdf_helpers.pdf_table_validator import (
     TableQualityValidator,
 )
 
-from libs.core.processor.pdf_helpers.line_analysis import (
+from libs.core.processor.pdf_helpers.pdf_line_analysis import (
     LineAnalysisEngine,
 )
 
-from libs.core.processor.pdf_helpers.table_detection import (
+from libs.core.processor.pdf_helpers.pdf_table_detection import (
     TableDetectionEngine,
 )
 
-from libs.core.processor.pdf_helpers.cell_analysis import (
+from libs.core.processor.pdf_helpers.pdf_cell_analysis import (
     CellAnalysisEngine,
 )
 
-from libs.core.processor.pdf_helpers.complexity_analyzer import (
+from libs.core.processor.pdf_helpers.pdf_complexity_analyzer import (
     ComplexityLevel,
     ProcessingStrategy,
     RegionComplexity,
@@ -64,7 +106,7 @@ from libs.core.processor.pdf_helpers.complexity_analyzer import (
     ComplexityAnalyzer,
 )
 
-from libs.core.processor.pdf_helpers.block_image_engine import (
+from libs.core.processor.pdf_helpers.pdf_block_image_engine import (
     BlockStrategy,
     BlockImageConfig,
     BlockImageResult,
@@ -72,7 +114,7 @@ from libs.core.processor.pdf_helpers.block_image_engine import (
     BlockImageEngine,
 )
 
-from libs.core.processor.pdf_helpers.layout_block_detector import (
+from libs.core.processor.pdf_helpers.pdf_layout_block_detector import (
     LayoutBlockType,
     ContentElement,
     LayoutBlock,
@@ -82,7 +124,7 @@ from libs.core.processor.pdf_helpers.layout_block_detector import (
     LayoutBlockDetector,
 )
 
-from libs.core.processor.pdf_helpers.table_quality_analyzer import (
+from libs.core.processor.pdf_helpers.pdf_table_quality_analyzer import (
     TableQuality,
     TableQualityResult,
     TableQualityAnalyzer,
@@ -149,4 +191,41 @@ __all__ = [
     'TableQuality',
     'TableQualityResult',
     'TableQualityAnalyzer',
+    # pdf_metadata
+    'extract_pdf_metadata',
+    'format_metadata',
+    'parse_pdf_date',
+    # pdf_utils
+    'escape_html',
+    'calculate_overlap_ratio',
+    'is_inside_any_bbox',
+    'find_image_position',
+    'get_text_lines_with_positions',
+    'bbox_overlaps',
+    # pdf_image
+    'extract_images_from_page',
+    'get_image_processor',
+    # pdf_text_extractor
+    'extract_text_blocks',
+    'split_ocr_text_to_blocks',
+    # pdf_page_analyzer
+    'detect_page_border',
+    'is_table_likely_border',
+    # pdf_element_merger
+    'merge_page_elements',
+    # pdf_table_processor
+    'TableInfo',
+    'TableAnnotationInfo',
+    'extract_all_tables',
+    'find_and_insert_annotations',
+    'add_annotation_to_table',
+    'merge_adjacent_tables',
+    'should_merge_tables',
+    'do_merge_tables',
+    'process_table_continuity',
+    'extract_last_category',
+    'is_single_column_table',
+    'convert_single_column_to_text',
+    'convert_table_to_html',
+    'generate_html_from_cells',
 ]
