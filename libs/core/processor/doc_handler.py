@@ -10,9 +10,7 @@ import os
 import re
 import shutil
 import tempfile
-import subprocess
 import struct
-import traceback
 import base64
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Set
@@ -85,15 +83,11 @@ class DOCHandler(BaseHandler):
             elif doc_format == DocFormat.DOCX:
                 return self._extract_from_docx_misnamed(file_path, extract_metadata)
             else:
-                self.logger.warning("Unknown DOC format, trying LibreOffice")
-                return self._convert_with_libreoffice(file_path, extract_metadata)
+                self.logger.warning(f"Unknown DOC format, trying OLE: {file_path}")
+                return self._extract_from_ole(file_path, extract_metadata)
         except Exception as e:
             self.logger.error(f"Error in DOC processing: {e}")
-            try:
-                return self._convert_with_libreoffice(file_path, extract_metadata)
-            except Exception as e2:
-                self.logger.error(f"LibreOffice fallback also failed: {e2}")
-                return f"[DOC 파일 처리 실패: {str(e)}]"
+            return f"[DOC 파일 처리 실패: {str(e)}]"
     
     def _detect_format(self, file_path: str) -> DocFormat:
         """파일 형식을 감지합니다."""
@@ -244,40 +238,38 @@ class DOCHandler(BaseHandler):
         return metadata
     
     def _extract_from_ole(self, file_path: str, extract_metadata: bool) -> str:
-        """OLE Compound Document 처리"""
+        """OLE Compound Document 처리 - WordDocument 스트림에서 직접 텍스트 추출"""
         self.logger.info(f"Processing OLE: {file_path}")
         
         result_parts = []
         processed_images: Set[str] = set()
-        images = []
         
         try:
             with olefile.OleFileIO(file_path) as ole:
+                # 메타데이터 추출
                 if extract_metadata:
                     metadata = self._extract_ole_metadata(ole)
                     metadata_str = self._format_metadata(metadata)
                     if metadata_str:
                         result_parts.append(metadata_str + "\n\n")
                 
-                images = self._extract_ole_images(ole, processed_images)
-        except Exception as e:
-            self.logger.warning(f"Error reading OLE: {e}")
-        
-        try:
-            converted = self._convert_with_libreoffice(file_path, False, skip_metadata=True)
-            if converted:
                 result_parts.append("<페이지 번호> 1 </페이지 번호>\n")
-                result_parts.append(converted)
-            
-            for img_tag in images:
-                result_parts.append(img_tag)
-            
-            return "\n".join(result_parts)
+                
+                # WordDocument 스트림에서 텍스트 추출
+                text = self._extract_ole_text(ole)
+                if text:
+                    result_parts.append(text)
+                
+                # 이미지 추출
+                images = self._extract_ole_images(ole, processed_images)
+                for img_tag in images:
+                    result_parts.append(img_tag)
+                
         except Exception as e:
             self.logger.error(f"OLE processing error: {e}")
-            if result_parts:
-                return "\n".join(result_parts)
             return f"[DOC 파일 처리 실패: {str(e)}]"
+        
+        return "\n".join(result_parts)
     
     def _extract_ole_metadata(self, ole: olefile.OleFileIO) -> Dict[str, Any]:
         """OLE 메타데이터 추출"""
@@ -440,78 +432,115 @@ class DOCHandler(BaseHandler):
             self.logger.error(f"Error processing misnamed DOCX: {e}")
             return f"[DOC 파일 처리 실패: {str(e)}]"
     
-    def _convert_with_libreoffice(self, file_path: str, extract_metadata: bool = True, skip_metadata: bool = False) -> str:
-        """LibreOffice 변환"""
-        libreoffice_path = None
-        for path in ['/usr/bin/libreoffice', '/usr/bin/soffice', 'libreoffice', 'soffice']:
-            try:
-                result = subprocess.run([path, '--version'], capture_output=True, timeout=5)
-                if result.returncode == 0:
-                    libreoffice_path = path
-                    break
-            except:
-                continue
+    def _extract_ole_text(self, ole: olefile.OleFileIO) -> str:
+        """OLE WordDocument 스트림에서 텍스트 추출"""
+        try:
+            # WordDocument 스트림 확인
+            if not ole.exists('WordDocument'):
+                self.logger.warning("WordDocument stream not found")
+                return ""
+            
+            # Word Document 스트림 읽기
+            word_stream = ole.openstream('WordDocument')
+            word_data = word_stream.read()
+            
+            if len(word_data) < 12:
+                return ""
+            
+            # FIB (File Information Block) 파싱
+            # Magic number 확인 (0xA5EC 또는 0xA5DC)
+            magic = struct.unpack('<H', word_data[0:2])[0]
+            if magic not in (0xA5EC, 0xA5DC):
+                self.logger.warning(f"Invalid Word magic number: {hex(magic)}")
+                return ""
+            
+            # 텍스트 추출 시도
+            text_parts = []
+            
+            # 1. Table 스트림에서 텍스트 조각 찾기 시도
+            table_stream_name = None
+            if ole.exists('1Table'):
+                table_stream_name = '1Table'
+            elif ole.exists('0Table'):
+                table_stream_name = '0Table'
+            
+            # 2. 간단한 방식: 유니코드/ASCII 텍스트 직접 추출
+            # Word 97-2003은 대부분 유니코드 텍스트를 포함
+            extracted_text = self._extract_text_from_word_stream(word_data)
+            if extracted_text:
+                text_parts.append(extracted_text)
+            
+            return '\n'.join(text_parts)
+            
+        except Exception as e:
+            self.logger.warning(f"Error extracting OLE text: {e}")
+            return ""
+    
+    def _extract_text_from_word_stream(self, data: bytes) -> str:
+        """Word 스트림에서 텍스트 추출 (휴리스틱 방식)"""
+        text_parts = []
         
-        if not libreoffice_path:
-            return "[DOC 파일 처리 실패: LibreOffice 없음]"
+        # 방법 1: UTF-16LE 유니코드 텍스트 추출
+        try:
+            # 연속된 유니코드 문자열 찾기
+            i = 0
+            while i < len(data) - 1:
+                # 유니코드 텍스트 시작점 찾기 (printable 문자)
+                if 0x20 <= data[i] <= 0x7E and data[i+1] == 0x00:
+                    # 유니코드 문자열 수집
+                    unicode_bytes = []
+                    j = i
+                    while j < len(data) - 1:
+                        char = data[j]
+                        next_byte = data[j+1]
+                        
+                        # ASCII 범위 유니코드 문자 또는 한글
+                        if next_byte == 0x00 and (0x20 <= char <= 0x7E or char in (0x0D, 0x0A, 0x09)):
+                            unicode_bytes.extend([char, next_byte])
+                            j += 2
+                        elif 0xAC <= next_byte <= 0xD7:  # 한글 유니코드 범위 (AC00-D7AF)
+                            unicode_bytes.extend([char, next_byte])
+                            j += 2
+                        elif next_byte in range(0x30, 0x4E):  # CJK 범위 일부
+                            unicode_bytes.extend([char, next_byte])
+                            j += 2
+                        else:
+                            break
+                    
+                    if len(unicode_bytes) >= 8:  # 최소 4자 이상
+                        try:
+                            text = bytes(unicode_bytes).decode('utf-16-le', errors='ignore')
+                            text = text.strip()
+                            if len(text) >= 4 and not text.startswith('\\'):
+                                # 제어 문자 정리
+                                text = text.replace('\r\n', '\n').replace('\r', '\n')
+                                text = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F]', '', text)
+                                if text:
+                                    text_parts.append(text)
+                        except:
+                            pass
+                    i = j
+                else:
+                    i += 1
+        except Exception as e:
+            self.logger.debug(f"Unicode extraction error: {e}")
         
-        with tempfile.TemporaryDirectory() as temp_dir:
-            try:
-                temp_input = os.path.join(temp_dir, "input.doc")
-                shutil.copy2(file_path, temp_input)
-                
-                cmd = [libreoffice_path, '--headless', '--convert-to', 'html:HTML:EmbedImages', '--outdir', temp_dir, temp_input]
-                subprocess.run(cmd, capture_output=True, timeout=120, env={**os.environ, 'HOME': temp_dir})
-                
-                html_file = os.path.join(temp_dir, "input.html")
-                result_parts = []
-                
-                if os.path.exists(html_file):
-                    with open(html_file, 'r', encoding='utf-8', errors='replace') as f:
-                        content = f.read()
-                    
-                    soup = BeautifulSoup(content, 'html.parser')
-                    
-                    if not skip_metadata and extract_metadata:
-                        metadata = self._extract_html_metadata(soup)
-                        metadata_str = self._format_metadata(metadata)
-                        if metadata_str:
-                            result_parts.append(metadata_str + "\n\n")
-                    
-                    for tag in soup(['script', 'style', 'meta', 'link']):
-                        tag.decompose()
-                    
-                    text = soup.get_text(separator='\n', strip=True)
-                    text = re.sub(r'\n{3,}', '\n\n', text)
-                    if text:
-                        result_parts.append(text)
-                    
-                    for table in soup.find_all('table'):
-                        table_html = str(table)
-                        table_html = re.sub(r'\s+style="[^"]*"', '', table_html)
-                        table_html = re.sub(r'\s+class="[^"]*"', '', table_html)
-                        result_parts.append("\n" + table_html + "\n")
-                    
-                    for img in soup.find_all('img'):
-                        src = img.get('src', '')
-                        if src and src.startswith('data:image'):
-                            try:
-                                match = re.match(r'data:image/(\w+);base64,(.+)', src)
-                                if match:
-                                    image_data = base64.b64decode(match.group(2))
-                                    image_tag = self.image_processor.save_image(image_data)
-                                    if image_tag:
-                                        result_parts.append(f"\n{image_tag}\n")
-                            except:
-                                pass
-                    
-                    return "\n".join(result_parts)
-                
-                return "[DOC 변환 실패]"
-            except subprocess.TimeoutExpired:
-                return "[DOC 변환 시간 초과]"
-            except Exception as e:
-                return f"[DOC 변환 실패: {str(e)}]"
+        # 결과 정리
+        if text_parts:
+            # 중복 제거 및 연결
+            seen = set()
+            unique_parts = []
+            for part in text_parts:
+                if part not in seen and len(part) > 3:
+                    seen.add(part)
+                    unique_parts.append(part)
+            
+            result = '\n'.join(unique_parts)
+            # 과도한 줄바꿈 정리
+            result = re.sub(r'\n{3,}', '\n\n', result)
+            return result.strip()
+        
+        return ""
     
     def _format_metadata(self, metadata: Dict[str, Any]) -> str:
         """메타데이터 포맷팅"""

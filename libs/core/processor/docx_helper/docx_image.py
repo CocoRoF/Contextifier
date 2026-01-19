@@ -22,7 +22,7 @@ def extract_image_from_drawing(
     graphic_data,
     doc: Document,
     processed_images: Set[str],
-    image_processor: Optional[ImageProcessor] = None
+    image_processor: ImageProcessor
 ) -> Tuple[str, Optional[ElementType]]:
     """
     Drawing에서 이미지를 추출합니다.
@@ -36,8 +36,6 @@ def extract_image_from_drawing(
     Returns:
         (content, element_type) 튜플
     """
-    if image_processor is None:
-        image_processor = ImageProcessor()
     
     try:
         # blip 요소 찾기 (이미지 참조)
@@ -84,7 +82,7 @@ def process_pict_element(
     pict_elem,
     doc: Document,
     processed_images: Set[str],
-    image_processor: Optional[ImageProcessor] = None
+    image_processor: ImageProcessor
 ) -> str:
     """
     레거시 VML pict 요소를 처리합니다.
@@ -98,8 +96,6 @@ def process_pict_element(
     Returns:
         이미지 마크업 문자열
     """
-    if image_processor is None:
-        image_processor = ImageProcessor()
     
     try:
         # VML imagedata 찾기

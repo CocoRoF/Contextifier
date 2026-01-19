@@ -482,7 +482,8 @@ class PDFHandler(BaseHandler):
         """Extract images from page using instance's image_processor."""
         return extract_images_from_page(
             page, page_num, doc, processed_images, table_bboxes,
-            min_image_size, min_image_area, image_processor=self.image_processor
+            image_processor=self.image_processor,
+            min_image_size=min_image_size, min_image_area=min_image_area
         )
 
 

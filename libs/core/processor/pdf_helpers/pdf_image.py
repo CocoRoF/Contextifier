@@ -26,9 +26,9 @@ def extract_images_from_page(
     doc,
     processed_images: Set[int],
     table_bboxes: List[Tuple[float, float, float, float]],
+    image_processor: ImageProcessor,
     min_image_size: int = 50,
-    min_image_area: int = 2500,
-    image_processor: Optional[ImageProcessor] = None
+    min_image_area: int = 2500
 ) -> List[PageElement]:
     """
     Extract images from page and save locally.
@@ -39,16 +39,14 @@ def extract_images_from_page(
         doc: PyMuPDF document object
         processed_images: Set of already processed image xrefs
         table_bboxes: List of table bounding boxes to exclude
+        image_processor: ImageProcessor instance for saving images
         min_image_size: Minimum image dimension (width/height)
         min_image_area: Minimum image area
-        image_processor: ImageProcessor instance for saving images
 
     Returns:
         List of PageElement for extracted images
     """
     elements = []
-    if image_processor is None:
-        image_processor = ImageProcessor()
 
     try:
         image_list = page.get_images()

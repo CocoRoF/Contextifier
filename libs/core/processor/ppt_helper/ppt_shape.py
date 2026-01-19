@@ -71,7 +71,7 @@ def is_picture_shape(shape) -> bool:
 def process_image_shape(
     shape,
     processed_images: set,
-    image_processor: Optional[ImageProcessor] = None
+    image_processor: ImageProcessor
 ) -> Optional[str]:
     """
     이미지 Shape을 처리하고 로컬에 저장합니다.
@@ -84,8 +84,6 @@ def process_image_shape(
     Returns:
         이미지 태그 문자열 또는 None
     """
-    if image_processor is None:
-        image_processor = ImageProcessor()
 
     try:
         if not hasattr(shape, 'image'):
@@ -112,7 +110,7 @@ def process_image_shape(
 def process_group_shape(
     group_shape,
     processed_images: set,
-    image_processor: Optional[ImageProcessor] = None
+    image_processor: ImageProcessor
 ) -> List[SlideElement]:
     """
     그룹 Shape 내의 요소들을 처리합니다.
@@ -125,8 +123,6 @@ def process_group_shape(
     Returns:
         SlideElement 리스트
     """
-    if image_processor is None:
-        image_processor = ImageProcessor()
 
     elements = []
 

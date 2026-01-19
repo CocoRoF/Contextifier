@@ -162,15 +162,15 @@ class BlockImageEngine:
         self,
         page,
         page_num: int,
-        config: Optional[BlockImageConfig] = None,
-        image_processor: Optional[ImageProcessor] = None
+        image_processor: ImageProcessor,
+        config: Optional[BlockImageConfig] = None
     ):
         """
         Args:
             page: PyMuPDF page object
             page_num: Page number (0-indexed)
-            config: Engine configuration (BlockImageConfig)
             image_processor: ImageProcessor instance for saving images
+            config: Engine configuration (BlockImageConfig)
         """
         self.page = page
         self.page_num = page_num
@@ -179,8 +179,7 @@ class BlockImageEngine:
         self.page_width = page.rect.width
         self.page_height = page.rect.height
 
-        # Use provided image_processor or create default
-        self._image_processor = image_processor or ImageProcessor()
+        self._image_processor = image_processor
 
         # Processed image hashes (duplicate prevention)
         self._processed_hashes: set = set()
