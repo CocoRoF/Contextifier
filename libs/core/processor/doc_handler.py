@@ -1,10 +1,11 @@
 # libs/core/processor/doc_handler.py
 """
-DOC Handler - 구형 Microsoft Word 문서 처리기
+DOC Handler - Legacy Microsoft Word Document Processor
 
 Class-based handler for DOC files inheriting from BaseHandler.
 Automatically detects file format (RTF, OLE, HTML, DOCX) and processes accordingly.
 """
+import io
 import logging
 import os
 import re
@@ -13,7 +14,7 @@ import tempfile
 import struct
 import base64
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, TYPE_CHECKING
 from enum import Enum
 import zipfile
 
@@ -24,6 +25,9 @@ from striprtf.striprtf import rtf_to_text
 from libs.core.processor.doc_helpers.rtf_parser import parse_rtf, RTFDocument
 from libs.core.processor.base_handler import BaseHandler
 from libs.core.functions.img_processor import ImageProcessor
+
+if TYPE_CHECKING:
+    from libs.core.document_processor import CurrentFile
 
 logger = logging.getLogger("document-processor")
 
@@ -56,44 +60,46 @@ METADATA_FIELD_NAMES = {
 
 
 class DOCHandler(BaseHandler):
-    """DOC 파일 처리 핸들러 클래스"""
+    """DOC file processing handler class."""
     
     def extract_text(
         self,
-        file_path: str,
+        current_file: "CurrentFile",
         extract_metadata: bool = True,
         **kwargs
     ) -> str:
-        """DOC 파일에서 텍스트를 추출합니다."""
+        """Extract text from DOC file."""
+        file_path = current_file.get("file_path", "unknown")
+        file_data = current_file.get("file_data", b"")
+        
         self.logger.info(f"DOC processing: {file_path}")
         
-        if not os.path.exists(file_path):
-            self.logger.error(f"File not found: {file_path}")
-            return f"[DOC 파일을 찾을 수 없습니다: {file_path}]"
+        if not file_data:
+            self.logger.error(f"Empty file data: {file_path}")
+            return f"[DOC file is empty: {file_path}]"
         
-        doc_format = self._detect_format(file_path)
+        doc_format = self._detect_format_from_bytes(file_data)
         
         try:
             if doc_format == DocFormat.RTF:
-                return self._extract_from_rtf(file_path, extract_metadata)
+                return self._extract_from_rtf(current_file, extract_metadata)
             elif doc_format == DocFormat.OLE:
-                return self._extract_from_ole(file_path, extract_metadata)
+                return self._extract_from_ole(current_file, extract_metadata)
             elif doc_format == DocFormat.HTML:
-                return self._extract_from_html(file_path, extract_metadata)
+                return self._extract_from_html(current_file, extract_metadata)
             elif doc_format == DocFormat.DOCX:
-                return self._extract_from_docx_misnamed(file_path, extract_metadata)
+                return self._extract_from_docx_misnamed(current_file, extract_metadata)
             else:
                 self.logger.warning(f"Unknown DOC format, trying OLE: {file_path}")
-                return self._extract_from_ole(file_path, extract_metadata)
+                return self._extract_from_ole(current_file, extract_metadata)
         except Exception as e:
             self.logger.error(f"Error in DOC processing: {e}")
-            return f"[DOC 파일 처리 실패: {str(e)}]"
+            return f"[DOC file processing failed: {str(e)}]"
     
-    def _detect_format(self, file_path: str) -> DocFormat:
-        """파일 형식을 감지합니다."""
+    def _detect_format_from_bytes(self, file_data: bytes) -> DocFormat:
+        """Detect file format from binary data."""
         try:
-            with open(file_path, 'rb') as f:
-                header = f.read(32)
+            header = file_data[:32] if len(file_data) >= 32 else file_data
             
             if not header:
                 return DocFormat.UNKNOWN
@@ -106,7 +112,8 @@ class DOCHandler(BaseHandler):
             
             if header.startswith(MAGIC_NUMBERS['ZIP']):
                 try:
-                    with zipfile.ZipFile(file_path, 'r') as zf:
+                    file_stream = io.BytesIO(file_data)
+                    with zipfile.ZipFile(file_stream, 'r') as zf:
                         if '[Content_Types].xml' in zf.namelist():
                             return DocFormat.DOCX
                 except zipfile.BadZipFile:
@@ -134,13 +141,15 @@ class DOCHandler(BaseHandler):
             self.logger.error(f"Error detecting format: {e}")
             return DocFormat.UNKNOWN
     
-    def _extract_from_rtf(self, file_path: str, extract_metadata: bool) -> str:
-        """RTF 파일 처리"""
+    def _extract_from_rtf(self, current_file: "CurrentFile", extract_metadata: bool) -> str:
+        """RTF file processing."""
+        file_path = current_file.get("file_path", "unknown")
+        file_data = current_file.get("file_data", b"")
+        
         self.logger.info(f"Processing RTF: {file_path}")
         
         try:
-            with open(file_path, 'rb') as f:
-                content = f.read()
+            content = file_data
             
             processed_images: Set[str] = set()
             doc = parse_rtf(content, processed_images=processed_images, image_processor=self.image_processor)
@@ -152,7 +161,7 @@ class DOCHandler(BaseHandler):
                 if metadata_str:
                     result_parts.append(metadata_str + "\n\n")
             
-            result_parts.append("<페이지 번호> 1 </페이지 번호>\n")
+            result_parts.append("<Page Number> 1 </Page Number>\n")
             
             inline_content = doc.get_inline_content()
             if inline_content:
@@ -176,22 +185,22 @@ class DOCHandler(BaseHandler):
             
         except Exception as e:
             self.logger.error(f"RTF processing error: {e}")
-            return self._extract_rtf_fallback(file_path, extract_metadata)
+            return self._extract_rtf_fallback(current_file, extract_metadata)
     
-    def _extract_rtf_fallback(self, file_path: str, extract_metadata: bool) -> str:
-        """RTF 폴백 (striprtf)"""
+    def _extract_rtf_fallback(self, current_file: "CurrentFile", extract_metadata: bool) -> str:
+        """RTF fallback (striprtf)."""
+        file_data = current_file.get("file_data", b"")
+        
         content = None
         for encoding in ['utf-8', 'cp949', 'euc-kr', 'cp1252', 'latin-1']:
             try:
-                with open(file_path, 'r', encoding=encoding) as f:
-                    content = f.read()
+                content = file_data.decode(encoding)
                 break
             except (UnicodeDecodeError, UnicodeError):
                 continue
         
         if content is None:
-            with open(file_path, 'rb') as f:
-                content = f.read().decode('cp1252', errors='replace')
+            content = file_data.decode('cp1252', errors='replace')
         
         result_parts = []
         
@@ -217,7 +226,7 @@ class DOCHandler(BaseHandler):
         return "\n".join(result_parts)
     
     def _extract_rtf_metadata(self, content: str) -> Dict[str, Any]:
-        """RTF 메타데이터 추출"""
+        """RTF metadata extraction."""
         metadata = {}
         patterns = {
             'title': r'\\title\s*\{([^}]*)\}',
@@ -237,37 +246,41 @@ class DOCHandler(BaseHandler):
         
         return metadata
     
-    def _extract_from_ole(self, file_path: str, extract_metadata: bool) -> str:
-        """OLE Compound Document 처리 - WordDocument 스트림에서 직접 텍스트 추출"""
+    def _extract_from_ole(self, current_file: "CurrentFile", extract_metadata: bool) -> str:
+        """OLE Compound Document processing - extract text directly from WordDocument stream."""
+        file_path = current_file.get("file_path", "unknown")
+        file_data = current_file.get("file_data", b"")
+        
         self.logger.info(f"Processing OLE: {file_path}")
         
         result_parts = []
         processed_images: Set[str] = set()
         
         try:
-            with olefile.OleFileIO(file_path) as ole:
-                # 메타데이터 추출
+            file_stream = io.BytesIO(file_data)
+            with olefile.OleFileIO(file_stream) as ole:
+                # Metadata extraction
                 if extract_metadata:
                     metadata = self._extract_ole_metadata(ole)
                     metadata_str = self._format_metadata(metadata)
                     if metadata_str:
                         result_parts.append(metadata_str + "\n\n")
                 
-                result_parts.append("<페이지 번호> 1 </페이지 번호>\n")
+                result_parts.append("<Page Number> 1 </Page Number>\n")
                 
-                # WordDocument 스트림에서 텍스트 추출
+                # Extract text from WordDocument stream
                 text = self._extract_ole_text(ole)
                 if text:
                     result_parts.append(text)
                 
-                # 이미지 추출
+                # Extract images
                 images = self._extract_ole_images(ole, processed_images)
                 for img_tag in images:
                     result_parts.append(img_tag)
                 
         except Exception as e:
             self.logger.error(f"OLE processing error: {e}")
-            return f"[DOC 파일 처리 실패: {str(e)}]"
+            return f"[DOC file processing failed: {str(e)}]"
         
         return "\n".join(result_parts)
     
@@ -333,22 +346,23 @@ class DOCHandler(BaseHandler):
             self.logger.warning(f"Error extracting OLE images: {e}")
         return images
     
-    def _extract_from_html(self, file_path: str, extract_metadata: bool) -> str:
-        """HTML DOC 처리"""
+    def _extract_from_html(self, current_file: "CurrentFile", extract_metadata: bool) -> str:
+        """HTML DOC processing."""
+        file_path = current_file.get("file_path", "unknown")
+        file_data = current_file.get("file_data", b"")
+        
         self.logger.info(f"Processing HTML DOC: {file_path}")
         
         content = None
         for encoding in ['utf-8', 'utf-8-sig', 'cp949', 'euc-kr', 'cp1252', 'latin-1']:
             try:
-                with open(file_path, 'r', encoding=encoding) as f:
-                    content = f.read()
+                content = file_data.decode(encoding)
                 break
             except (UnicodeDecodeError, UnicodeError):
                 continue
         
         if content is None:
-            with open(file_path, 'rb') as f:
-                content = f.read().decode('utf-8', errors='replace')
+            content = file_data.decode('utf-8', errors='replace')
         
         result_parts = []
         soup = BeautifulSoup(content, 'html.parser')
@@ -359,7 +373,7 @@ class DOCHandler(BaseHandler):
             if metadata_str:
                 result_parts.append(metadata_str + "\n\n")
         
-        result_parts.append("<페이지 번호> 1 </페이지 번호>\n")
+        result_parts.append("<Page Number> 1 </Page Number>\n")
         
         for tag in soup(['script', 'style', 'meta', 'link', 'head']):
             tag.decompose()
@@ -392,7 +406,7 @@ class DOCHandler(BaseHandler):
         return "\n".join(result_parts)
     
     def _extract_html_metadata(self, soup: BeautifulSoup) -> Dict[str, Any]:
-        """HTML 메타데이터 추출"""
+        """HTML metadata extraction."""
         metadata = {}
         title_tag = soup.find('title')
         if title_tag and title_tag.string:
@@ -411,50 +425,45 @@ class DOCHandler(BaseHandler):
         
         return metadata
     
-    def _extract_from_docx_misnamed(self, file_path: str, extract_metadata: bool) -> str:
-        """잘못된 확장자의 DOCX 처리"""
+    def _extract_from_docx_misnamed(self, current_file: "CurrentFile", extract_metadata: bool) -> str:
+        """Process misnamed DOCX file."""
+        file_path = current_file.get("file_path", "unknown")
+        
         self.logger.info(f"Processing misnamed DOCX: {file_path}")
         
         try:
             from libs.core.processor.docx_handler import DOCXHandler
             
-            with tempfile.NamedTemporaryFile(suffix='.docx', delete=False) as tmp:
-                shutil.copy2(file_path, tmp.name)
-                temp_path = tmp.name
-            
-            try:
-                docx_handler = DOCXHandler(config=self.config, image_processor=self.image_processor)
-                return docx_handler.extract_text(temp_path, extract_metadata=extract_metadata)
-            finally:
-                if os.path.exists(temp_path):
-                    os.unlink(temp_path)
+            # Pass current_file directly - DOCXHandler now accepts CurrentFile
+            docx_handler = DOCXHandler(config=self.config, image_processor=self.image_processor)
+            return docx_handler.extract_text(current_file, extract_metadata=extract_metadata)
         except Exception as e:
             self.logger.error(f"Error processing misnamed DOCX: {e}")
-            return f"[DOC 파일 처리 실패: {str(e)}]"
+            return f"[DOC file processing failed: {str(e)}]"
     
     def _extract_ole_text(self, ole: olefile.OleFileIO) -> str:
-        """OLE WordDocument 스트림에서 텍스트 추출"""
+        """Extract text from OLE WordDocument stream."""
         try:
-            # WordDocument 스트림 확인
+            # Check WordDocument stream
             if not ole.exists('WordDocument'):
                 self.logger.warning("WordDocument stream not found")
                 return ""
             
-            # Word Document 스트림 읽기
+            # Read Word Document stream
             word_stream = ole.openstream('WordDocument')
             word_data = word_stream.read()
             
             if len(word_data) < 12:
                 return ""
             
-            # FIB (File Information Block) 파싱
-            # Magic number 확인 (0xA5EC 또는 0xA5DC)
+            # FIB (File Information Block) parsing
+            # Check magic number (0xA5EC or 0xA5DC)
             magic = struct.unpack('<H', word_data[0:2])[0]
             if magic not in (0xA5EC, 0xA5DC):
                 self.logger.warning(f"Invalid Word magic number: {hex(magic)}")
                 return ""
             
-            # 텍스트 추출 시도
+            # Text extraction attempt
             text_parts = []
             
             # 1. Table 스트림에서 텍스트 조각 찾기 시도

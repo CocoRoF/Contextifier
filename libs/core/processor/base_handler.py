@@ -1,38 +1,42 @@
 # libs/core/processor/base_handler.py
 """
-BaseHandler - 문서 처리 핸들러 추상 기본 클래스
+BaseHandler - Abstract base class for document processing handlers
 
-모든 문서 핸들러의 기본 인터페이스를 정의합니다.
-DocumentProcessor에서 전달받은 config와 ImageProcessor를
-인스턴스 레벨에서 관리하여 내부 메서드들이 재사용할 수 있도록 합니다.
+Defines the base interface for all document handlers.
+Manages config and ImageProcessor passed from DocumentProcessor
+at instance level for reuse by internal methods.
 
-사용 예:
+Usage Example:
     class PDFHandler(BaseHandler):
-        def extract_text(self, file_path: str, extract_metadata: bool = True) -> str:
-            # self.config, self.image_processor 사용 가능
+        def extract_text(self, current_file: CurrentFile, extract_metadata: bool = True) -> str:
+            # Access self.config, self.image_processor
             ...
 """
+import io
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, TYPE_CHECKING
 
 from libs.core.functions.img_processor import ImageProcessor
+
+if TYPE_CHECKING:
+    from libs.core.document_processor import CurrentFile
 
 logger = logging.getLogger("document-processor")
 
 
 class BaseHandler(ABC):
     """
-    문서 핸들러 추상 기본 클래스
+    Abstract base class for document handlers.
     
-    모든 핸들러는 이 클래스를 상속받아 구현합니다.
-    config와 image_processor는 생성 시 전달받아 인스턴스 변수로 저장되며,
-    모든 내부 메서드에서 self.config, self.image_processor로 접근할 수 있습니다.
+    All handlers inherit from this class.
+    config and image_processor are passed at creation and stored as instance variables,
+    accessible via self.config, self.image_processor from all internal methods.
     
     Attributes:
-        config: DocumentProcessor에서 전달받은 설정 딕셔너리
-        image_processor: DocumentProcessor에서 전달받은 ImageProcessor 인스턴스
-        logger: 로깅 인스턴스
+        config: Configuration dictionary passed from DocumentProcessor
+        image_processor: ImageProcessor instance passed from DocumentProcessor
+        logger: Logging instance
     """
     
     def __init__(
@@ -41,11 +45,11 @@ class BaseHandler(ABC):
         image_processor: Optional[ImageProcessor] = None
     ):
         """
-        BaseHandler 초기화
+        Initialize BaseHandler.
         
         Args:
-            config: 설정 딕셔너리 (DocumentProcessor에서 전달)
-            image_processor: ImageProcessor 인스턴스 (DocumentProcessor에서 전달)
+            config: Configuration dictionary (passed from DocumentProcessor)
+            image_processor: ImageProcessor instance (passed from DocumentProcessor)
         """
         self._config = config or {}
         self._image_processor = image_processor or ImageProcessor()
@@ -53,51 +57,70 @@ class BaseHandler(ABC):
     
     @property
     def config(self) -> Dict[str, Any]:
-        """설정 딕셔너리"""
+        """Configuration dictionary."""
         return self._config
     
     @property
     def image_processor(self) -> ImageProcessor:
-        """ImageProcessor 인스턴스"""
+        """ImageProcessor instance."""
         return self._image_processor
     
     @property
     def logger(self) -> logging.Logger:
-        """로거 인스턴스"""
+        """Logger instance."""
         return self._logger
     
     @abstractmethod
     def extract_text(
         self,
-        file_path: str,
+        current_file: "CurrentFile",
         extract_metadata: bool = True,
         **kwargs
     ) -> str:
         """
-        파일에서 텍스트를 추출합니다.
+        Extract text from file.
         
         Args:
-            file_path: 파일 경로
-            extract_metadata: 메타데이터 추출 여부
-            **kwargs: 추가 옵션
+            current_file: CurrentFile dict containing file info and binary data
+            extract_metadata: Whether to extract metadata
+            **kwargs: Additional options
             
         Returns:
-            추출된 텍스트
+            Extracted text
         """
         pass
     
-    def save_image(self, image_data: bytes, processed_images: Optional[set] = None) -> Optional[str]:
+    def get_file_stream(self, current_file: "CurrentFile") -> io.BytesIO:
         """
-        이미지를 저장하고 태그를 반환합니다.
+        Get a fresh BytesIO stream from current_file.
         
-        편의 메서드로, self.image_processor.save_image()를 래핑합니다.
+        Resets the stream position to the beginning for reuse.
         
         Args:
-            image_data: 이미지 바이너리 데이터
-            processed_images: 처리된 이미지 해시 집합 (중복 방지용)
+            current_file: CurrentFile dict
             
         Returns:
-            이미지 태그 문자열 또는 None
+            BytesIO stream ready for reading
+        """
+        stream = current_file.get("file_stream")
+        if stream is not None:
+            stream.seek(0)
+            return stream
+        # Fallback: create new stream from file_data
+        return io.BytesIO(current_file.get("file_data", b""))
+    
+    def save_image(self, image_data: bytes, processed_images: Optional[set] = None) -> Optional[str]:
+        """
+        Save image and return tag.
+        
+        Convenience method that wraps self.image_processor.save_image().
+        
+        Args:
+            image_data: Image binary data
+            processed_images: Set of processed image hashes (for deduplication)
+            
+        Returns:
+            Image tag string or None
         """
         return self._image_processor.save_image(image_data, processed_images=processed_images)
 

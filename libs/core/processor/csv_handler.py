@@ -1,53 +1,60 @@
 # libs/core/processor/csv_handler.py
 """
-CSV Handler - CSV/TSV 파일 처리기
+CSV Handler - CSV/TSV File Processor
 
 Class-based handler for CSV/TSV files inheriting from BaseHandler.
 """
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple, TYPE_CHECKING
 
 from libs.core.processor.base_handler import BaseHandler
 from libs.core.processor.csv_helper import (
     CSVMetadata,
     extract_csv_metadata,
     format_metadata,
-    read_file_with_encoding,
+    detect_bom,
     detect_delimiter,
     parse_csv_content,
     detect_header,
     convert_rows_to_table,
 )
 
+if TYPE_CHECKING:
+    from libs.core.document_processor import CurrentFile
+
 logger = logging.getLogger("document-processor")
+
+# Encoding candidates for fallback
+ENCODING_CANDIDATES = ['utf-8', 'utf-8-sig', 'cp949', 'euc-kr', 'iso-8859-1', 'latin-1']
 
 
 class CSVHandler(BaseHandler):
-    """CSV/TSV 파일 처리 핸들러 클래스"""
+    """CSV/TSV File Processing Handler Class"""
     
     def extract_text(
         self,
-        file_path: str,
+        current_file: "CurrentFile",
         extract_metadata: bool = True,
         encoding: Optional[str] = None,
         delimiter: Optional[str] = None,
         **kwargs
     ) -> str:
         """
-        CSV/TSV 파일에서 텍스트를 추출합니다.
+        Extract text from CSV/TSV file.
         
         Args:
-            file_path: CSV/TSV 파일 경로
-            extract_metadata: 메타데이터 추출 여부
-            encoding: 인코딩 (None이면 자동 감지)
-            delimiter: 구분자 (None이면 자동 감지)
-            **kwargs: 추가 옵션
+            current_file: CurrentFile dict containing file info and binary data
+            extract_metadata: Whether to extract metadata
+            encoding: Encoding (None for auto-detect)
+            delimiter: Delimiter (None for auto-detect)
+            **kwargs: Additional options
             
         Returns:
-            추출된 텍스트
+            Extracted text
         """
-        ext = os.path.splitext(file_path)[1].lower()
+        file_path = current_file.get("file_path", "unknown")
+        ext = current_file.get("file_extension", os.path.splitext(file_path)[1]).lower()
         self.logger.info(f"CSV processing: {file_path}, ext: {ext}")
         
         if ext == '.tsv' and delimiter is None:
@@ -56,7 +63,9 @@ class CSVHandler(BaseHandler):
         try:
             result_parts = []
             
-            content, detected_encoding = read_file_with_encoding(file_path, encoding)
+            # Decode file_data with encoding detection
+            file_data = current_file.get("file_data", b"")
+            content, detected_encoding = self._decode_with_encoding(file_data, encoding)
             
             if delimiter is None:
                 delimiter = detect_delimiter(content)
@@ -90,3 +99,56 @@ class CSVHandler(BaseHandler):
             import traceback
             self.logger.debug(traceback.format_exc())
             raise
+    
+    def _decode_with_encoding(
+        self,
+        file_data: bytes,
+        preferred_encoding: Optional[str] = None
+    ) -> Tuple[str, str]:
+        """
+        Decode bytes with encoding detection.
+        
+        Args:
+            file_data: Raw bytes data
+            preferred_encoding: Preferred encoding (None for auto-detect)
+            
+        Returns:
+            Tuple of (decoded content, detected encoding)
+        """
+        # BOM detection
+        bom_encoding = detect_bom(file_data)
+        if bom_encoding:
+            try:
+                return file_data.decode(bom_encoding), bom_encoding
+            except UnicodeDecodeError:
+                pass
+        
+        # Try preferred encoding
+        if preferred_encoding:
+            try:
+                return file_data.decode(preferred_encoding), preferred_encoding
+            except UnicodeDecodeError:
+                self.logger.debug(f"Preferred encoding {preferred_encoding} failed")
+        
+        # Try chardet if available
+        try:
+            import chardet
+            detected = chardet.detect(file_data)
+            if detected and detected.get('encoding'):
+                enc = detected['encoding']
+                try:
+                    return file_data.decode(enc), enc
+                except UnicodeDecodeError:
+                    pass
+        except ImportError:
+            pass
+        
+        # Try encoding candidates
+        for enc in ENCODING_CANDIDATES:
+            try:
+                return file_data.decode(enc), enc
+            except UnicodeDecodeError:
+                continue
+        
+        # Fallback to latin-1 (always succeeds)
+        return file_data.decode('latin-1'), 'latin-1'

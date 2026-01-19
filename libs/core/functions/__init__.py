@@ -28,7 +28,7 @@ from libs.core.functions.img_processor import (
     ImageFormat,
     NamingStrategy,
     save_image_to_file,
-    get_default_processor,
+    create_image_processor,
 )
 
 __all__ = [
@@ -42,5 +42,5 @@ __all__ = [
     "ImageFormat",
     "NamingStrategy",
     "save_image_to_file",
-    "get_default_processor",
+    "create_image_processor",
 ]

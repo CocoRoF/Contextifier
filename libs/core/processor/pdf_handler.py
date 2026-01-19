@@ -46,11 +46,14 @@ Core Algorithms:
 """
 import logging
 import traceback
-from typing import Any, Dict, List, Optional, Tuple, Set
+from typing import Any, Dict, List, Optional, Tuple, Set, TYPE_CHECKING
 
 # Base handler
 from libs.core.processor.base_handler import BaseHandler
 from libs.core.functions.img_processor import ImageProcessor
+
+if TYPE_CHECKING:
+    from libs.core.document_processor import CurrentFile
 
 # Import from new modular helpers
 from libs.core.processor.pdf_helpers.pdf_metadata import (
@@ -120,46 +123,58 @@ TableDetectionStrategy = TableDetectionStrategyType
 
 class PDFHandler(BaseHandler):
     """
-    PDF 문서 처리 핸들러
+    PDF Document Handler
     
-    BaseHandler를 상속받아 config와 image_processor를 인스턴스 레벨에서 관리합니다.
-    모든 내부 메서드는 self.config, self.image_processor를 통해 접근합니다.
+    Inherits from BaseHandler to manage config and image_processor at instance level.
+    All internal methods access these via self.config, self.image_processor.
     
     Usage:
         handler = PDFHandler(config=config, image_processor=image_processor)
-        text = handler.extract_text(file_path)
+        text = handler.extract_text(current_file)
     """
     
     def extract_text(
         self,
-        file_path: str,
+        current_file: "CurrentFile",
         extract_metadata: bool = True,
         **kwargs
     ) -> str:
         """
-        PDF 파일에서 텍스트를 추출합니다.
+        Extract text from PDF file.
         
         Args:
-            file_path: PDF 파일 경로
-            extract_metadata: 메타데이터 추출 여부
-            **kwargs: 추가 옵션
+            current_file: CurrentFile dict containing file info and binary data
+            extract_metadata: Whether to extract metadata
+            **kwargs: Additional options
             
         Returns:
-            추출된 텍스트
+            Extracted text
         """
+        file_path = current_file.get("file_path", "unknown")
         self.logger.info(f"[PDF] Processing: {file_path}")
-        return self._extract_pdf(file_path, extract_metadata)
+        return self._extract_pdf(current_file, extract_metadata)
     
     def _extract_pdf(
         self,
-        file_path: str,
+        current_file: "CurrentFile",
         extract_metadata: bool = True
     ) -> str:
         """
         Enhanced PDF processing - adaptive complexity-based.
+        
+        Args:
+            current_file: CurrentFile dict containing file info and binary data
+            extract_metadata: Whether to extract metadata
+            
+        Returns:
+            Extracted text
         """
+        file_path = current_file.get("file_path", "unknown")
+        
         try:
-            doc = fitz.open(file_path)
+            # Open PDF from stream to avoid path encoding issues
+            file_stream = self.get_file_stream(current_file)
+            doc = fitz.open(stream=file_stream, filetype="pdf")
             all_pages_text = []
             processed_images: Set[int] = set()
 
@@ -171,6 +186,7 @@ class PDFHandler(BaseHandler):
                     all_pages_text.append(metadata_text)
 
             # Extract all document tables
+            # NOTE: file_path is passed for pdfplumber compatibility
             all_tables = self._extract_all_tables(doc, file_path)
 
             # Process each page

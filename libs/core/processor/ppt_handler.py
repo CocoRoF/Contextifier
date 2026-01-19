@@ -1,11 +1,11 @@
 # libs/core/processor/ppt_handler.py
 """
-PPT Handler - PPT/PPTX 문서 처리기
+PPT Handler - PPT/PPTX Document Processor
 
 Class-based handler for PPT/PPTX files inheriting from BaseHandler.
 """
 import logging
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, TYPE_CHECKING
 
 from pptx import Presentation
 
@@ -29,38 +29,45 @@ from libs.core.processor.ppt_helper import (
     merge_slide_elements,
 )
 
+if TYPE_CHECKING:
+    from libs.core.document_processor import CurrentFile
+
 logger = logging.getLogger("document-processor")
 
 
 class PPTHandler(BaseHandler):
-    """PPT/PPTX 파일 처리 핸들러 클래스"""
+    """PPT/PPTX File Processing Handler Class"""
     
     def extract_text(
         self,
-        file_path: str,
+        current_file: "CurrentFile",
         extract_metadata: bool = True,
         **kwargs
     ) -> str:
         """
-        PPT/PPTX 파일에서 텍스트를 추출합니다.
+        Extract text from PPT/PPTX file.
         
         Args:
-            file_path: PPT/PPTX 파일 경로
-            extract_metadata: 메타데이터 추출 여부
-            **kwargs: 추가 옵션
+            current_file: CurrentFile dict containing file info and binary data
+            extract_metadata: Whether to extract metadata
+            **kwargs: Additional options
             
         Returns:
-            추출된 텍스트
+            Extracted text
         """
+        file_path = current_file.get("file_path", "unknown")
         self.logger.info(f"PPT processing: {file_path}")
-        return self._extract_ppt_enhanced(file_path, extract_metadata)
+        return self._extract_ppt_enhanced(current_file, extract_metadata)
     
-    def _extract_ppt_enhanced(self, file_path: str, extract_metadata: bool = True) -> str:
-        """고도화된 PPT 처리"""
+    def _extract_ppt_enhanced(self, current_file: "CurrentFile", extract_metadata: bool = True) -> str:
+        """Enhanced PPT processing."""
+        file_path = current_file.get("file_path", "unknown")
         self.logger.info(f"Enhanced PPT processing: {file_path}")
         
         try:
-            prs = Presentation(file_path)
+            # Open from stream to avoid path encoding issues
+            file_stream = self.get_file_stream(current_file)
+            prs = Presentation(file_stream)
             result_parts = []
             processed_images: Set[str] = set()
             total_tables = 0
@@ -74,7 +81,7 @@ class PPTHandler(BaseHandler):
                     result_parts.append("")
             
             for slide_idx, slide in enumerate(prs.slides):
-                result_parts.append(f"\n=== 슬라이드 {slide_idx + 1} ===\n")
+                result_parts.append(f"\n=== Slide {slide_idx + 1} ===\n")
                 
                 elements: List[SlideElement] = []
                 
@@ -157,11 +164,11 @@ class PPTHandler(BaseHandler):
                 if slide_content.strip():
                     result_parts.append(slide_content)
                 else:
-                    result_parts.append("[빈 슬라이드]\n")
+                    result_parts.append("[Empty Slide]\n")
                 
                 notes_text = extract_slide_notes(slide)
                 if notes_text:
-                    result_parts.append(f"\n[슬라이드 노트]\n{notes_text}\n")
+                    result_parts.append(f"\n[Slide Notes]\n{notes_text}\n")
             
             result = "".join(result_parts)
             self.logger.info(f"Enhanced PPT: {len(prs.slides)} slides, {total_tables} tables, {total_images} images")
@@ -172,16 +179,17 @@ class PPTHandler(BaseHandler):
             self.logger.error(f"Error in enhanced PPT processing: {e}")
             import traceback
             self.logger.debug(traceback.format_exc())
-            return self._extract_ppt_simple(file_path)
+            return self._extract_ppt_simple(current_file)
     
-    def _extract_ppt_simple(self, file_path: str) -> str:
-        """간단한 텍스트 추출 (폴백)"""
+    def _extract_ppt_simple(self, current_file: "CurrentFile") -> str:
+        """Simple text extraction (fallback)."""
         try:
-            prs = Presentation(file_path)
+            file_stream = self.get_file_stream(current_file)
+            prs = Presentation(file_stream)
             result_parts = []
             
             for slide_idx, slide in enumerate(prs.slides):
-                result_parts.append(f"\n=== 슬라이드 {slide_idx + 1} ===\n")
+                result_parts.append(f"\n=== Slide {slide_idx + 1} ===\n")
                 
                 slide_texts = []
                 for shape in slide.shapes:
@@ -198,10 +206,10 @@ class PPTHandler(BaseHandler):
                 if slide_texts:
                     result_parts.append("\n".join(slide_texts) + "\n")
                 else:
-                    result_parts.append("[빈 슬라이드]\n")
+                    result_parts.append("[Empty Slide]\n")
             
             return "".join(result_parts)
             
         except Exception as e:
             self.logger.error(f"Error in simple PPT extraction: {e}")
-            return f"[PPT 파일 처리 실패: {str(e)}]"
+            return f"[PPT file processing failed: {str(e)}]"

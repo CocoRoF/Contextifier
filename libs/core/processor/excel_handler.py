@@ -1,17 +1,17 @@
 # your_package/document_processor/excel_handler.py
 """
-Excel Handler - Excel 문서 처리기 (XLSX/XLS)
+Excel Handler - Excel Document Processor (XLSX/XLS)
 
-주요 기능:
-- 메타데이터 추출 (제목, 작성자, 주제, 키워드, 작성일, 수정일 등)
-- 텍스트 추출 (openpyxl/xlrd를 통한 직접 파싱)
-- 테이블 추출 (병합셀 유무에 따라 Markdown 또는 HTML 변환)
-- 인라인 이미지 추출 및 로컬 저장
-- 차트 처리 (1순위: 테이블로 변환, 2순위: matplotlib 이미지)
-- 다중 시트 지원
+Main Features:
+- Metadata extraction (title, author, subject, keywords, creation date, modification date, etc.)
+- Text extraction (direct parsing via openpyxl/xlrd)
+- Table extraction (Markdown or HTML conversion based on merged cells)
+- Inline image extraction and local storage
+- Chart processing (1st priority: convert to table, 2nd priority: matplotlib image)
+- Multi-sheet support
 
 Class-based Handler:
-- ExcelHandler 클래스가 BaseHandler를 상속받아 config/image_processor를 관리
+- ExcelHandler class inherits from BaseHandler to manage config/image_processor
 """
 from __future__ import annotations
 
@@ -25,6 +25,7 @@ from libs.core.functions.img_processor import ImageProcessor
 if TYPE_CHECKING:
     from openpyxl.workbook import Workbook
     from openpyxl.worksheet.worksheet import Worksheet
+    from libs.core.document_processor import CurrentFile
 from libs.core.processor.excel_helper import (
     # Textbox
     extract_textboxes_from_xlsx,
@@ -59,53 +60,57 @@ logger = logging.getLogger("document-processor")
 
 class ExcelHandler(BaseHandler):
     """
-    Excel 문서 처리 핸들러 (XLSX/XLS)
+    Excel Document Handler (XLSX/XLS)
     
-    BaseHandler를 상속받아 config와 image_processor를 인스턴스 레벨에서 관리합니다.
+    Inherits from BaseHandler to manage config and image_processor at instance level.
     
     Usage:
         handler = ExcelHandler(config=config, image_processor=image_processor)
-        text = handler.extract_text(file_path)
+        text = handler.extract_text(current_file)
     """
     
     def extract_text(
         self,
-        file_path: str,
+        current_file: "CurrentFile",
         extract_metadata: bool = True,
         **kwargs
     ) -> str:
         """
-        Excel 파일에서 텍스트를 추출합니다.
+        Extract text from Excel file.
         
         Args:
-            file_path: Excel 파일 경로
-            extract_metadata: 메타데이터 추출 여부
-            **kwargs: 추가 옵션
+            current_file: CurrentFile dict containing file info and binary data
+            extract_metadata: Whether to extract metadata
+            **kwargs: Additional options
             
         Returns:
-            추출된 텍스트
+            Extracted text
         """
-        ext = os.path.splitext(file_path)[1].lower()
+        file_path = current_file.get("file_path", "unknown")
+        ext = current_file.get("file_extension", os.path.splitext(file_path)[1]).lower()
         self.logger.info(f"Excel processing: {file_path}, ext: {ext}")
 
         if ext == '.xlsx':
-            return self._extract_xlsx(file_path, extract_metadata)
+            return self._extract_xlsx(current_file, extract_metadata)
         elif ext == '.xls':
-            return self._extract_xls(file_path, extract_metadata)
+            return self._extract_xls(current_file, extract_metadata)
         else:
-            raise ValueError(f"지원하지 않는 Excel 형식입니다: {ext}")
+            raise ValueError(f"Unsupported Excel format: {ext}")
     
     def _extract_xlsx(
         self,
-        file_path: str,
+        current_file: "CurrentFile",
         extract_metadata: bool = True
     ) -> str:
-        """XLSX 파일 처리."""
+        """XLSX file processing."""
+        file_path = current_file.get("file_path", "unknown")
         self.logger.info(f"XLSX processing: {file_path}")
 
         try:
-            wb = load_workbook(file_path, data_only=True)
-            preload = self._preload_xlsx_data(file_path, wb, extract_metadata)
+            # Open from stream to avoid path encoding issues
+            file_stream = self.get_file_stream(current_file)
+            wb = load_workbook(file_stream, data_only=True)
+            preload = self._preload_xlsx_data(current_file, wb, extract_metadata)
 
             result_parts = [preload["metadata_str"]] if preload["metadata_str"] else []
             processed_images: Set[str] = set()
@@ -138,14 +143,17 @@ class ExcelHandler(BaseHandler):
 
     def _extract_xls(
         self,
-        file_path: str,
+        current_file: "CurrentFile",
         extract_metadata: bool = True
     ) -> str:
-        """XLS 파일 처리."""
+        """XLS file processing."""
+        file_path = current_file.get("file_path", "unknown")
         self.logger.info(f"XLS processing: {file_path}")
 
         try:
-            wb = xlrd.open_workbook(file_path, formatting_info=True)
+            # xlrd can open from file_contents (bytes)
+            file_data = current_file.get("file_data", b"")
+            wb = xlrd.open_workbook(file_contents=file_data, formatting_info=True)
             result_parts = []
 
             if extract_metadata:
@@ -156,13 +164,13 @@ class ExcelHandler(BaseHandler):
 
             for sheet_idx in range(wb.nsheets):
                 ws = wb.sheet_by_index(sheet_idx)
-                result_parts.append(f"\n=== 시트: {ws.name} ===\n")
+                result_parts.append(f"\n=== Sheet: {ws.name} ===\n")
 
                 table_contents = convert_xls_objects_to_tables(ws, wb)
                 if table_contents:
                     for i, table_content in enumerate(table_contents, 1):
                         if len(table_contents) > 1:
-                            result_parts.append(f"\n[테이블 {i}]\n{table_content}\n")
+                            result_parts.append(f"\n[Table {i}]\n{table_content}\n")
                         else:
                             result_parts.append(f"\n{table_content}\n")
 
@@ -177,9 +185,10 @@ class ExcelHandler(BaseHandler):
             raise
 
     def _preload_xlsx_data(
-        self, file_path: str, wb, extract_metadata: bool
+        self, current_file: "CurrentFile", wb, extract_metadata: bool
     ) -> Dict[str, Any]:
-        """XLSX 파일에서 전처리 데이터를 추출합니다."""
+        """Extract preprocessing data from XLSX file."""
+        file_path = current_file.get("file_path", "unknown")
         result = {
             "metadata_str": "",
             "charts": [],
@@ -194,6 +203,8 @@ class ExcelHandler(BaseHandler):
             if result["metadata_str"]:
                 result["metadata_str"] += "\n\n"
 
+        # NOTE: These helper functions still require file_path for now
+        # They will need to be updated to use BytesIO streams in future
         result["charts"] = extract_charts_from_xlsx(file_path)
         result["images_data"] = extract_images_from_xlsx(file_path)
         result["textboxes_by_sheet"] = extract_textboxes_from_xlsx(file_path)
@@ -204,24 +215,23 @@ class ExcelHandler(BaseHandler):
         self, ws, sheet_name: str, preload: Dict[str, Any],
         processed_images: Set[str], stats: Dict[str, int]
     ) -> str:
-        """XLSX 시트 하나를 처리합니다."""
-        parts = [f"\n=== 시트: {sheet_name} ===\n"]
+        """Process a single XLSX sheet."""
+        parts = [f"\n=== Sheet: {sheet_name} ===\n"]
 
         table_contents = convert_xlsx_objects_to_tables(ws)
         if table_contents:
             for i, table_content in enumerate(table_contents, 1):
                 if len(table_contents) > 1:
-                    parts.append(f"\n[테이블 {i}]\n{table_content}\n")
+                    parts.append(f"\n[Table {i}]\n{table_content}\n")
                 else:
                     parts.append(f"\n{table_content}\n")
 
-        # 차트 처리
+        # Chart processing
         if hasattr(ws, '_charts') and ws._charts:
             charts = preload["charts"]
             for chart in ws._charts:
                 if preload["chart_idx"] < len(charts):
                     chart_data = charts[preload["chart_idx"]]
-                    # process_chart 시그니처: (chart_info, processed_images, upload_func)
                     chart_output = process_chart(
                         chart_data,
                         processed_images,
@@ -232,8 +242,7 @@ class ExcelHandler(BaseHandler):
                         stats["charts"] += 1
                     preload["chart_idx"] += 1
 
-        # 이미지 처리
-        # get_sheet_images 반환값: List[Tuple[bytes, str]] - (이미지 바이트, 앵커)
+        # Image processing
         sheet_images = get_sheet_images(ws, preload["images_data"], "")
         for image_data, anchor in sheet_images:
             if image_data:
@@ -242,11 +251,11 @@ class ExcelHandler(BaseHandler):
                     parts.append(f"\n{image_tag}\n")
                     stats["images"] += 1
 
-        # 텍스트박스
+        # Textbox processing
         textboxes = preload["textboxes_by_sheet"].get(sheet_name, [])
         for tb in textboxes:
             if tb.get("text"):
-                parts.append(f"\n[텍스트박스] {tb['text']}\n")
+                parts.append(f"\n[Textbox] {tb['text']}\n")
                 stats["textboxes"] += 1
 
         return "".join(parts)
@@ -255,11 +264,10 @@ class ExcelHandler(BaseHandler):
         self, charts: List, chart_idx: int,
         processed_images: Set[str], stats: Dict[str, int]
     ) -> str:
-        """남은 차트를 처리합니다."""
+        """Process remaining charts."""
         parts = []
         while chart_idx < len(charts):
             chart_data = charts[chart_idx]
-            # process_chart 시그니처: (chart_info, processed_images, upload_func)
             chart_output = process_chart(
                 chart_data,
                 processed_images,

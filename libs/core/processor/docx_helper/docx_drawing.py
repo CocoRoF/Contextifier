@@ -41,7 +41,7 @@ def process_drawing_element(
 
     Returns:
         (content, element_type) 튜플
-    """"
+    """
     try:
         # inline 또는 anchor 확인
         inline = drawing_elem.find('.//wp:inline', NAMESPACES)

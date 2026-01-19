@@ -1,15 +1,16 @@
 # libs/core/processor/hwp_processor.py
 """
-HWP Handler - HWP 5.0 OLE 형식 파일 처리기
+HWP Handler - HWP 5.0 OLE Format File Processor
 
 Class-based handler for HWP files inheriting from BaseHandler.
 """
+import io
 import os
 import zlib
 import logging
 import traceback
 import zipfile
-from typing import List, Dict, Any, Optional, Set
+from typing import List, Dict, Any, Optional, Set, TYPE_CHECKING
 
 import olefile
 
@@ -37,27 +38,46 @@ from libs.core.processor.hwp_helper import (
     check_file_signature,
 )
 
+if TYPE_CHECKING:
+    from libs.core.document_processor import CurrentFile
+
 logger = logging.getLogger("document-processor")
 
 
 class HWPHandler(BaseHandler):
-    """HWP 5.0 OLE 형식 파일 처리 핸들러 클래스"""
+    """HWP 5.0 OLE Format File Processing Handler Class"""
     
     def extract_text(
         self,
-        file_path: str,
+        current_file: "CurrentFile",
         extract_metadata: bool = True,
         **kwargs
     ) -> str:
-        """HWP 파일에서 텍스트를 추출합니다."""
-        if not olefile.isOleFile(file_path):
-            return self._handle_non_ole_file(file_path, extract_metadata)
+        """
+        Extract text from HWP file.
+        
+        Args:
+            current_file: CurrentFile dict containing file info and binary data
+            extract_metadata: Whether to extract metadata
+            **kwargs: Additional options
+            
+        Returns:
+            Extracted text
+        """
+        file_path = current_file.get("file_path", "unknown")
+        file_data = current_file.get("file_data", b"")
+        
+        # Check if it's an OLE file using bytes
+        if not self._is_ole_file(file_data):
+            return self._handle_non_ole_file(current_file, extract_metadata)
         
         text_content = []
         processed_images: Set[str] = set()
         
         try:
-            with olefile.OleFileIO(file_path) as ole:
+            # Open OLE file from stream
+            file_stream = self.get_file_stream(current_file)
+            with olefile.OleFileIO(file_stream) as ole:
                 if extract_metadata:
                     metadata_text = self._extract_metadata(ole)
                     if metadata_text:
@@ -83,36 +103,42 @@ class HWPHandler(BaseHandler):
         
         return "\n".join(text_content)
     
-    def _handle_non_ole_file(self, file_path: str, extract_metadata: bool) -> str:
-        """비-OLE 파일 처리"""
-        if zipfile.is_zipfile(file_path):
+    def _is_ole_file(self, file_data: bytes) -> bool:
+        """Check if file data is OLE format."""
+        # OLE file signature: D0 CF 11 E0 A1 B1 1A E1
+        ole_signature = b'\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1'
+        return file_data[:8] == ole_signature
+    
+    def _handle_non_ole_file(self, current_file: "CurrentFile", extract_metadata: bool) -> str:
+        """Handle non-OLE file."""
+        file_path = current_file.get("file_path", "unknown")
+        file_data = current_file.get("file_data", b"")
+        
+        # Check if it's a ZIP file (HWPX)
+        if file_data[:4] == b'PK\x03\x04':
             self.logger.info(f"File {file_path} is a Zip file. Processing as HWPX.")
             from libs.core.processor.hwps_handler import HWPXHandler
             hwpx_handler = HWPXHandler(config=self.config, image_processor=self.image_processor)
-            return hwpx_handler.extract_text(file_path, extract_metadata=extract_metadata)
+            return hwpx_handler.extract_text(current_file, extract_metadata=extract_metadata)
         
-        try:
-            with open(file_path, 'rb') as f:
-                header = f.read(32)
-            if b'HWP Document File' in header:
-                return "[HWP 3.0 Format - Not Supported]"
-        except:
-            pass
+        # Check HWP 3.0 format
+        if b'HWP Document File' in file_data[:32]:
+            return "[HWP 3.0 Format - Not Supported]"
         
-        return self._process_corrupted_hwp(file_path)
+        return self._process_corrupted_hwp(current_file)
     
     def _extract_metadata(self, ole: olefile.OleFileIO) -> str:
-        """메타데이터 추출"""
+        """Extract metadata from OLE file."""
         metadata = extract_metadata(ole)
         return format_metadata(metadata)
     
     def _parse_docinfo(self, ole: olefile.OleFileIO) -> Dict:
-        """DocInfo 파싱"""
+        """Parse DocInfo stream."""
         bin_data_by_storage_id, bin_data_list = parse_doc_info(ole)
         return {'by_storage_id': bin_data_by_storage_id, 'by_index': bin_data_list}
     
     def _extract_body_text(self, ole: olefile.OleFileIO, bin_data_map: Dict, processed_images: Set[str]) -> List[str]:
-        """BodyText에서 텍스트 추출"""
+        """Extract text from BodyText sections."""
         text_content = []
         
         body_text_sections = [
@@ -139,7 +165,7 @@ class HWPHandler(BaseHandler):
         return text_content
     
     def _parse_section(self, data: bytes, ole=None, bin_data_map=None, processed_images=None) -> str:
-        """섹션 파싱"""
+        """Parse a section."""
         try:
             root = HwpRecord.build_tree(data)
             return self._traverse_tree(root, ole, bin_data_map, processed_images)
@@ -148,7 +174,7 @@ class HWPHandler(BaseHandler):
             return ""
     
     def _traverse_tree(self, record: 'HwpRecord', ole=None, bin_data_map=None, processed_images=None) -> str:
-        """레코드 트리 순회"""
+        """Traverse record tree."""
         parts = []
         
         if record.tag_id == HWPTAG_PARA_HEADER:
@@ -180,7 +206,7 @@ class HWPHandler(BaseHandler):
         return "".join(parts)
     
     def _process_paragraph(self, record: 'HwpRecord', ole, bin_data_map, processed_images) -> str:
-        """PARA_HEADER 처리"""
+        """Process PARA_HEADER record."""
         parts = []
         
         text_rec = next((c for c in record.children if c.tag_id == HWPTAG_PARA_TEXT), None)
@@ -206,7 +232,7 @@ class HWPHandler(BaseHandler):
         return "".join(parts)
     
     def _process_control(self, record: 'HwpRecord', ole, bin_data_map, processed_images) -> Optional[str]:
-        """CTRL_HEADER 처리"""
+        """Process CTRL_HEADER record."""
         if len(record.payload) < 4:
             return None
         
@@ -221,7 +247,7 @@ class HWPHandler(BaseHandler):
         return None
     
     def _process_gso(self, record: 'HwpRecord', ole, bin_data_map, processed_images) -> Optional[str]:
-        """GSO 처리"""
+        """Process GSO (Graphic Shape Object) record."""
         def find_pictures(rec):
             results = []
             if rec.tag_id == HWPTAG_SHAPE_COMPONENT_PICTURE:
@@ -243,7 +269,7 @@ class HWPHandler(BaseHandler):
         return None
     
     def _process_picture(self, record: 'HwpRecord', ole, bin_data_map, processed_images) -> Optional[str]:
-        """SHAPE_COMPONENT_PICTURE 처리"""
+        """Process SHAPE_COMPONENT_PICTURE record."""
         if not bin_data_map or not ole:
             return None
         
@@ -270,7 +296,7 @@ class HWPHandler(BaseHandler):
         return None
     
     def _extract_charts_from_bindata(self, ole: olefile.OleFileIO, processed_images: Set[str]) -> List[str]:
-        """BinData에서 차트 추출"""
+        """Extract charts from BinData streams."""
         chart_results = []
         image_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tif', '.tiff', '.wmf', '.emf'}
         
@@ -293,7 +319,7 @@ class HWPHandler(BaseHandler):
         return chart_results
     
     def _process_chart_stream(self, ole, stream_path, processed_images) -> Optional[str]:
-        """차트 스트림 처리"""
+        """Process chart stream."""
         try:
             stream = ole.openstream(stream_path)
             ole_data = stream.read()
@@ -314,14 +340,16 @@ class HWPHandler(BaseHandler):
         
         return None
     
-    def _process_corrupted_hwp(self, file_path: str) -> str:
-        """손상된 HWP 파일 복구 시도"""
+    def _process_corrupted_hwp(self, current_file: "CurrentFile") -> str:
+        """Attempt forensic recovery of corrupted HWP file."""
+        file_path = current_file.get("file_path", "unknown")
+        file_data = current_file.get("file_data", b"")
+        
         self.logger.info(f"Starting forensic recovery for: {file_path}")
         text_content = []
         
         try:
-            with open(file_path, 'rb') as f:
-                raw_data = f.read()
+            raw_data = file_data
             
             file_type = check_file_signature(raw_data)
             if file_type == "HWP3.0":

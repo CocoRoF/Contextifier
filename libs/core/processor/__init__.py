@@ -27,27 +27,27 @@ Helper Modules (subdirectories):
 - ppt_helper/: PPT processing helper
 
 Usage Example:
-    from libs.core.processor import extract_text_from_pdf
-    from libs.core.processor import extract_text_from_docx
+    from libs.core.processor import PDFHandler
+    from libs.core.processor import DOCXHandler
     from libs.core.processor.pdf_helpers import extract_pdf_metadata
 """
 
 # === PDF Handler ===
-from libs.core.processor.pdf_handler import extract_text_from_pdf
+from libs.core.processor.pdf_handler import PDFHandler
 
 # === Document Handlers ===
-from libs.core.processor.docx_handler import extract_text_from_docx
-from libs.core.processor.doc_handler import extract_text_from_doc
-from libs.core.processor.ppt_handler import extract_text_from_ppt
+from libs.core.processor.docx_handler import DOCXHandler
+from libs.core.processor.doc_handler import DOCHandler
+from libs.core.processor.ppt_handler import PPTHandler
 
 # === Data Handlers ===
-from libs.core.processor.excel_handler import extract_text_from_excel
-from libs.core.processor.csv_handler import extract_text_from_csv
-from libs.core.processor.text_handler import extract_text_from_text_file
+from libs.core.processor.excel_handler import ExcelHandler
+from libs.core.processor.csv_handler import CSVHandler
+from libs.core.processor.text_handler import TextHandler
 
 # === HWP Handlers ===
-from libs.core.processor.hwp_handler import extract_text_from_hwp
-from libs.core.processor.hwps_handler import extract_text_from_hwpx
+from libs.core.processor.hwp_handler import HWPHandler
+from libs.core.processor.hwps_handler import HWPXHandler
 
 # === Other Processors ===
 # from libs.core.processor.html_reprocessor import ...  # HTML reprocessing
@@ -63,18 +63,18 @@ from libs.core.processor import ppt_helper
 
 __all__ = [
     # PDF Handler
-    "extract_text_from_pdf",
+    "PDFHandler",
     # Document Handlers
-    "extract_text_from_docx",
-    "extract_text_from_doc",
-    "extract_text_from_ppt",
+    "DOCXHandler",
+    "DOCHandler",
+    "PPTHandler",
     # Data Handlers
-    "extract_text_from_excel",
-    "extract_text_from_csv",
-    "extract_text_from_text_file",
+    "ExcelHandler",
+    "CSVHandler",
+    "TextHandler",
     # HWP Handlers
-    "extract_text_from_hwp",
-    "extract_text_from_hwpx",
+    "HWPHandler",
+    "HWPXHandler",
     # Helper subpackages
     "csv_helper",
     "docx_helper",

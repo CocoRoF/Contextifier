@@ -25,12 +25,36 @@ Usage Example:
     chunks = processor.chunk_text(text, chunk_size=1000)
 """
 
+import io
 import logging
 import os
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union, TypedDict
 
 logger = logging.getLogger("contextify")
+
+
+class CurrentFile(TypedDict, total=False):
+    """
+    TypedDict containing file information.
+    
+    Standard structure for reading files at binary level and passing to handlers.
+    Resolves file system issues such as non-ASCII (Korean, etc.) paths.
+    
+    Attributes:
+        file_path: Absolute path of the original file
+        file_name: File name (including extension)
+        file_extension: File extension (lowercase, without dot)
+        file_data: Binary data of the file
+        file_stream: BytesIO stream (reusable)
+        file_size: File size in bytes
+    """
+    file_path: str
+    file_name: str
+    file_extension: str
+    file_data: bytes
+    file_stream: io.BytesIO
+    file_size: int
 
 class DocumentProcessor:
     """
@@ -237,9 +261,12 @@ class DocumentProcessor:
 
         self._logger.info(f"Extracting text from: {file_path_str} (ext={ext})")
 
+        # Create current_file dict with binary data
+        current_file = self._create_current_file(file_path_str, ext)
+
         # Get handler and extract text
         handler = self._get_handler(ext)
-        text = self._invoke_handler(handler, file_path_str, ext, extract_metadata, **kwargs)
+        text = self._invoke_handler(handler, current_file, ext, extract_metadata, **kwargs)
 
         # Apply OCR processing if enabled and ocr_engine is available
         if ocr_processing and self._ocr_engine is not None:
@@ -290,6 +317,70 @@ class DocumentProcessor:
             chunk_overlap=chunk_overlap,
             file_extension=file_extension,
             force_chunking=force_chunking
+        )
+
+        return chunks
+
+    def extract_chunks(
+        self,
+        file_path: Union[str, Path],
+        file_extension: Optional[str] = None,
+        *,
+        extract_metadata: bool = True,
+        ocr_processing: bool = False,
+        chunk_size: int = 1000,
+        chunk_overlap: int = 200,
+        preserve_tables: bool = True,
+        **kwargs
+    ) -> List[str]:
+        """
+        Extract text from a file and split into chunks in one step.
+
+        This is a convenience method that combines extract_text() and chunk_text().
+
+        Args:
+            file_path: File path
+            file_extension: File extension (if None, auto-extracted from file_path)
+            extract_metadata: Whether to extract metadata
+            ocr_processing: Whether to perform OCR on image tags in extracted text
+            chunk_size: Chunk size (character count)
+            chunk_overlap: Overlap size between chunks
+            preserve_tables: Whether to preserve table structure
+            **kwargs: Additional handler-specific options
+
+        Returns:
+            List of chunk strings
+
+        Raises:
+            FileNotFoundError: If file cannot be found
+            ValueError: If file format is not supported
+
+        Example:
+            >>> processor = DocumentProcessor()
+            >>> chunks = processor.extract_chunks("document.pdf", chunk_size=1000)
+            >>> for i, chunk in enumerate(chunks):
+            ...     print(f"Chunk {i+1}: {len(chunk)} chars")
+        """
+        # Extract text
+        text = self.extract_text(
+            file_path=file_path,
+            file_extension=file_extension,
+            extract_metadata=extract_metadata,
+            ocr_processing=ocr_processing,
+            **kwargs
+        )
+
+        # Determine file extension for chunking
+        if file_extension is None:
+            file_extension = os.path.splitext(str(file_path))[1].lstrip('.')
+
+        # Chunk text
+        chunks = self.chunk_text(
+            text=text,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            file_extension=file_extension,
+            preserve_tables=preserve_tables
         )
 
         return chunks
@@ -516,6 +607,43 @@ class DocumentProcessor:
 
         return self._handler_registry
 
+    def _create_current_file(self, file_path: str, ext: str) -> CurrentFile:
+        """
+        Create a CurrentFile dict from a file path.
+        
+        Reads the file at binary level to avoid path encoding issues
+        (e.g., Korean characters in Windows paths).
+        
+        Args:
+            file_path: Absolute path to the file
+            ext: File extension (lowercase, without dot)
+            
+        Returns:
+            CurrentFile dict containing file info and binary data
+            
+        Raises:
+            IOError: If file cannot be read
+        """
+        file_path = os.path.abspath(file_path)
+        file_name = os.path.basename(file_path)
+        
+        # Read file as binary
+        with open(file_path, 'rb') as f:
+            file_data = f.read()
+        
+        # Create BytesIO stream for handlers that need seekable stream
+        file_stream = io.BytesIO(file_data)
+        
+        # Return as plain dict (TypedDict is for type hints only)
+        return {
+            "file_path": file_path,
+            "file_name": file_name,
+            "file_extension": ext,
+            "file_data": file_data,
+            "file_stream": file_stream,
+            "file_size": len(file_data)
+        }
+
     def _get_handler(self, ext: str) -> Optional[Callable]:
         """Get handler for file extension."""
         registry = self._get_handler_registry()
@@ -524,7 +652,7 @@ class DocumentProcessor:
     def _invoke_handler(
         self,
         handler: Optional[Callable],
-        file_path: str,
+        current_file: CurrentFile,
         ext: str,
         extract_metadata: bool,
         **kwargs
@@ -533,11 +661,11 @@ class DocumentProcessor:
         Invoke the appropriate handler based on extension.
 
         All handlers are class-based and use the same signature:
-        handler(file_path, extract_metadata=..., **kwargs)
+        handler(current_file, extract_metadata=..., **kwargs)
 
         Args:
             handler: Handler method (bound method from Handler class)
-            file_path: File path
+            current_file: CurrentFile dict containing file info and binary data
             ext: File extension
             extract_metadata: Whether to extract metadata
             **kwargs: Additional options
@@ -562,10 +690,10 @@ class DocumentProcessor:
         )
 
         if ext in text_extensions:
-            return handler(file_path, extract_metadata=extract_metadata, file_type=ext, is_code=is_code, **kwargs)
+            return handler(current_file, extract_metadata=extract_metadata, file_type=ext, is_code=is_code, **kwargs)
 
         # All other handlers use standard signature
-        return handler(file_path, extract_metadata=extract_metadata, **kwargs)
+        return handler(current_file, extract_metadata=extract_metadata, **kwargs)
 
     # =========================================================================
     # Context Manager Support
@@ -644,5 +772,6 @@ def create_processor(
 
 __all__ = [
     "DocumentProcessor",
+    "CurrentFile",
     "create_processor",
 ]
