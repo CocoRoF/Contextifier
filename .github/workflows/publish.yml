@@ -5,9 +5,9 @@ on:
     branches:
       - deploy
     paths:
-      - 'pyproject.toml'  # pyproject.toml이 변경될 때만
+      - 'pyproject.toml'  # Only when pyproject.toml changes
   
-  # 수동 실행 가능
+  # Manual trigger
   workflow_dispatch:
     inputs:
       force_publish:
@@ -26,28 +26,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2  # 이전 커밋과 비교하기 위해
+          fetch-depth: 2  # To compare with previous commit
       
       - name: Check if version changed
         id: check
         run: |
-          # 현재 버전
+          # Current version
           CURRENT_VERSION=$(grep -Po '(?<=^version = ")[^"]*' pyproject.toml)
           echo "Current version: $CURRENT_VERSION"
           
-          # 이전 커밋이 있는지 확인
+          # Check if previous commit exists
           if git rev-parse HEAD~1 >/dev/null 2>&1; then
-            # 이전 커밋의 버전
+            # Previous commit version
             git show HEAD~1:pyproject.toml > /tmp/old_pyproject.toml 2>/dev/null || echo 'version = "0.0.0"' > /tmp/old_pyproject.toml
             OLD_VERSION=$(grep -Po '(?<=^version = ")[^"]*' /tmp/old_pyproject.toml || echo "0.0.0")
           else
-            # 첫 커밋이면 이전 버전은 0.0.0
+            # First commit - set previous version to 0.0.0
             OLD_VERSION="0.0.0"
             echo "First commit on this branch - treating as new version"
           fi
           echo "Previous version: $OLD_VERSION"
           
-          # 버전 비교
+          # Compare versions
           if [ "$CURRENT_VERSION" != "$OLD_VERSION" ]; then
             echo "Version changed from $OLD_VERSION to $CURRENT_VERSION"
             echo "changed=true" >> $GITHUB_OUTPUT
@@ -63,7 +63,7 @@ jobs:
     runs-on: ubuntu-latest
     
     permissions:
-      id-token: write  # Trusted Publisher용
+      id-token: write  # For Trusted Publisher
     
     steps:
       - uses: actions/checkout@v4
@@ -83,7 +83,7 @@ jobs:
       
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-        # Trusted Publisher 사용 시 토큰 불필요!
+        # No token needed with Trusted Publisher!
       
       - name: Summary
         run: |

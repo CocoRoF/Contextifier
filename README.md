@@ -1,6 +1,6 @@
-# Contextify
+# Contextifier
 
-**Contextify** is a document processing library that converts raw documents into AI-understandable context. It analyzes, restructures, and normalizes content so that language models can reason over documents with higher accuracy and consistency.
+**Contextifier** is a document processing library that converts raw documents into AI-understandable context. It analyzes, restructures, and normalizes content so that language models can reason over documents with higher accuracy and consistency.
 
 ## Features
 
@@ -34,13 +34,13 @@
 ## Installation
 
 ```bash
-pip install contextify
+pip install contextifier
 ```
 
 Or using uv:
 
 ```bash
-uv add contextify
+uv add contextifier
 ```
 
 ## Quick Start
@@ -126,7 +126,7 @@ libs/
 
 ## Requirements
 
-- Python 3.14+
+- Python 3.12+
 - Required dependencies are automatically installed (see `pyproject.toml`)
 
 ### System Dependencies
@@ -157,7 +157,7 @@ processor = DocumentProcessor(config=config)
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+Apache License 2.0 - see [LICENSE](LICENSE) for details.
 
 ## Contributing
 

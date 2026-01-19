@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 2026-01-19
 
 ### Added
-- Initial release of Contextify
+- Initial release of Contextifier
 - Multi-format document support (PDF, DOCX, DOC, XLSX, XLS, PPTX, PPT, HWP, HWPX)
 - Intelligent text extraction with structure preservation
 - Table detection and extraction with HTML formatting
