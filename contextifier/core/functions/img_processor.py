@@ -160,7 +160,7 @@ class ImageProcessor:
         """Compute hash of image data"""
         hasher = hashlib.new(self.config.hash_algorithm)
         hasher.update(data)
-        return hasher.hexdigest()[:16]  # Use first 16 characters
+        return hasher.hexdigest()[:32]  # Use first 32 characters
 
     def _detect_format(self, data: bytes) -> ImageFormat:
         """Detect format from image data"""
