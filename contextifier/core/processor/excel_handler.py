@@ -258,8 +258,9 @@ class ExcelHandler(BaseHandler):
         # Textbox processing
         textboxes = preload["textboxes_by_sheet"].get(sheet_name, [])
         for tb in textboxes:
-            if tb.get("text"):
-                parts.append(f"\n[Textbox] {tb['text']}\n")
+            # textbox는 문자열 리스트로 반환됨
+            if tb:
+                parts.append(f"\n[Textbox] {tb}\n")
                 stats["textboxes"] += 1
 
         return "".join(parts)
