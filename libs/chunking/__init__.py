@@ -1,26 +1,29 @@
 # libs/chunking/__init__.py
 """
-Chunking - 텍스트 청킹 모듈
+Chunking - Text Chunking Module
 
-이 패키지는 문서 텍스트를 적절한 크기의 청크로 분할하는 기능을 제공합니다.
+This package provides functionality to split document text into appropriately sized chunks.
 
-모듈 구조:
-- chunking: 메인 청킹 함수 (split_text_preserving_html_blocks 등)
-- constants: 상수, 패턴, 데이터 클래스
-- table_parser: HTML 테이블 파싱
-- table_chunker: 테이블 청킹 핵심 로직
-- protected_regions: 보호 영역 처리
-- page_chunker: 페이지 기반 청킹
-- text_chunker: 텍스트 청킹
-- sheet_processor: 시트 및 메타데이터 처리
+Module Structure:
+- chunking: Main chunking functions (split_text_preserving_html_blocks, etc.)
+- constants: Constants, patterns, and data classes
+- table_parser: HTML table parsing
+- table_chunker: Table chunking core logic
+- protected_regions: Protected region handling
+- page_chunker: Page-based chunking
+- text_chunker: Text chunking
+- sheet_processor: Sheet and metadata processing
 
-사용 예시:
-    from libs.chunking import split_text_preserving_html_blocks, chunk_plain_text
-    from libs.chunking import TableRow, ParsedTable
+Usage:
+    from contextifier.chunking import split_text_preserving_html_blocks, chunk_plain_text
+    from contextifier.chunking import TableRow, ParsedTable
 """
 
-# === 메인 청킹 함수 (chunking.py) ===
+# === Main Chunking Functions (chunking.py) ===
 from libs.chunking.chunking import (
+    # Primary API
+    create_chunks,
+    # Backward compatibility (deprecated)
     split_text_preserving_html_blocks,
     split_table_based_content,
     is_table_based_file_type,
@@ -28,7 +31,7 @@ from libs.chunking.chunking import (
 
 # constants
 from libs.chunking.constants import (
-    # 상수
+    # Constants
     LANGCHAIN_CODE_LANGUAGE_MAP,
     HTML_TABLE_PATTERN,
     CHART_BLOCK_PATTERN,
@@ -39,7 +42,7 @@ from libs.chunking.constants import (
     CHUNK_INDEX_OVERHEAD,
     TABLE_SIZE_THRESHOLD_MULTIPLIER,
     TABLE_BASED_FILE_TYPES,
-    # 데이터 클래스
+    # Data classes
     TableRow,
     ParsedTable,
 )
@@ -70,7 +73,7 @@ from libs.chunking.protected_regions import (
     ensure_protected_region_integrity,
     split_with_protected_regions,
     split_large_chunk_with_protected_regions,
-    # 하위 호환성 별칭
+    # Backward compatibility aliases
     ensure_table_integrity,
     split_large_chunk_with_table_protection,
 )
@@ -108,7 +111,9 @@ from libs.chunking.sheet_processor import (
 
 
 __all__ = [
-    # === 메인 청킹 함수 ===
+    # === Primary API ===
+    "create_chunks",
+    # === Backward Compatibility (deprecated) ===
     "split_text_preserving_html_blocks",
     "split_table_based_content",
     "is_table_based_file_type",

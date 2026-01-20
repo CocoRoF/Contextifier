@@ -81,7 +81,8 @@ class PPTHandler(BaseHandler):
                     result_parts.append("")
             
             for slide_idx, slide in enumerate(prs.slides):
-                result_parts.append(f"\n=== Slide {slide_idx + 1} ===\n")
+                slide_tag = self.create_slide_tag(slide_idx + 1)
+                result_parts.append(f"\n{slide_tag}\n")
                 
                 elements: List[SlideElement] = []
                 
@@ -189,7 +190,8 @@ class PPTHandler(BaseHandler):
             result_parts = []
             
             for slide_idx, slide in enumerate(prs.slides):
-                result_parts.append(f"\n=== Slide {slide_idx + 1} ===\n")
+                slide_tag = self.create_slide_tag(slide_idx + 1)
+                result_parts.append(f"\n{slide_tag}\n")
                 
                 slide_texts = []
                 for shape in slide.shapes:

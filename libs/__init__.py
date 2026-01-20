@@ -1,39 +1,42 @@
 # libs/__init__.py
 """
-Contextify Library
+Contextifier Library
 
-문서 처리 및 청킹을 위한 라이브러리입니다.
+A document processing and chunking library for AI applications.
 
-패키지 구조:
-- core: 문서 처리 핵심 모듈
-    - DocumentProcessor: 메인 문서 처리 클래스
-    - processor: 개별 문서 타입별 핸들러 (PDF, DOCX, PPT, Excel, HWP 등)
-    - functions: 유틸리티 함수
+Package Structure:
+- core: Document processing core module
+    - DocumentProcessor: Main document processing class
+    - processor: Individual document type handlers (PDF, DOCX, PPT, Excel, HWP, etc.)
+    - functions: Utility functions
 
-- chunking: 텍스트 청킹 모듈
-    - 텍스트 분할 및 청킹 로직
-    - 테이블 보호 청킹
-    - 페이지 기반 청킹
+- chunking: Text chunking module
+    - Text splitting and chunking logic
+    - Table-preserving chunking
+    - Page-based chunking
 
-사용 예시:
-    from libs.core import DocumentProcessor
-    from libs.chunking import chunk_plain_text, split_text_preserving_html_blocks
+Usage:
+    from contextifier import DocumentProcessor
+    
+    processor = DocumentProcessor()
+    text = processor.extract_text("document.pdf")
+    result = processor.extract_chunks("document.pdf", chunk_size=1000)
 """
 
-__version__ = "1.0.0"
+__version__ = "0.1.0"
 
-# 핵심 클래스 최상위 노출
+# Expose core classes at top level
 from libs.core import DocumentProcessor
 
-# 명시적 서브패키지
+# Explicit subpackages
 from libs import core
 from libs import chunking
 
 __all__ = [
     "__version__",
-    # 핵심 클래스
+    # Core classes
     "DocumentProcessor",
-    # 서브패키지
+    # Subpackages
     "core",
     "chunking",
 ]

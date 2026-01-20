@@ -94,7 +94,8 @@ def chunk_by_pages(
     chunk_size: int,
     chunk_overlap: int,
     is_table_based: bool = False,
-    force_chunking: bool = False
+    force_chunking: bool = False,
+    page_tag_processor = None
 ) -> List[str]:
     """
     페이지 단위로 텍스트를 청킹합니다.
@@ -108,12 +109,36 @@ def chunk_by_pages(
        - 1.5배 초과면 이전까지만 청크로 확정
     5. 보호 영역(테이블, 차트, Markdown 테이블)이 페이지 경계에 걸쳐있으면 함께 유지
        (단, force_chunking 시 테이블은 row 단위만 보호, 차트는 항상 보호)
+    
+    Args:
+        text: Original text
+        chunk_size: Maximum chunk size
+        chunk_overlap: Overlap size between chunks
+        is_table_based: Whether the file is table-based
+        force_chunking: Force chunking (disable table protection)
+        page_tag_processor: PageTagProcessor instance for custom patterns
     """
-    # 페이지 마커 패턴
-    page_marker_pattern = r'<페이지\s*번호>\s*(\d+)\s*</페이지\s*번호>'
-
-    # 페이지별로 분리
-    pages = split_into_pages(text, page_marker_pattern)
+    # Build page marker patterns from PageTagProcessor or use defaults
+    if page_tag_processor is not None:
+        page_marker_patterns = [
+            page_tag_processor.get_pattern_string(),  # Page pattern
+        ]
+        config = page_tag_processor.config
+        if config.slide_prefix != config.tag_prefix:
+            from libs.core.functions.page_tag_processor import PageTagType
+            page_marker_patterns.append(page_tag_processor.get_pattern_string(PageTagType.SLIDE))
+    else:
+        page_marker_patterns = [
+            r'\[Page Number:\s*(\d+)\]',  # Default page format
+            r'\[Slide Number:\s*(\d+)\]',  # Default slide format
+        ]
+    
+    # Find first matching pattern
+    pages = []
+    for page_marker_pattern in page_marker_patterns:
+        pages = split_into_pages(text, page_marker_pattern)
+        if pages:
+            break
 
     if not pages:
         # 페이지 분리 실패 시 일반 청킹

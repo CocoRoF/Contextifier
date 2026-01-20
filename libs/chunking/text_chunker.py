@@ -268,13 +268,14 @@ def chunk_with_row_protection_simple(
 
 def clean_chunks(chunks: List[str]) -> List[str]:
     """
-    청크를 정제합니다: 빈 청크와 페이지 마커만 있는 청크 제거.
+    Clean chunks: remove empty chunks and chunks with only page markers.
     """
     cleaned_chunks = []
 
+    # Only recognize the standard format from PageTagProcessor
     page_marker_patterns = [
-        r"===\s*(페이지|슬라이드)\s*\d+(\s*\(OCR[+참고]*\))?\s*===",
-        r"<(페이지\s*번호|슬라이드\s*번호)>\s*\d+\s*(?:\(OCR\))?\s*</(페이지\s*번호|슬라이드\s*번호)>"
+        r"\[Page Number:\s*\d+(\s*\(OCR[+Ref]*\))?\]",
+        r"\[Slide Number:\s*\d+(\s*\(OCR\))?\]",
     ]
 
     for chunk in chunks:

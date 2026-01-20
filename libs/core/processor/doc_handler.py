@@ -161,7 +161,8 @@ class DOCHandler(BaseHandler):
                 if metadata_str:
                     result_parts.append(metadata_str + "\n\n")
             
-            result_parts.append("<Page Number> 1 </Page Number>\n")
+            page_tag = self.create_page_tag(1)
+            result_parts.append(f"{page_tag}\n")
             
             inline_content = doc.get_inline_content()
             if inline_content:
@@ -210,7 +211,8 @@ class DOCHandler(BaseHandler):
             if metadata_str:
                 result_parts.append(metadata_str + "\n\n")
         
-        result_parts.append("<페이지 번호> 1 </페이지 번호>\n")
+        page_tag = self.create_page_tag(1)
+        result_parts.append(f"{page_tag}\n")
         
         try:
             text = rtf_to_text(content)
@@ -266,7 +268,8 @@ class DOCHandler(BaseHandler):
                     if metadata_str:
                         result_parts.append(metadata_str + "\n\n")
                 
-                result_parts.append("<Page Number> 1 </Page Number>\n")
+                page_tag = self.create_page_tag(1)
+                result_parts.append(f"{page_tag}\n")
                 
                 # Extract text from WordDocument stream
                 text = self._extract_ole_text(ole)
@@ -373,7 +376,8 @@ class DOCHandler(BaseHandler):
             if metadata_str:
                 result_parts.append(metadata_str + "\n\n")
         
-        result_parts.append("<Page Number> 1 </Page Number>\n")
+        page_tag = self.create_page_tag(1)
+        result_parts.append(f"{page_tag}\n")
         
         for tag in soup(['script', 'style', 'meta', 'link', 'head']):
             tag.decompose()

@@ -48,7 +48,7 @@ uv add contextifier
 ### Basic Usage
 
 ```python
-from libs.core.document_processor import DocumentProcessor
+from contextifier import DocumentProcessor
 
 # Create processor instance
 processor = DocumentProcessor()
@@ -57,20 +57,29 @@ processor = DocumentProcessor()
 text = processor.extract_text("document.pdf")
 print(text)
 
-# Chunk the extracted text
-chunks = processor.chunk_text(text, chunk_size=1000, chunk_overlap=200)
-for chunk in chunks:
-    print(chunk)
+# Extract text and chunk in one step
+result = processor.extract_chunks(
+    "document.pdf",
+    chunk_size=1000,
+    chunk_overlap=200
+)
+
+# Access chunks
+for i, chunk in enumerate(result.chunks):
+    print(f"Chunk {i + 1}: {chunk[:100]}...")
+
+# Save chunks to markdown file
+result.save_to_md("output/chunks.md")
 ```
 
 ### With OCR Processing
 
 ```python
-from libs.core.document_processor import DocumentProcessor
-from libs.ocr.ocr_engine import OpenAIOCR
+from contextifier import DocumentProcessor
+from contextifier.ocr.ocr_engine.openai_ocr import OpenAIOCREngine
 
 # Initialize OCR engine
-ocr_engine = OpenAIOCR(api_key="sk-...", model="gpt-4o")
+ocr_engine = OpenAIOCREngine(api_key="sk-...", model="gpt-4o")
 
 # Create processor with OCR
 processor = DocumentProcessor(ocr_engine=ocr_engine)

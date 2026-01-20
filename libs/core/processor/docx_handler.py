@@ -217,7 +217,8 @@ class DOCXHandler(BaseHandler):
                     self.logger.info(f"DOCX metadata extracted: {list(metadata.keys())}")
 
             # Start page 1
-            result_parts.append(f"<Page Number> {current_page} </Page Number>\n")
+            page_tag = self.create_page_tag(current_page)
+            result_parts.append(f"{page_tag}\n")
 
             # Traverse body elements in document order
             for body_elem in doc.element.body:
@@ -232,7 +233,8 @@ class DOCXHandler(BaseHandler):
 
                     if has_page_break:
                         current_page += 1
-                        result_parts.append(f"\n<Page Number> {current_page} </Page Number>\n")
+                        page_tag = self.create_page_tag(current_page)
+                        result_parts.append(f"\n{page_tag}\n")
 
                     if content.strip():
                         result_parts.append(content + "\n")

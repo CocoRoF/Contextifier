@@ -1,9 +1,17 @@
 # Quick Start Guide
 
+A comprehensive guide to get started with **Contextifier**.
+
 ## Installation
 
 ```bash
 pip install contextifier
+```
+
+Or using uv:
+
+```bash
+uv add contextifier
 ```
 
 ## Basic Usage
@@ -11,103 +19,136 @@ pip install contextifier
 ### 1. Simple Text Extraction
 
 ```python
-from libs.core.document_processor import DocumentProcessor
+from contextifier import DocumentProcessor
 
+# Create processor instance
 processor = DocumentProcessor()
 
-# Extract text from any document
+# Extract text from any supported document
 text = processor.extract_text("document.pdf")
 print(text)
 ```
 
-### 2. Extract with Chunking
+### 2. Extract and Chunk in One Step
+
+The `extract_chunks()` method combines extraction and chunking:
 
 ```python
-# Extract and split into chunks
+from contextifier import DocumentProcessor
+
+processor = DocumentProcessor()
+
+# Extract text and split into chunks
 result = processor.extract_chunks(
     "long_document.pdf",
     chunk_size=1000,      # Target chunk size in characters
-    chunk_overlap=200     # Overlap between chunks
+    chunk_overlap=200     # Overlap between chunks for context continuity
 )
 
 # Access chunks
+print(f"Total chunks: {len(result.chunks)}")
+
 for i, chunk in enumerate(result.chunks):
-    print(f"Chunk {i + 1}:")
-    print(chunk.text)
-    print(f"Metadata: {chunk.metadata}")
+    print(f"Chunk {i + 1}: {len(chunk)} characters")
+    print(chunk[:200])  # Preview first 200 chars
     print("-" * 80)
 ```
 
-### 3. Process Multiple Documents
+### 3. Save Chunks to Markdown
+
+The `ChunkResult` object provides convenient methods for saving:
 
 ```python
-import os
+result = processor.extract_chunks("document.pdf", chunk_size=500)
 
-documents_dir = "documents/"
+# Save all chunks to a single markdown file
+saved_path = result.save_to_md("output/chunks.md")
+print(f"Saved to: {saved_path}")
+
+# Or save to a directory with auto-generated filename
+result.save_to_md("output/", filename="my_document_chunks.md")
+```
+
+### 4. Process Multiple Documents
+
+```python
+from contextifier import DocumentProcessor
+from pathlib import Path
+
+processor = DocumentProcessor()
+documents_dir = Path("documents/")
 all_chunks = []
 
-for filename in os.listdir(documents_dir):
-    filepath = os.path.join(documents_dir, filename)
-    
+for file_path in documents_dir.glob("*.*"):
     try:
-        result = processor.extract_chunks(filepath, chunk_size=500)
+        result = processor.extract_chunks(file_path, chunk_size=500)
         all_chunks.extend(result.chunks)
-        print(f"✅ Processed: {filename} ({len(result.chunks)} chunks)")
+        print(f"✅ {file_path.name}: {len(result.chunks)} chunks")
+    except ValueError as e:
+        print(f"⚠️ {file_path.name}: Unsupported format")
     except Exception as e:
-        print(f"❌ Failed: {filename} - {e}")
+        print(f"❌ {file_path.name}: {e}")
 
 print(f"\nTotal chunks: {len(all_chunks)}")
 ```
 
-### 4. With OCR for Scanned Documents
+### 5. OCR for Scanned Documents
+
+For scanned PDFs or image-based documents, use OCR processing:
 
 ```python
-from libs.ocr.ocr_processor import OCRProcessor
-from libs.ocr.ocr_engine.openai_ocr import OpenAIOCREngine
+from contextifier import DocumentProcessor
+from contextifier.ocr.ocr_engine.openai_ocr import OpenAIOCREngine
 
-# Configure OCR engine
-ocr_engine = OpenAIOCREngine(api_key="your-api-key")
-ocr_processor = OCRProcessor(ocr_engine=ocr_engine)
+# Initialize OCR engine
+ocr_engine = OpenAIOCREngine(api_key="your-api-key", model="gpt-4o")
 
 # Create processor with OCR support
-processor = DocumentProcessor(ocr_processor=ocr_processor)
+processor = DocumentProcessor(ocr_engine=ocr_engine)
 
-# Process scanned PDF
-text = processor.extract_text("scanned_document.pdf")
+# Extract text with OCR processing enabled
+text = processor.extract_text(
+    "scanned_document.pdf",
+    ocr_processing=True  # Enable OCR for image tags
+)
 ```
 
-### 5. Extract Metadata
+### 6. Custom Image Tag Format
+
+Configure how extracted images are referenced in the output:
 
 ```python
-# The extracted text includes metadata at the beginning
-text = processor.extract_text("document.docx")
+# Default: [Image:path/to/image.png]
+processor = DocumentProcessor()
 
-# Metadata format:
-# <Document-Metadata>
-#   작성자: John Doe
-#   작성일: 2024-01-15 10:30:00
-#   제목: Sample Document
-# </Document-Metadata>
+# HTML format: <img src='path/to/image.png'/>
+processor = DocumentProcessor(
+    image_directory="output/images",
+    image_tag_prefix="<img src='",
+    image_tag_suffix="'/>"
+)
 
-# Parse metadata if needed
-if "<Document-Metadata>" in text:
-    metadata_section = text.split("</Document-Metadata>")[0]
-    pure_text = text.split("</Document-Metadata>")[1].strip()
+# Markdown format: ![image](path/to/image.png)
+processor = DocumentProcessor(
+    image_tag_prefix="![image](",
+    image_tag_suffix=")"
+)
 ```
 
 ## Supported Formats
 
-| Format | Extensions | Notes |
-|--------|-----------|-------|
-| PDF | `.pdf` | With table detection and OCR fallback |
-| Word | `.docx`, `.doc` | Including tables, images, charts |
-| Excel | `.xlsx`, `.xls` | Multiple sheets, formulas, charts |
-| PowerPoint | `.pptx`, `.ppt` | Slides, notes, embedded objects |
-| Hangul | `.hwp`, `.hwpx` | Korean word processor |
-| Text | `.txt`, `.md`, `.rtf` | Plain text and markdown |
-| Web | `.html` | HTML documents |
-| Data | `.csv`, `.json` | Structured data formats |
-| Code | `.py`, `.js`, `.java`, etc. | 20+ programming languages |
+| Category | Extensions | Features |
+|----------|------------|----------|
+| **PDF** | `.pdf` | Table detection, OCR fallback, complex layouts |
+| **Word** | `.docx`, `.doc` | Tables, images, charts, styles |
+| **Excel** | `.xlsx`, `.xls` | Multiple sheets, formulas, charts |
+| **PowerPoint** | `.pptx`, `.ppt` | Slides, notes, embedded objects |
+| **Hangul** | `.hwp`, `.hwpx` | Korean word processor (full support) |
+| **Text** | `.txt`, `.md`, `.rtf` | Plain text, Markdown, Rich Text |
+| **Web** | `.html`, `.htm` | HTML documents |
+| **Data** | `.csv`, `.tsv`, `.json` | Structured data formats |
+| **Code** | `.py`, `.js`, `.java`, etc. | 20+ programming languages |
+| **Config** | `.yaml`, `.toml`, `.ini` | Configuration files |
 
 ## Configuration Options
 
@@ -116,29 +157,59 @@ if "<Document-Metadata>" in text:
 ```python
 result = processor.extract_chunks(
     "document.pdf",
-    chunk_size=1000,    # Smaller = more chunks, better for search
-    chunk_overlap=200   # Overlap helps maintain context
+    chunk_size=1000,      # Smaller = more chunks, better for semantic search
+    chunk_overlap=200,    # Overlap maintains context between chunks
+    preserve_tables=True  # Keep tables intact (default)
 )
 ```
 
-### OCR Engines
+### Metadata Extraction
+
+```python
+# Include document metadata (default: True)
+text = processor.extract_text("document.docx", extract_metadata=True)
+
+# Metadata is included at the beginning of extracted text:
+# <Document-Metadata>
+#   Author: John Doe
+#   Created: 2024-01-15 10:30:00
+#   Title: Sample Document
+# </Document-Metadata>
+```
+
+### Table Preservation
+
+```python
+# Preserve table structure during chunking (recommended)
+result = processor.extract_chunks("report.pdf", preserve_tables=True)
+
+# Force chunking even through tables (may break table structure)
+result = processor.extract_chunks("report.pdf", preserve_tables=False)
+```
+
+## OCR Engine Options
+
+Contextifier supports multiple OCR backends for processing scanned documents:
 
 ```python
 # OpenAI GPT-4 Vision
-from libs.ocr.ocr_engine.openai_ocr import OpenAIOCREngine
-engine = OpenAIOCREngine(api_key="...")
+from contextifier.ocr.ocr_engine.openai_ocr import OpenAIOCREngine
+engine = OpenAIOCREngine(api_key="...", model="gpt-4o")
 
 # Anthropic Claude Vision
-from libs.ocr.ocr_engine.anthropic_ocr import AnthropicOCREngine
+from contextifier.ocr.ocr_engine.anthropic_ocr import AnthropicOCREngine
 engine = AnthropicOCREngine(api_key="...")
 
 # Google Gemini Vision
-from libs.ocr.ocr_engine.gemini_ocr import GeminiOCREngine
+from contextifier.ocr.ocr_engine.gemini_ocr import GeminiOCREngine
 engine = GeminiOCREngine(api_key="...")
 
 # vLLM (self-hosted)
-from libs.ocr.ocr_engine.vllm_ocr import VLLMOCREngine
+from contextifier.ocr.ocr_engine.vllm_ocr import VLLMOCREngine
 engine = VLLMOCREngine(base_url="http://localhost:8000")
+
+# Use with DocumentProcessor
+processor = DocumentProcessor(ocr_engine=engine)
 ```
 
 ## Common Use Cases
@@ -146,101 +217,197 @@ engine = VLLMOCREngine(base_url="http://localhost:8000")
 ### Building a RAG System
 
 ```python
-from libs.core.document_processor import DocumentProcessor
+from contextifier import DocumentProcessor
 import chromadb
 
 processor = DocumentProcessor()
 client = chromadb.Client()
 collection = client.create_collection("documents")
 
-# Process documents
+# Process and chunk document
 result = processor.extract_chunks("knowledge_base.pdf", chunk_size=500)
 
-# Add to vector DB
+# Add chunks to vector database
 for i, chunk in enumerate(result.chunks):
     collection.add(
-        documents=[chunk.text],
-        ids=[f"doc_{i}"],
-        metadatas=[chunk.metadata]
+        documents=[chunk],
+        ids=[f"chunk_{i}"],
+        metadatas=[{"source": result.source_file, "chunk_index": i}]
     )
+
+print(f"Indexed {len(result.chunks)} chunks")
 ```
 
 ### Document Analysis
 
 ```python
-# Extract and analyze
+from contextifier import DocumentProcessor
+
+processor = DocumentProcessor()
 text = processor.extract_text("report.pdf")
 
-# Count words
+# Word count
 word_count = len(text.split())
-print(f"Word count: {word_count}")
+print(f"Word count: {word_count:,}")
 
-# Find keywords
-keywords = ["AI", "machine learning", "neural network"]
+# Keyword frequency
+keywords = ["AI", "machine learning", "neural network", "deep learning"]
 for keyword in keywords:
     count = text.lower().count(keyword.lower())
-    print(f"{keyword}: {count} occurrences")
+    if count > 0:
+        print(f"{keyword}: {count} occurrences")
 ```
 
 ### Batch Processing with Progress
 
 ```python
+from contextifier import DocumentProcessor
 from pathlib import Path
 from tqdm import tqdm
 
+processor = DocumentProcessor()
 doc_dir = Path("documents/")
 output_dir = Path("processed/")
 output_dir.mkdir(exist_ok=True)
 
+# Get all files
 files = list(doc_dir.glob("**/*.*"))
-for file in tqdm(files, desc="Processing"):
+
+for file in tqdm(files, desc="Processing documents"):
     try:
-        text = processor.extract_text(str(file))
+        result = processor.extract_chunks(file, chunk_size=1000)
         
-        # Save extracted text
-        output_file = output_dir / f"{file.stem}.txt"
-        output_file.write_text(text, encoding="utf-8")
+        # Save chunks
+        output_file = output_dir / f"{file.stem}_chunks.md"
+        result.save_to_md(output_file)
+        
     except Exception as e:
-        print(f"Error processing {file.name}: {e}")
+        print(f"\nError processing {file.name}: {e}")
+
+print(f"\nProcessed {len(files)} documents")
+```
+
+## API Reference
+
+### DocumentProcessor
+
+```python
+class DocumentProcessor:
+    def __init__(
+        self,
+        config: Optional[Dict] = None,
+        ocr_engine: Optional[BaseOCR] = None,
+        image_directory: Optional[str] = None,
+        image_tag_prefix: Optional[str] = None,
+        image_tag_suffix: Optional[str] = None
+    )
+    
+    def extract_text(
+        self,
+        file_path: Union[str, Path],
+        file_extension: Optional[str] = None,
+        extract_metadata: bool = True,
+        ocr_processing: bool = False
+    ) -> str
+    
+    def extract_chunks(
+        self,
+        file_path: Union[str, Path],
+        file_extension: Optional[str] = None,
+        extract_metadata: bool = True,
+        ocr_processing: bool = False,
+        chunk_size: int = 1000,
+        chunk_overlap: int = 200,
+        preserve_tables: bool = True
+    ) -> ChunkResult
+    
+    def chunk_text(
+        self,
+        text: str,
+        chunk_size: int = 1000,
+        chunk_overlap: int = 200,
+        preserve_tables: bool = True
+    ) -> List[str]
+```
+
+### ChunkResult
+
+```python
+class ChunkResult:
+    @property
+    def chunks(self) -> List[str]
+    
+    @property
+    def source_file(self) -> Optional[str]
+    
+    def save_to_md(
+        self,
+        path: Optional[str] = None,
+        filename: str = "chunks.md",
+        separator: str = "---"
+    ) -> str
+    
+    def __len__(self) -> int
+    def __iter__(self) -> Iterator[str]
+    def __getitem__(self, index: int) -> str
 ```
 
 ## Troubleshooting
 
 ### Import Error
 
-If you get import errors after installation:
-
 ```python
-# Make sure to use the full import path
-from libs.core.document_processor import DocumentProcessor
+# Use the package name for imports
+from contextifier import DocumentProcessor
+
+# Or use the full path
+from contextifier.core.document_processor import DocumentProcessor
 ```
 
 ### File Not Found
 
-Always use absolute paths or check file existence:
-
 ```python
-import os
-file_path = os.path.abspath("document.pdf")
-if os.path.exists(file_path):
+from pathlib import Path
+
+file_path = Path("document.pdf").resolve()
+if file_path.exists():
     text = processor.extract_text(file_path)
+else:
+    print(f"File not found: {file_path}")
 ```
 
-### Encoding Issues
-
-For text files with special characters:
+### Unsupported Format
 
 ```python
-# Contextify auto-detects encoding, but you can verify:
-import chardet
+# Check supported extensions
+from contextifier import DocumentProcessor
 
-with open("file.txt", "rb") as f:
-    result = chardet.detect(f.read())
-    print(f"Detected encoding: {result['encoding']}")
+processor = DocumentProcessor()
+
+# Supported document types
+print("Documents:", processor.DOCUMENT_TYPES)
+print("Text files:", processor.TEXT_TYPES)
+print("Code files:", processor.CODE_TYPES)
+```
+
+### Memory Issues with Large Files
+
+```python
+# Use smaller chunk sizes for large documents
+result = processor.extract_chunks(
+    "large_document.pdf",
+    chunk_size=500,     # Smaller chunks
+    chunk_overlap=100   # Less overlap
+)
+
+# Process chunks one at a time
+for chunk in result:
+    process_chunk(chunk)  # Your processing function
 ```
 
 ## Next Steps
 
-- Check [full documentation](https://github.com/CocoRoF/Contextifier)
-- See [examples directory](https://github.com/CocoRoF/Contextifier/tree/main/examples)
+- Check the [full documentation](https://github.com/CocoRoF/Contextifier)
+- Browse [examples](https://github.com/CocoRoF/Contextifier/tree/main/examples)
 - Report issues on [GitHub](https://github.com/CocoRoF/Contextifier/issues)
+- Contribute to the project via [Pull Requests](https://github.com/CocoRoF/Contextifier/pulls)

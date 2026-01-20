@@ -62,8 +62,9 @@ def extract_sheet_sections(text: str) -> List[Tuple[str, str]]:
     Returns:
         [(sheet_name, sheet_content), ...] 리스트
     """
-    # 시트 마커 패턴: === 시트: [시트명] ===
-    sheet_pattern = r'===\s*시트:\s*([^=]+?)\s*==='
+    # Sheet marker pattern - only standard format from PageTagProcessor
+    sheet_pattern = r'\[Sheet:\s*([^\]]+)\]'
+    marker_template = '[Sheet: {name}]'
 
     matches = list(re.finditer(sheet_pattern, text))
 
@@ -80,7 +81,8 @@ def extract_sheet_sections(text: str) -> List[Tuple[str, str]]:
         content = text[start:end].strip()
         if content:
             # 시트 마커를 콘텐츠에 포함
-            full_content = f"=== 시트: {sheet_name} ===\n{content}"
+            sheet_marker = marker_template.format(name=sheet_name)
+            full_content = f"{sheet_marker}\n{content}"
             sheets.append((sheet_name, full_content))
 
     return sheets
@@ -204,9 +206,9 @@ def chunk_multi_sheet_content(
     common_metadata = "\n\n".join(common_metadata_parts) if common_metadata_parts else ""
 
     for sheet_idx, (sheet_name, sheet_content) in enumerate(sheets):
-        # 시트 마커 추출
-        sheet_marker_match = re.match(r'(===\s*시트:\s*[^=]+?\s*===)', sheet_content)
-        sheet_marker = sheet_marker_match.group(1) if sheet_marker_match else f"=== 시트: {sheet_name} ==="
+        # Extract sheet marker - only standard format
+        sheet_marker_match = re.match(r'(\[Sheet:\s*[^\]]+\])', sheet_content)
+        sheet_marker = sheet_marker_match.group(1) if sheet_marker_match else f"[Sheet: {sheet_name}]"
 
         # 이 시트에 대한 컨텍스트 구성 (메타데이터 + 시트 정보)
         context_parts = []

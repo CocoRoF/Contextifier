@@ -227,7 +227,8 @@ class PDFHandler(BaseHandler):
                     )
 
                 if page_text.strip():
-                    all_pages_text.append(f"<Page {page_num + 1}>\n{page_text}\n</Page {page_num + 1}>")
+                    page_tag = self.create_page_tag(page_num + 1)
+                    all_pages_text.append(f"{page_tag}\n{page_text}")
 
             doc.close()
 

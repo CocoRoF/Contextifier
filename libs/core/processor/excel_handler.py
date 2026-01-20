@@ -166,7 +166,8 @@ class ExcelHandler(BaseHandler):
 
             for sheet_idx in range(wb.nsheets):
                 ws = wb.sheet_by_index(sheet_idx)
-                result_parts.append(f"\n=== Sheet: {ws.name} ===\n")
+                sheet_tag = self.create_sheet_tag(ws.name)
+                result_parts.append(f"\n{sheet_tag}\n")
 
                 table_contents = convert_xls_objects_to_tables(ws, wb)
                 if table_contents:
@@ -218,7 +219,8 @@ class ExcelHandler(BaseHandler):
         processed_images: Set[str], stats: Dict[str, int]
     ) -> str:
         """Process a single XLSX sheet."""
-        parts = [f"\n=== Sheet: {sheet_name} ===\n"]
+        sheet_tag = self.create_sheet_tag(sheet_name)
+        parts = [f"\n{sheet_tag}\n"]
 
         table_contents = convert_xlsx_objects_to_tables(ws)
         if table_contents:
