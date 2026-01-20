@@ -452,8 +452,15 @@ class DocumentProcessor:
 
     @ocr_engine.setter
     def ocr_engine(self, engine: Optional[Any]) -> None:
-        """Set OCR engine instance."""
+        """
+        Set OCR engine instance.
+        
+        When OCR engine is changed, the handler registry is invalidated
+        to ensure ImageFileHandler gets the updated OCR engine.
+        """
         self._ocr_engine = engine
+        # Invalidate handler registry so it gets rebuilt with new OCR engine
+        self._handler_registry = None
 
     # =========================================================================
     # Public Methods - Text Extraction
@@ -516,7 +523,10 @@ class DocumentProcessor:
         # Apply OCR processing if enabled and ocr_engine is available
         if ocr_processing and self._ocr_engine is not None:
             self._logger.info(f"Applying OCR processing with {self._ocr_engine}")
-            text = self._ocr_engine.process_text(text)
+            # Get image pattern from ImageProcessor to pass to OCR engine
+            import re
+            image_pattern = re.compile(self._image_processor.get_pattern_string())
+            text = self._ocr_engine.process_text(text, image_pattern=image_pattern)
         elif ocr_processing and self._ocr_engine is None:
             self._logger.warning("OCR processing requested but no ocr_engine is configured. Skipping OCR.")
 
@@ -945,6 +955,21 @@ class DocumentProcessor:
                 self._handler_registry[ext] = text_handler.extract_text
         except ImportError as e:
             self._logger.warning(f"Text handler not available: {e}")
+
+        # Image file handler (for standalone image files)
+        # Requires OCR engine for text extraction
+        try:
+            from libs.core.processor.image_file_handler import ImageFileHandler
+            image_handler = ImageFileHandler(
+                config=self._config,
+                image_processor=self._image_processor,
+                page_tag_processor=self._page_tag_processor,
+                ocr_engine=self._ocr_engine
+            )
+            for ext in self.IMAGE_TYPES:
+                self._handler_registry[ext] = image_handler.extract_text
+        except ImportError as e:
+            self._logger.warning(f"Image file handler not available: {e}")
 
         return self._handler_registry
 

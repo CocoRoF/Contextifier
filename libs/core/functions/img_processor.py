@@ -1,32 +1,32 @@
 # libs/core/functions/img_processor.py
 """
-이미지 처리 모듈
+Image Processing Module
 
-이미지 데이터를 로컬 파일 시스템에 저장하고 태그 형식으로 변환하는 기능을 제공합니다.
-기존 이미지 업로드 함수를 대체하는 범용적인 이미지 처리 모듈입니다.
+Provides functionality to save image data to the local file system and convert to tag format.
+A general-purpose image processing module that replaces the existing image upload functions.
 
-주요 기능:
-- 이미지 데이터를 지정된 디렉토리에 저장
-- 저장된 경로를 커스텀 태그 형식으로 반환
-- 중복 이미지 감지 및 처리
-- 다양한 이미지 포맷 지원
+Main Features:
+- Save image data to a specified directory
+- Return saved path in custom tag format
+- Duplicate image detection and handling
+- Support for various image formats
 
-사용 예시:
+Usage Example:
     from libs.core.functions.img_processor import ImageProcessor
 
-    # 기본 설정으로 사용
+    # Use with default settings
     processor = ImageProcessor()
     tag = processor.save_image(image_bytes)
-    # 결과: "[Image:temp/abc123.png]"
+    # Result: "[Image:temp/abc123.png]"
 
-    # 커스텀 설정
+    # Custom settings
     processor = ImageProcessor(
         directory_path="output/images",
         tag_prefix="<img src='",
         tag_suffix="'>"
     )
     tag = processor.save_image(image_bytes)
-    # 결과: "<img src='output/images/abc123.png'>"
+    # Result: "<img src='output/images/abc123.png'>"
 """
 import hashlib
 import io
@@ -43,7 +43,7 @@ logger = logging.getLogger("document-processor")
 
 
 class ImageFormat(Enum):
-    """지원하는 이미지 포맷"""
+    """Supported image formats"""
     PNG = "png"
     JPEG = "jpeg"
     JPG = "jpg"
@@ -55,28 +55,28 @@ class ImageFormat(Enum):
 
 
 class NamingStrategy(Enum):
-    """이미지 파일 이름 생성 전략"""
-    HASH = "hash"           # 이미지 내용 기반 해시 (중복 방지)
-    UUID = "uuid"           # 고유 UUID
-    SEQUENTIAL = "sequential"  # 순차 번호
-    TIMESTAMP = "timestamp"    # 타임스탬프 기반
+    """Image file naming strategies"""
+    HASH = "hash"           # Content-based hash (prevents duplicates)
+    UUID = "uuid"           # Unique UUID
+    SEQUENTIAL = "sequential"  # Sequential numbering
+    TIMESTAMP = "timestamp"    # Timestamp-based
 
 
 @dataclass
 class ImageProcessorConfig:
     """
-    ImageProcessor 설정
+    ImageProcessor Configuration
 
     Attributes:
-        directory_path: 이미지를 저장할 디렉토리 경로
-        tag_prefix: 태그 접두사 (예: "[Image:")
-        tag_suffix: 태그 접미사 (예: "]")
-        naming_strategy: 파일 이름 생성 전략
-        default_format: 기본 이미지 포맷
-        create_directory: 디렉토리가 없을 때 자동 생성 여부
-        use_absolute_path: 태그에 절대 경로 사용 여부
-        hash_algorithm: 해시 알고리즘 (hash 전략 시 사용)
-        max_filename_length: 최대 파일 이름 길이
+        directory_path: Directory path to save images
+        tag_prefix: Tag prefix (e.g., "[Image:")
+        tag_suffix: Tag suffix (e.g., "]")
+        naming_strategy: File naming strategy
+        default_format: Default image format
+        create_directory: Auto-create directory if not exists
+        use_absolute_path: Use absolute path in tags
+        hash_algorithm: Hash algorithm (for hash strategy)
+        max_filename_length: Maximum filename length
     """
     directory_path: str = "temp"
     tag_prefix: str = "[Image:"
@@ -91,17 +91,17 @@ class ImageProcessorConfig:
 
 class ImageProcessor:
     """
-    이미지 처리 클래스
+    Image Processing Class
 
-    이미지 데이터를 로컬 파일 시스템에 저장하고,
-    저장된 경로를 지정된 태그 형식으로 반환합니다.
+    Saves image data to the local file system and returns
+    the saved path in the specified tag format.
 
     Args:
-        directory_path: 이미지 저장 디렉토리 (기본값: "temp")
-        tag_prefix: 태그 접두사 (기본값: "[Image:")
-        tag_suffix: 태그 접미사 (기본값: "]")
-        naming_strategy: 파일 이름 생성 전략 (기본값: HASH)
-        config: ImageProcessorConfig 객체 (개별 파라미터보다 우선)
+        directory_path: Image save directory (default: "temp")
+        tag_prefix: Tag prefix (default: "[Image:")
+        tag_suffix: Tag suffix (default: "]")
+        naming_strategy: File naming strategy (default: HASH)
+        config: ImageProcessorConfig object (takes precedence over individual parameters)
 
     Examples:
         >>> processor = ImageProcessor()
@@ -128,7 +128,7 @@ class ImageProcessor:
         if config:
             self.config = config
         else:
-            # naming_strategy가 문자열인 경우 Enum으로 변환
+            # Convert string to Enum if needed
             if isinstance(naming_strategy, str):
                 naming_strategy = NamingStrategy(naming_strategy.lower())
 
@@ -139,32 +139,32 @@ class ImageProcessor:
                 naming_strategy=naming_strategy,
             )
 
-        # 처리된 이미지 해시 추적 (중복 방지)
+        # Track processed image hashes (for duplicate prevention)
         self._processed_hashes: Dict[str, str] = {}
 
-        # 순차 카운터 (sequential 전략용)
+        # Sequential counter (for sequential strategy)
         self._sequential_counter: int = 0
 
-        # 디렉토리 생성
+        # Create directory
         if self.config.create_directory:
             self._ensure_directory_exists()
 
     def _ensure_directory_exists(self) -> None:
-        """디렉토리가 존재하는지 확인하고 없으면 생성"""
+        """Check if directory exists and create if not"""
         path = Path(self.config.directory_path)
         if not path.exists():
             path.mkdir(parents=True, exist_ok=True)
             logger.debug(f"Created directory: {path}")
 
     def _compute_hash(self, data: bytes) -> str:
-        """이미지 데이터의 해시 계산"""
+        """Compute hash of image data"""
         hasher = hashlib.new(self.config.hash_algorithm)
         hasher.update(data)
-        return hasher.hexdigest()[:16]  # 처음 16자만 사용
+        return hasher.hexdigest()[:16]  # Use first 16 characters
 
     def _detect_format(self, data: bytes) -> ImageFormat:
-        """이미지 데이터에서 포맷 감지"""
-        # 매직 바이트로 포맷 감지
+        """Detect format from image data"""
+        # Detect format using magic bytes
         if data[:8] == b'\x89PNG\r\n\x1a\n':
             return ImageFormat.PNG
         elif data[:2] == b'\xff\xd8':
@@ -186,9 +186,9 @@ class ImageProcessor:
         image_format: ImageFormat,
         custom_name: Optional[str] = None
     ) -> str:
-        """파일 이름 생성"""
+        """Generate filename"""
         if custom_name:
-            # 확장자 추가
+            # Add extension
             if not any(custom_name.lower().endswith(f".{fmt.value}") for fmt in ImageFormat if fmt != ImageFormat.UNKNOWN):
                 ext = image_format.value if image_format != ImageFormat.UNKNOWN else self.config.default_format.value
                 return f"{custom_name}.{ext}"
@@ -213,7 +213,7 @@ class ImageProcessor:
 
         filename = f"{base}.{ext}"
 
-        # 파일 이름 길이 제한
+        # Limit filename length
         if len(filename) > self.config.max_filename_length:
             max_base_len = self.config.max_filename_length - len(ext) - 1
             filename = f"{base[:max_base_len]}.{ext}"
@@ -221,13 +221,13 @@ class ImageProcessor:
         return filename
 
     def _build_tag(self, file_path: str) -> str:
-        """저장된 파일 경로로 태그 생성"""
+        """Build tag from saved file path"""
         if self.config.use_absolute_path:
             path_str = str(Path(file_path).absolute())
         else:
             path_str = file_path
 
-        # 경로 구분자 통일 (Windows -> Unix 스타일)
+        # Normalize path separators (Windows -> Unix style)
         path_str = path_str.replace("\\", "/")
 
         return f"{self.config.tag_prefix}{path_str}{self.config.tag_suffix}"
@@ -240,16 +240,16 @@ class ImageProcessor:
         skip_duplicate: bool = True,
     ) -> Optional[str]:
         """
-        이미지 데이터를 파일로 저장하고 태그를 반환합니다.
+        Save image data to file and return tag.
 
         Args:
-            image_data: 이미지 바이너리 데이터
-            custom_name: 커스텀 파일 이름 (확장자 제외 가능)
-            processed_images: 처리된 이미지 경로 집합 (외부 중복 추적용)
-            skip_duplicate: True이면 중복 이미지 저장 생략 (기존 경로 반환)
+            image_data: Image binary data
+            custom_name: Custom filename (extension optional)
+            processed_images: Set of processed image paths (for external duplicate tracking)
+            skip_duplicate: If True, skip saving duplicate images (return existing path)
 
         Returns:
-            이미지 태그 문자열, 실패 시 None
+            Image tag string, or None on failure
 
         Examples:
             >>> processor = ImageProcessor()
@@ -261,42 +261,42 @@ class ImageProcessor:
             return None
 
         try:
-            # 이미지 포맷 감지
+            # Detect image format
             image_format = self._detect_format(image_data)
 
-            # 해시 계산 (중복 체크용)
+            # Compute hash (for duplicate check)
             image_hash = self._compute_hash(image_data)
 
-            # 중복 체크
+            # Check for duplicates
             if skip_duplicate and image_hash in self._processed_hashes:
                 existing_path = self._processed_hashes[image_hash]
                 logger.debug(f"Duplicate image detected, returning existing: {existing_path}")
                 return self._build_tag(existing_path)
 
-            # 파일 이름 생성
+            # Generate filename
             filename = self._generate_filename(image_data, image_format, custom_name)
 
-            # 전체 경로
+            # Full path
             file_path = os.path.join(self.config.directory_path, filename)
 
-            # 외부 중복 추적 체크
+            # Check external duplicate tracking
             if processed_images is not None and file_path in processed_images:
                 logger.debug(f"Image already processed externally: {file_path}")
                 return self._build_tag(file_path)
 
-            # 디렉토리 확인
+            # Ensure directory exists
             self._ensure_directory_exists()
 
-            # 파일 저장
+            # Save file
             with open(file_path, 'wb') as f:
                 f.write(image_data)
 
             logger.debug(f"Image saved: {file_path}")
 
-            # 내부 중복 추적 업데이트
+            # Update internal duplicate tracking
             self._processed_hashes[image_hash] = file_path
 
-            # 외부 중복 추적 업데이트
+            # Update external duplicate tracking
             if processed_images is not None:
                 processed_images.add(file_path)
 
@@ -315,17 +315,17 @@ class ImageProcessor:
         quality: int = 95,
     ) -> Optional[str]:
         """
-        PIL Image 객체를 파일로 저장하고 태그를 반환합니다.
+        Save PIL Image object to file and return tag.
 
         Args:
-            pil_image: PIL Image 객체
-            image_format: 저장할 이미지 포맷 (None이면 원본 유지 또는 기본값)
-            custom_name: 커스텀 파일 이름
-            processed_images: 처리된 이미지 경로 집합
-            quality: JPEG 품질 (1-100)
+            pil_image: PIL Image object
+            image_format: Image format to save (None keeps original or uses default)
+            custom_name: Custom filename
+            processed_images: Set of processed image paths
+            quality: JPEG quality (1-100)
 
         Returns:
-            이미지 태그 문자열, 실패 시 None
+            Image tag string, or None on failure
         """
         try:
             from PIL import Image
@@ -334,12 +334,12 @@ class ImageProcessor:
                 logger.error("Invalid PIL Image object")
                 return None
 
-            # 포맷 결정
+            # Determine format
             fmt = image_format or ImageFormat.PNG
             if fmt == ImageFormat.UNKNOWN:
                 fmt = self.config.default_format
 
-            # 바이트로 변환
+            # Convert to bytes
             buffer = io.BytesIO()
             save_format = fmt.value.upper()
             if save_format == "JPG":
@@ -361,27 +361,27 @@ class ImageProcessor:
             return None
 
     def get_processed_count(self) -> int:
-        """처리된 이미지 수 반환"""
+        """Return number of processed images"""
         return len(self._processed_hashes)
 
     def get_processed_paths(self) -> List[str]:
-        """처리된 모든 이미지 경로 반환"""
+        """Return all processed image paths"""
         return list(self._processed_hashes.values())
 
     def clear_cache(self) -> None:
-        """내부 중복 추적 캐시 초기화"""
+        """Clear internal duplicate tracking cache"""
         self._processed_hashes.clear()
         self._sequential_counter = 0
 
     def cleanup(self, delete_files: bool = False) -> int:
         """
-        리소스 정리
+        Clean up resources.
 
         Args:
-            delete_files: True이면 저장된 파일도 삭제
+            delete_files: If True, also delete saved files
 
         Returns:
-            삭제된 파일 수
+            Number of deleted files
         """
         deleted = 0
 
@@ -397,12 +397,46 @@ class ImageProcessor:
         self.clear_cache()
         return deleted
 
+    def get_pattern_string(self) -> str:
+        """
+        Get regex pattern string for matching image tags.
+
+        Returns a regex pattern that matches the image tag format used by this processor.
+        The pattern captures the image path as group 1.
+
+        Returns:
+            Regex pattern string for matching image tags
+
+        Examples:
+            >>> processor = ImageProcessor()  # default: [Image:...]
+            >>> processor.get_pattern_string()
+            '\\[Image:([^\\]]+)\\]'
+
+            >>> processor = ImageProcessor(tag_prefix="<img src='", tag_suffix="'/>")
+            >>> processor.get_pattern_string()
+            "<img src='([^']+)'/>"
+        """
+        import re
+        prefix = re.escape(self.config.tag_prefix)
+        suffix = re.escape(self.config.tag_suffix)
+
+        # Determine the capture group pattern based on suffix
+        # If suffix is empty, capture everything until whitespace or end
+        if not self.config.tag_suffix:
+            capture = r'(\S+)'
+        else:
+            # Use negated character class based on first char of suffix
+            first_char = self.config.tag_suffix[0]
+            capture = f'([^{re.escape(first_char)}]+)'
+
+        return f'{prefix}{capture}{suffix}'
+
 
 # ============================================================================
 # Config-based ImageProcessor Access
 # ============================================================================
 
-# 기본 설정값
+# Default configuration values
 DEFAULT_IMAGE_CONFIG = {
     "directory_path": "temp/images",
     "tag_prefix": "[Image:",
@@ -418,16 +452,16 @@ def create_image_processor(
     naming_strategy: Optional[Union[NamingStrategy, str]] = None,
 ) -> ImageProcessor:
     """
-    새 ImageProcessor 인스턴스를 생성합니다.
+    Create a new ImageProcessor instance.
 
     Args:
-        directory_path: 이미지 저장 디렉토리 (기본값: "temp/images")
-        tag_prefix: 태그 접두사 (기본값: "[Image:")
-        tag_suffix: 태그 접미사 (기본값: "]")
-        naming_strategy: 파일 이름 생성 전략 (기본값: HASH)
+        directory_path: Image save directory (default: "temp/images")
+        tag_prefix: Tag prefix (default: "[Image:")
+        tag_suffix: Tag suffix (default: "]")
+        naming_strategy: File naming strategy (default: HASH)
 
     Returns:
-        새 ImageProcessor 인스턴스
+        New ImageProcessor instance
 
     Examples:
         >>> processor = create_image_processor(
@@ -455,19 +489,19 @@ def save_image_to_file(
     processed_images: Optional[Set[str]] = None,
 ) -> Optional[str]:
     """
-    이미지를 파일로 저장하고 태그를 반환합니다.
+    Save image to file and return tag.
 
-    기존 이미지 업로드 함수를 대체하는 간단한 함수입니다.
+    A simple function that replaces the existing image upload functions.
 
     Args:
-        image_data: 이미지 바이너리 데이터
-        directory_path: 저장 디렉토리
-        tag_prefix: 태그 접두사
-        tag_suffix: 태그 접미사
-        processed_images: 중복 추적용 집합
+        image_data: Image binary data
+        directory_path: Save directory
+        tag_prefix: Tag prefix
+        tag_suffix: Tag suffix
+        processed_images: Set for duplicate tracking
 
     Returns:
-        이미지 태그 문자열, 실패 시 None
+        Image tag string, or None on failure
 
     Examples:
         >>> tag = save_image_to_file(image_bytes)
@@ -491,14 +525,14 @@ def save_image_to_file(
 
 
 __all__ = [
-    # 클래스
+    # Classes
     "ImageProcessor",
     "ImageProcessorConfig",
     "ImageFormat",
     "NamingStrategy",
-    # 팩토리 함수
+    # Factory function
     "create_image_processor",
     "DEFAULT_IMAGE_CONFIG",
-    # 편의 함수
+    # Convenience function
     "save_image_to_file",
 ]

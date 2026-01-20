@@ -4,12 +4,15 @@ import re
 import base64
 import logging
 import os
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Pattern
 
 logger = logging.getLogger("ocr-processor")
 
-# Image tag pattern: [Image:{path}] or [image:{path}] (case-insensitive)
-IMAGE_TAG_PATTERN = re.compile(r'\[[Ii]mage:([^\]]+)\]')
+# Default image tag pattern: [Image:{path}] or [image:{path}] (case-insensitive)
+DEFAULT_IMAGE_TAG_PATTERN = re.compile(r'\[[Ii]mage:([^\]]+)\]')
+
+# Keep for backward compatibility
+IMAGE_TAG_PATTERN = DEFAULT_IMAGE_TAG_PATTERN
 
 
 def _b64_from_file(path: str) -> str:
@@ -34,17 +37,24 @@ def _get_mime_type(file_path: str) -> str:
     return mime_map.get(ext, "image/jpeg")
 
 
-def extract_image_tags(text: str) -> List[str]:
+def extract_image_tags(
+    text: str,
+    pattern: Optional[Pattern[str]] = None
+) -> List[str]:
     """
-    Extract [Image:{path}] tags from text.
+    Extract image tags from text.
 
     Args:
         text: Text containing image tags
+        pattern: Custom regex pattern with capture group for path.
+                 If None, uses default [Image:{path}] pattern.
 
     Returns:
         List of extracted image_path values
     """
-    matches = IMAGE_TAG_PATTERN.findall(text)
+    if pattern is None:
+        pattern = DEFAULT_IMAGE_TAG_PATTERN
+    matches = pattern.findall(text)
     return matches
 
 

@@ -1,8 +1,9 @@
 # libs/ocr/base.py
 # Abstract base class for OCR models
 import logging
+import re
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any, Optional, Pattern
 
 logger = logging.getLogger("ocr-base")
 
@@ -57,6 +58,7 @@ class BaseOCR(ABC):
         """
         self.llm_client = llm_client
         self.prompt = prompt if prompt is not None else self.DEFAULT_PROMPT
+        self._image_pattern: Optional[Pattern[str]] = None
 
     @property
     @abstractmethod
@@ -114,27 +116,58 @@ class BaseOCR(ABC):
             logger.error(f"[{self.provider.upper()}] Image to text conversion failed: {e}")
             return f"[Image conversion error: {str(e)}]"
 
-    def process_text(self, text: str) -> str:
+    def set_image_pattern(self, pattern: Optional[Pattern[str]] = None) -> None:
+        """
+        Set custom image pattern for tag detection.
+
+        Args:
+            pattern: Compiled regex pattern with capture group for image path.
+                     If None, uses default [Image:{path}] pattern.
+
+        Examples:
+            >>> import re
+            >>> ocr.set_image_pattern(re.compile(r"<img src='([^']+)'/>"))
+        """
+        self._image_pattern = pattern
+
+    def set_image_pattern_from_string(self, pattern_string: str) -> None:
+        """
+        Set custom image pattern from pattern string.
+
+        Args:
+            pattern_string: Regex pattern string with capture group for image path.
+
+        Examples:
+            >>> ocr.set_image_pattern_from_string(r"<img src='([^']+)'/>")
+        """
+        self._image_pattern = re.compile(pattern_string)
+
+    def process_text(self, text: str, image_pattern: Optional[Pattern[str]] = None) -> str:
         """
         Detect image tags in text and replace with OCR results.
 
         Args:
-            text: Text containing [Image:{path}] tags
+            text: Text containing image tags
+            image_pattern: Custom regex pattern for image tags.
+                           If None, uses instance pattern or default [Image:{path}] pattern.
 
         Returns:
             Text with image tags replaced by OCR results
         """
-        import re
         from libs.ocr.ocr_processor import (
             extract_image_tags,
             load_image_from_path,
+            DEFAULT_IMAGE_TAG_PATTERN,
         )
 
         if not self.llm_client:
             logger.warning(f"[{self.provider.upper()}] Skipping OCR processing: no LLM client")
             return text
 
-        image_paths = extract_image_tags(text)
+        # Determine which pattern to use: parameter > instance > default
+        pattern = image_pattern or self._image_pattern or DEFAULT_IMAGE_TAG_PATTERN
+
+        image_paths = extract_image_tags(text, pattern)
 
         if not image_paths:
             logger.debug(f"[{self.provider.upper()}] No image tags found in text")
@@ -145,7 +178,14 @@ class BaseOCR(ABC):
         result_text = text
 
         for img_path in image_paths:
-            tag_pattern = re.compile(r'\[[Ii]mage:' + re.escape(img_path) + r'\]')
+            # Build replacement pattern using the same pattern structure
+            # Escape the path and create a pattern that matches the full tag
+            escaped_path = re.escape(img_path)
+            # Get the pattern string and replace capture group with escaped path
+            pattern_str = pattern.pattern
+            # Replace the capture group (.*), ([^...]+), etc. with the escaped path
+            tag_pattern_str = re.sub(r'\([^)]+\)', escaped_path, pattern_str, count=1)
+            tag_pattern = re.compile(tag_pattern_str)
 
             local_path = load_image_from_path(img_path)
 
