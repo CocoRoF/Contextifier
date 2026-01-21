@@ -109,77 +109,37 @@ DOCHandler.extract_text(current_file)
 
 ---
 
-## RTF Handler Flow (⚠️ CURRENT - 구조적 문제 있음)
+## RTF Handler Flow
 
-**문제점**: FileConverter(parse_rtf)에서 모든 처리가 완료됨. Handler는 결과 조합만 담당.
-
-```
-RTFHandler.extract_text(current_file)
-    │
-    ├─► file_converter.configure()
-    │       └─► Set image_processor, processed_images
-    │
-    ├─► file_converter.convert()                        [INTERFACE: RTFFileConverter]
-    │       │
-    │       └─► parse_rtf()                             [FUNCTION - 여기서 모든 처리 수행]
-    │               │
-    │               ├─► preprocess_rtf_binary()         ← 바이너리 전처리 + 이미지 추출
-    │               │       └─► RTFImageProcessor       [rtf_image_processor.py]
-    │               │
-    │               ├─► detect_encoding()               ← 인코딩 감지
-    │               ├─► decode_content()                ← 디코딩
-    │               │       └─► [rtf_decoder.py]
-    │               │
-    │               ├─► remove_shprslt_blocks()         ← 텍스트 정리
-    │               │       └─► [rtf_text_cleaner.py]
-    │               │
-    │               ├─► DOCMetadataExtractor.extract()  ← 메타데이터 추출
-    │               │       └─► [rtf_metadata_extractor.py]
-    │               │
-    │               ├─► extract_tables_with_positions() ← 테이블 추출
-    │               │       └─► [rtf_table_extractor.py]
-    │               │
-    │               ├─► extract_inline_content()        ← 콘텐츠 추출
-    │               │       └─► [rtf_content_extractor.py]
-    │               │
-    │               └─► Returns RTFDocument (모든 처리 완료된 객체)
-    │
-    └─► _extract_from_rtf_document()                    [Handler는 결과 조합만]
-            │
-            ├─► extract_and_format_metadata()           ← 이미 추출된 metadata 포맷
-            ├─► create_page_tag()
-            └─► rtf_doc.get_inline_content()            ← 이미 추출된 content 반환
-```
-
----
-
-## RTF Handler Flow (✅ SHOULD BE - 다른 핸들러와 일관된 구조)
-
-**올바른 구조**: FileConverter는 Binary → 기본 변환만. Handler에서 순차적 처리.
+**구조**: Converter는 pass-through, Preprocessor에서 binary 처리, Handler에서 순차적 처리.
 
 ```
 RTFHandler.extract_text(current_file)
     │
     ├─► file_converter.convert()                        [INTERFACE: RTFFileConverter]
-    │       │
-    │       ├─► preprocess_rtf_binary()                 ← Binary preprocessing only
-    │       │       └─► clean_content, image_tags
-    │       │
-    │       └─► Returns RTFConvertedData (raw content + encoding info)
+    │       └─► Pass-through (returns raw bytes)
     │
-    ├─► metadata_extractor.extract()                    [INTERFACE: RTFMetadataExtractor]
-    │
-    ├─► format_image_processor.process()                [INTERFACE: RTFImageProcessor]
+    ├─► preprocessor.preprocess()                       [INTERFACE: RTFPreprocessor]
+    │       │
+    │       ├─► \binN tag processing (skip binary data)
+    │       ├─► \pict group image extraction
+    │       └─► Returns PreprocessedData (clean_content, image_tags, encoding)
     │
     ├─► decode_content()                                [FUNCTION: rtf_decoder]
+    │       └─► bytes → string with detected encoding
     │
-    ├─► remove_shprslt_blocks()                         [FUNCTION: rtf_text_cleaner]
+    ├─► Build RTFConvertedData                          [DATACLASS]
     │
-    ├─► extract_tables_with_positions()                 [FUNCTION: rtf_table_extractor]
-    │
-    ├─► extract_inline_content()                        [FUNCTION: rtf_content_extractor]
-    │
-    └─► Build result string
+    └─► _extract_from_converted()                       [INTERNAL]
+            │
+            ├─► metadata_extractor.extract()            [INTERFACE: RTFMetadataExtractor]
+            ├─► metadata_extractor.format()
+            │
+            ├─► extract_tables_with_positions()         [FUNCTION: rtf_table_extractor]
+            │
+            ├─► extract_inline_content()                [FUNCTION: rtf_content_extractor]
+            │
+            └─► Build result string
 ```
 
 ---
@@ -410,8 +370,8 @@ chunk_text(text, chunk_size, chunk_overlap)
 ├─────────────┼─────────────────────┼─────────────────────┼─────────────────────┼─────────────────────┤
 │ PDF         │ ✅ PDFFile           │ ✅ PDFMetadata       │ ✅ PDFChart          │ ✅ PDFImage          │
 │ DOCX        │ ✅ DOCXFile          │ ✅ DOCXMetadata      │ ✅ DOCXChart         │ ✅ DOCXImage         │
-│ DOC         │ ✅ DOCFile           │ ✅ DOCMetadata       │ ❌ NullChart         │ ✅ DOCImage          │
-│ RTF         │ ⚠️ RTFFile*          │ ⚠️ RTFMetadata*      │ ❌ NullChart         │ ✅ RTFImage          │
+│ DOC         │ ✅ DOCFile           │ ❌ NullMetadata      │ ❌ NullChart         │ ✅ DOCImage          │
+│ RTF         │ ✅ RTFFile (pass)    │ ✅ RTFMetadata       │ ❌ NullChart         │ ✅ RTFPreprocessor   │
 │ XLSX        │ ✅ XLSXFile          │ ✅ XLSXMetadata      │ ✅ ExcelChart        │ ✅ ExcelImage        │
 │ XLS         │ ✅ XLSFile           │ ✅ XLSMetadata       │ ❌ NullChart         │ ✅ ExcelImage        │
 │ PPT/PPTX    │ ✅ PPTFile           │ ✅ PPTMetadata       │ ✅ PPTChart          │ ✅ PPTImage          │
@@ -424,11 +384,7 @@ chunk_text(text, chunk_size, chunk_overlap)
 └─────────────┴─────────────────────┴─────────────────────┴─────────────────────┴─────────────────────┘
 
 ✅ = Interface implemented correctly
-⚠️ = Interface exists but architecture issue (processing in wrong layer)
 ❌ = Not applicable / NullExtractor
-
-* RTF Note: FileConverter calls parse_rtf() which does ALL processing.
-  Handler only combines results. Needs refactoring to match other handlers.
 ```
 
 ---
@@ -446,13 +402,10 @@ chunk_text(text, chunk_size, chunk_overlap)
 ├─────────────┼────────────────────────────────────────────────────────────┤
 │ DOC         │ Format detection, OLE/HTML/DOCX delegation                │
 ├─────────────┼────────────────────────────────────────────────────────────┤
-│ RTF         │ ⚠️ RTFParser.parse() does everything:                      │
-│             │   - preprocess_rtf_binary (rtf_image_processor.py)        │
-│             │   - detect_encoding, decode_content (rtf_decoder.py)      │
-│             │   - remove_shprslt_blocks (rtf_text_cleaner.py)           │
-│             │   - DOCMetadataExtractor.extract (rtf_metadata_extractor) │
-│             │   - extract_tables_with_positions (rtf_table_extractor)   │
-│             │   - extract_inline_content (rtf_content_extractor.py)     │
+│ RTF         │ decode_content() (rtf_decoder.py)                         │
+│             │ extract_tables_with_positions() (rtf_table_extractor.py)  │
+│             │ extract_inline_content() (rtf_content_extractor.py)       │
+│             │ clean_rtf_text() (rtf_text_cleaner.py)                    │
 ├─────────────┼────────────────────────────────────────────────────────────┤
 │ HWP         │ parse_doc_info(), parse_table(), decompress_section()     │
 ├─────────────┼────────────────────────────────────────────────────────────┤

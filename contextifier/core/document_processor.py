@@ -263,8 +263,8 @@ class DocumentProcessor:
     """
 
     # === Supported File Type Classifications ===
-    DOCUMENT_TYPES = frozenset(['pdf', 'docx', 'doc', 'pptx', 'ppt', 'hwp', 'hwpx'])
-    TEXT_TYPES = frozenset(['txt', 'md', 'markdown', 'rtf'])
+    DOCUMENT_TYPES = frozenset(['pdf', 'docx', 'doc', 'rtf', 'pptx', 'ppt', 'hwp', 'hwpx'])
+    TEXT_TYPES = frozenset(['txt', 'md', 'markdown'])
     CODE_TYPES = frozenset([
         'py', 'js', 'ts', 'java', 'cpp', 'c', 'h', 'cs', 'go', 'rs',
         'php', 'rb', 'swift', 'kt', 'scala', 'dart', 'r', 'sql',
@@ -1008,6 +1008,19 @@ class DocumentProcessor:
             self._handler_registry['doc'] = doc_handler.extract_text
         except ImportError as e:
             self._logger.warning(f"DOC handler not available: {e}")
+
+        # RTF handler
+        try:
+            from contextifier.core.processor.rtf_handler import RTFHandler
+            rtf_handler = RTFHandler(
+                config=self._config,
+                image_processor=self._image_processor,
+                page_tag_processor=self._page_tag_processor,
+                chart_processor=self._chart_processor
+            )
+            self._handler_registry['rtf'] = rtf_handler.extract_text
+        except ImportError as e:
+            self._logger.warning(f"RTF handler not available: {e}")
 
         # PPT/PPTX handler
         try:

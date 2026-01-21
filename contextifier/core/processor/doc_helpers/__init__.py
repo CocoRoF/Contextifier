@@ -18,16 +18,7 @@ RTF 처리가 필요한 경우 rtf_helper를 사용하세요:
 from contextifier.core.processor.doc_helpers.doc_file_converter import DOCFileConverter
 from contextifier.core.processor.doc_helpers.doc_image_processor import DOCImageProcessor
 
-# For backwards compatibility with DOCHandler, re-export RTF metadata extractor
-# DOCHandler uses this for OLE-based DOC metadata extraction
-from contextifier.core.processor.rtf_helper.rtf_metadata_extractor import (
-    DOCMetadataExtractor,
-    RTFSourceInfo,
-)
-
 __all__ = [
     'DOCFileConverter',
     'DOCImageProcessor',
-    'DOCMetadataExtractor',
-    'RTFSourceInfo',
 ]

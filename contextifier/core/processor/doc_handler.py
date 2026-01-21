@@ -19,9 +19,6 @@ import zipfile
 import olefile
 from bs4 import BeautifulSoup
 
-from contextifier.core.processor.rtf_helper.rtf_metadata_extractor import (
-    DOCMetadataExtractor,
-)
 from contextifier.core.processor.base_handler import BaseHandler
 from contextifier.core.functions.img_processor import ImageProcessor
 from contextifier.core.functions.chart_extractor import BaseChartExtractor, NullChartExtractor
@@ -62,8 +59,8 @@ class DOCHandler(BaseHandler):
         return NullChartExtractor(self._chart_processor)
     
     def _create_metadata_extractor(self):
-        """Create DOC-specific metadata extractor."""
-        return DOCMetadataExtractor()
+        """DOC metadata extraction not yet implemented. Return None to use NullMetadataExtractor."""
+        return None
     
     def _create_format_image_processor(self) -> ImageProcessor:
         """Create DOC-specific image processor."""
