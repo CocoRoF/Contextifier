@@ -19,20 +19,15 @@ from contextifier.core.processor.excel_helper.excel_textbox import extract_textb
 
 # === Metadata ===
 from contextifier.core.processor.excel_helper.excel_metadata import (
-    extract_xlsx_metadata,
-    extract_xls_metadata,
-    format_metadata,
-)
-
-# === Chart Constants ===
-from contextifier.core.processor.excel_helper.excel_chart_constants import (
-    CHART_TYPE_MAP,
-    CHART_NAMESPACES,
+    ExcelMetadataExtractor,
+    XLSXMetadataExtractor,
+    XLSMetadataExtractor,
 )
 
 # === Chart Extractor ===
 from contextifier.core.processor.excel_helper.excel_chart_extractor import (
     ExcelChartExtractor,
+    CHART_TYPE_MAP,
 )
 
 # === Image ===
@@ -74,12 +69,11 @@ __all__ = [
     # Textbox
     'extract_textboxes_from_xlsx',
     # Metadata
-    'extract_xlsx_metadata',
-    'extract_xls_metadata',
-    'format_metadata',
+    'ExcelMetadataExtractor',
+    'XLSXMetadataExtractor',
+    'XLSMetadataExtractor',
     # Chart Constants
     'CHART_TYPE_MAP',
-    'CHART_NAMESPACES',
     # Chart Extractor
     'ExcelChartExtractor',
     # Image

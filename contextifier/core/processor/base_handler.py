@@ -3,16 +3,21 @@
 BaseHandler - Abstract base class for document processing handlers
 
 Defines the base interface for all document handlers.
-Manages config, ImageProcessor, PageTagProcessor, and ChartProcessor passed from 
-DocumentProcessor at instance level for reuse by internal methods.
+Manages config, ImageProcessor, PageTagProcessor, ChartProcessor, and MetadataExtractor
+passed from DocumentProcessor at instance level for reuse by internal methods.
 
-Each handler should override _create_chart_extractor() to provide a format-specific
-chart extractor implementation.
+Each handler should override:
+- _create_chart_extractor(): Provide format-specific chart extractor
+- _create_metadata_extractor(): Provide format-specific metadata extractor
 
 Usage Example:
     class PDFHandler(BaseHandler):
+        def _create_metadata_extractor(self):
+            return PDFMetadataExtractor()
+            
         def extract_text(self, current_file: CurrentFile, extract_metadata: bool = True) -> str:
             # Access self.config, self.image_processor, self.page_tag_processor
+            # Use self.metadata_extractor.extract(doc) for metadata extraction
             # Use self.chart_extractor.process(chart_element) for chart extraction
             ...
 """
@@ -25,6 +30,11 @@ from contextifier.core.functions.img_processor import ImageProcessor
 from contextifier.core.functions.page_tag_processor import PageTagProcessor
 from contextifier.core.functions.chart_processor import ChartProcessor
 from contextifier.core.functions.chart_extractor import BaseChartExtractor, NullChartExtractor
+from contextifier.core.functions.metadata_extractor import (
+    BaseMetadataExtractor,
+    DocumentMetadata,
+    MetadataFormatter,
+)
 
 if TYPE_CHECKING:
     from contextifier.core.document_processor import CurrentFile
@@ -32,17 +42,32 @@ if TYPE_CHECKING:
 logger = logging.getLogger("document-processor")
 
 
+class NullMetadataExtractor(BaseMetadataExtractor):
+    """
+    Null implementation of metadata extractor.
+    
+    Used as default when no format-specific extractor is provided.
+    Always returns empty metadata.
+    """
+    
+    def extract(self, source: Any) -> DocumentMetadata:
+        """Return empty metadata."""
+        return DocumentMetadata()
+
+
 class BaseHandler(ABC):
     """
     Abstract base class for document handlers.
     
     All handlers inherit from this class.
-    config, image_processor, page_tag_processor, and chart_processor are passed 
-    at creation and stored as instance variables.
+    config, image_processor, page_tag_processor, chart_processor, and metadata_extractor
+    are passed at creation and stored as instance variables.
     
-    Each handler should override _create_chart_extractor() to provide a
-    format-specific chart extractor. The chart_extractor is lazy-initialized
-    on first access.
+    Each handler should override:
+    - _create_chart_extractor(): Provide format-specific chart extractor
+    - _create_metadata_extractor(): Provide format-specific metadata extractor
+    
+    Both extractors are lazy-initialized on first access.
     
     Attributes:
         config: Configuration dictionary passed from DocumentProcessor
@@ -50,6 +75,7 @@ class BaseHandler(ABC):
         page_tag_processor: PageTagProcessor instance passed from DocumentProcessor
         chart_processor: ChartProcessor instance passed from DocumentProcessor
         chart_extractor: Format-specific chart extractor instance
+        metadata_extractor: Format-specific metadata extractor instance
         logger: Logging instance
     """
     
@@ -74,6 +100,7 @@ class BaseHandler(ABC):
         self._page_tag_processor = page_tag_processor or self._get_page_tag_processor_from_config()
         self._chart_processor = chart_processor or self._get_chart_processor_from_config()
         self._chart_extractor: Optional[BaseChartExtractor] = None
+        self._metadata_extractor: Optional[BaseMetadataExtractor] = None
         self._logger = logging.getLogger(f"document-processor.{self.__class__.__name__}")
     
     def _get_page_tag_processor_from_config(self) -> PageTagProcessor:
@@ -99,6 +126,18 @@ class BaseHandler(ABC):
             BaseChartExtractor subclass instance
         """
         return NullChartExtractor(self._chart_processor)
+    
+    def _create_metadata_extractor(self) -> BaseMetadataExtractor:
+        """
+        Create format-specific metadata extractor.
+        
+        Override this method in subclasses to provide the appropriate
+        metadata extractor for the file format.
+        
+        Returns:
+            BaseMetadataExtractor subclass instance
+        """
+        return NullMetadataExtractor()
     
     @property
     def config(self) -> Dict[str, Any]:
@@ -132,6 +171,19 @@ class BaseHandler(ABC):
         return self._chart_extractor
     
     @property
+    def metadata_extractor(self) -> BaseMetadataExtractor:
+        """
+        Format-specific metadata extractor (lazy-initialized).
+        
+        Returns the metadata extractor for this handler's file format.
+        """
+        if self._metadata_extractor is None:
+            extractor = self._create_metadata_extractor()
+            # If subclass returns None, use NullMetadataExtractor
+            self._metadata_extractor = extractor if extractor is not None else NullMetadataExtractor()
+        return self._metadata_extractor
+    
+    @property
     def logger(self) -> logging.Logger:
         """Logger instance."""
         return self._logger
@@ -155,6 +207,48 @@ class BaseHandler(ABC):
             Extracted text
         """
         pass
+    
+    def extract_metadata(self, source: Any) -> DocumentMetadata:
+        """
+        Extract metadata from source using format-specific extractor.
+        
+        Convenience method that wraps self.metadata_extractor.extract().
+        
+        Args:
+            source: Format-specific source object
+            
+        Returns:
+            DocumentMetadata instance
+        """
+        return self.metadata_extractor.extract(source)
+    
+    def format_metadata(self, metadata: DocumentMetadata) -> str:
+        """
+        Format metadata as string.
+        
+        Convenience method that wraps self.metadata_extractor.format().
+        
+        Args:
+            metadata: DocumentMetadata instance
+            
+        Returns:
+            Formatted metadata string
+        """
+        return self.metadata_extractor.format(metadata)
+    
+    def extract_and_format_metadata(self, source: Any) -> str:
+        """
+        Extract and format metadata in one step.
+        
+        Convenience method that combines extract and format.
+        
+        Args:
+            source: Format-specific source object
+            
+        Returns:
+            Formatted metadata string
+        """
+        return self.metadata_extractor.extract_and_format(source)
     
     def get_file_stream(self, current_file: "CurrentFile") -> io.BytesIO:
         """
@@ -249,4 +343,4 @@ class BaseHandler(ABC):
         return self.chart_extractor.process(chart_element)
 
 
-__all__ = ["BaseHandler"]
+__all__ = ["BaseHandler", "NullMetadataExtractor"]

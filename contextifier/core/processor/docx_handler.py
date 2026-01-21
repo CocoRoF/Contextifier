@@ -45,14 +45,12 @@ if TYPE_CHECKING:
 from contextifier.core.processor.docx_helper import (
     # Constants
     ElementType,
-    # Metadata
-    extract_docx_metadata,
-    format_metadata,
     # Table
     process_table_element,
     # Paragraph
     process_paragraph_element,
 )
+from contextifier.core.processor.docx_helper.docx_metadata import DOCXMetadataExtractor
 
 logger = logging.getLogger("document-processor")
 
@@ -81,6 +79,10 @@ class DOCXHandler(BaseHandler):
     def _create_chart_extractor(self) -> BaseChartExtractor:
         """Create DOCX-specific chart extractor."""
         return DOCXChartExtractor(self._chart_processor)
+    
+    def _create_metadata_extractor(self):
+        """Create DOCX-specific metadata extractor."""
+        return DOCXMetadataExtractor()
     
     def extract_text(
         self,
@@ -229,11 +231,10 @@ class DOCXHandler(BaseHandler):
 
             # Metadata extraction
             if extract_metadata:
-                metadata = extract_docx_metadata(doc)
-                metadata_str = format_metadata(metadata)
+                metadata_str = self.extract_and_format_metadata(doc)
                 if metadata_str:
                     result_parts.append(metadata_str + "\n\n")
-                    self.logger.info(f"DOCX metadata extracted: {list(metadata.keys())}")
+                    self.logger.info(f"DOCX metadata extracted")
 
             # Start page 1
             page_tag = self.create_page_tag(current_page)

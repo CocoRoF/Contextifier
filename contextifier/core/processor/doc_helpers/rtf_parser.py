@@ -42,15 +42,16 @@ from contextifier.core.processor.doc_helpers.rtf_decoder import (
     decode_hex_escapes,
 )
 
-# 텍스트 클리너 임포트
+# Text cleaner import
 from contextifier.core.processor.doc_helpers.rtf_text_cleaner import (
     clean_rtf_text,
     remove_shprslt_blocks,
 )
 
-# 메타데이터 추출기 임포트
+# Metadata extractor import
 from contextifier.core.processor.doc_helpers.rtf_metadata_extractor import (
-    extract_metadata,
+    DOCMetadataExtractor,
+    RTFSourceInfo,
 )
 
 # 테이블 추출기 임포트
@@ -132,11 +133,14 @@ class RTFParser:
         self.encoding = detect_encoding(clean_content, self.encoding)
         self._content = decode_content(clean_content, self.encoding)
 
-        # \shprslt 블록 제거 (중복 콘텐츠 방지)
+        # \shprslt block removal (prevent duplicate content)
         self._content = remove_shprslt_blocks(self._content)
 
-        # 메타데이터 추출
-        self.document.metadata = extract_metadata(self._content, self.encoding)
+        # Metadata extraction using DOCMetadataExtractor
+        extractor = DOCMetadataExtractor()
+        source_info = RTFSourceInfo(content=self._content, encoding=self.encoding)
+        metadata_obj = extractor.extract(source_info)
+        self.document.metadata = metadata_obj.to_dict()
 
         # 테이블 추출 (위치 정보 포함)
         tables, table_regions = extract_tables_with_positions(

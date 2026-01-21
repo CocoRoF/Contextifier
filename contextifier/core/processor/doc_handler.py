@@ -23,6 +23,10 @@ from bs4 import BeautifulSoup
 from striprtf.striprtf import rtf_to_text
 
 from contextifier.core.processor.doc_helpers.rtf_parser import parse_rtf, RTFDocument
+from contextifier.core.processor.doc_helpers.rtf_metadata_extractor import (
+    DOCMetadataExtractor,
+    RTFSourceInfo,
+)
 from contextifier.core.processor.base_handler import BaseHandler
 from contextifier.core.functions.img_processor import ImageProcessor
 from contextifier.core.functions.chart_extractor import BaseChartExtractor, NullChartExtractor
@@ -66,6 +70,10 @@ class DOCHandler(BaseHandler):
     def _create_chart_extractor(self) -> BaseChartExtractor:
         """DOC files chart extraction not yet implemented. Return NullChartExtractor."""
         return NullChartExtractor(self._chart_processor)
+    
+    def _create_metadata_extractor(self):
+        """Create DOC-specific metadata extractor."""
+        return DOCMetadataExtractor()
     
     def extract_text(
         self,

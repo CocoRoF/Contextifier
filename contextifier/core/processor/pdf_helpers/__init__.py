@@ -4,10 +4,9 @@ PDF Helpers Package
 Contains helper modules for PDF processing.
 """
 
-# Backward compatibility - import from new modules
+# Metadata - class-based extractor
 from contextifier.core.processor.pdf_helpers.pdf_metadata import (
-    extract_pdf_metadata,
-    format_metadata,
+    PDFMetadataExtractor,
     parse_pdf_date,
 )
 

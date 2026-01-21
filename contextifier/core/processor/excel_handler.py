@@ -31,10 +31,6 @@ if TYPE_CHECKING:
 from contextifier.core.processor.excel_helper import (
     # Textbox
     extract_textboxes_from_xlsx,
-    # Metadata
-    extract_xlsx_metadata,
-    extract_xls_metadata,
-    format_metadata,
     # Image
     extract_images_from_xlsx,
     get_sheet_images,
@@ -44,6 +40,10 @@ from contextifier.core.processor.excel_helper import (
     # Object Detection
     convert_xlsx_objects_to_tables,
     convert_xls_objects_to_tables,
+)
+from contextifier.core.processor.excel_helper.excel_metadata import (
+    XLSXMetadataExtractor,
+    XLSMetadataExtractor,
 )
 
 import xlrd
@@ -67,9 +67,24 @@ class ExcelHandler(BaseHandler):
         text = handler.extract_text(current_file)
     """
     
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._xlsx_metadata_extractor = None
+        self._xls_metadata_extractor = None
+    
     def _create_chart_extractor(self) -> BaseChartExtractor:
         """Create Excel-specific chart extractor."""
         return ExcelChartExtractor(self._chart_processor)
+    
+    def _create_metadata_extractor(self):
+        """Create XLSX-specific metadata extractor (default)."""
+        return XLSXMetadataExtractor()
+    
+    def _get_xls_metadata_extractor(self):
+        """Get XLS-specific metadata extractor."""
+        if self._xls_metadata_extractor is None:
+            self._xls_metadata_extractor = XLSMetadataExtractor()
+        return self._xls_metadata_extractor
     
     def extract_text(
         self,
@@ -161,8 +176,8 @@ class ExcelHandler(BaseHandler):
             result_parts = []
 
             if extract_metadata:
-                metadata = extract_xls_metadata(wb)
-                metadata_str = format_metadata(metadata)
+                xls_extractor = self._get_xls_metadata_extractor()
+                metadata_str = xls_extractor.extract_and_format(wb)
                 if metadata_str:
                     result_parts.append(metadata_str + "\n\n")
 
@@ -205,8 +220,7 @@ class ExcelHandler(BaseHandler):
         }
 
         if extract_metadata:
-            metadata = extract_xlsx_metadata(wb)
-            result["metadata_str"] = format_metadata(metadata)
+            result["metadata_str"] = self.extract_and_format_metadata(wb)
             if result["metadata_str"]:
                 result["metadata_str"] += "\n\n"
 

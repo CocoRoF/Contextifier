@@ -27,10 +27,10 @@ ENCODING_CANDIDATES = [
 
 # === 구분자 관련 상수 ===
 
-# CSV 구분자 후보
+# CSV delimiter candidates
 DELIMITER_CANDIDATES = [',', '\t', ';', '|']
 
-# 구분자 이름 매핑
+# Delimiter name mapping (Korean for output display)
 DELIMITER_NAMES = {
     ',': '쉼표 (,)',
     '\t': '탭 (\\t)',
@@ -39,12 +39,12 @@ DELIMITER_NAMES = {
 }
 
 
-# === 처리 제한 상수 ===
+# === Processing limit constants ===
 
-# 최대 처리 행 수 (메모리 보호)
+# Maximum rows to process (memory protection)
 MAX_ROWS = 100000
 
-# 최대 열 수
+# Maximum columns
 MAX_COLS = 1000
 
 

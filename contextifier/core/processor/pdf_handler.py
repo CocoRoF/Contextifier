@@ -57,8 +57,7 @@ if TYPE_CHECKING:
 
 # Import from new modular helpers
 from contextifier.core.processor.pdf_helpers.pdf_metadata import (
-    extract_pdf_metadata,
-    format_metadata,
+    PDFMetadataExtractor,
 )
 from contextifier.core.processor.pdf_helpers.pdf_utils import (
     bbox_overlaps,
@@ -138,6 +137,10 @@ class PDFHandler(BaseHandler):
         from contextifier.core.functions.chart_extractor import NullChartExtractor
         return NullChartExtractor(self._chart_processor)
     
+    def _create_metadata_extractor(self):
+        """Create PDF-specific metadata extractor."""
+        return PDFMetadataExtractor()
+    
     def extract_text(
         self,
         current_file: "CurrentFile",
@@ -185,8 +188,7 @@ class PDFHandler(BaseHandler):
 
             # Extract metadata
             if extract_metadata:
-                metadata = extract_pdf_metadata(doc)
-                metadata_text = format_metadata(metadata)
+                metadata_text = self.extract_and_format_metadata(doc)
                 if metadata_text:
                     all_pages_text.append(metadata_text)
 

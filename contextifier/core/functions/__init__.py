@@ -31,6 +31,15 @@ from contextifier.core.functions.img_processor import (
     create_image_processor,
 )
 
+# 메타데이터 추출 모듈
+from contextifier.core.functions.metadata_extractor import (
+    MetadataField,
+    DocumentMetadata,
+    MetadataFormatter,
+    BaseMetadataExtractor,
+    format_metadata,
+)
+
 __all__ = [
     # 텍스트 유틸리티
     "clean_text",
@@ -43,4 +52,10 @@ __all__ = [
     "NamingStrategy",
     "save_image_to_file",
     "create_image_processor",
+    # 메타데이터 추출
+    "MetadataField",
+    "DocumentMetadata",
+    "MetadataFormatter",
+    "BaseMetadataExtractor",
+    "format_metadata",
 ]

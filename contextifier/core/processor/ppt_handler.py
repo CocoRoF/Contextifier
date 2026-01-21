@@ -14,8 +14,6 @@ from contextifier.core.functions.chart_extractor import BaseChartExtractor
 from contextifier.core.processor.ppt_helper import (
     ElementType,
     SlideElement,
-    extract_ppt_metadata,
-    format_metadata,
     extract_text_with_bullets,
     is_simple_table,
     extract_simple_table_as_text,
@@ -29,6 +27,7 @@ from contextifier.core.processor.ppt_helper import (
     merge_slide_elements,
 )
 from contextifier.core.processor.ppt_helper.ppt_chart_extractor import PPTChartExtractor
+from contextifier.core.processor.ppt_helper.ppt_metadata import PPTMetadataExtractor
 
 if TYPE_CHECKING:
     from contextifier.core.document_processor import CurrentFile
@@ -43,6 +42,10 @@ class PPTHandler(BaseHandler):
     def _create_chart_extractor(self) -> BaseChartExtractor:
         """Create PPT-specific chart extractor."""
         return PPTChartExtractor(self._chart_processor)
+    
+    def _create_metadata_extractor(self):
+        """Create PPT-specific metadata extractor."""
+        return PPTMetadataExtractor()
     
     def extract_text(
         self,
@@ -94,8 +97,7 @@ class PPTHandler(BaseHandler):
                 return ""
             
             if extract_metadata:
-                metadata = extract_ppt_metadata(prs)
-                metadata_text = format_metadata(metadata)
+                metadata_text = self.extract_and_format_metadata(prs)
                 if metadata_text:
                     result_parts.append(metadata_text)
                     result_parts.append("")

@@ -24,8 +24,6 @@ from contextifier.core.processor.hwp_helper import (
     HWPTAG_TABLE,
     HwpRecord,
     decompress_section,
-    extract_metadata,
-    format_metadata,
     find_bindata_stream,
     extract_bindata_index,
     extract_and_upload_image,
@@ -38,6 +36,7 @@ from contextifier.core.processor.hwp_helper import (
     check_file_signature,
 )
 from contextifier.core.processor.hwp_helper.hwp_chart_extractor import HWPChartExtractor
+from contextifier.core.processor.hwp_helper.hwp_metadata import HWPMetadataExtractor
 
 if TYPE_CHECKING:
     from contextifier.core.document_processor import CurrentFile
@@ -52,6 +51,10 @@ class HWPHandler(BaseHandler):
     def _create_chart_extractor(self) -> BaseChartExtractor:
         """Create HWP-specific chart extractor."""
         return HWPChartExtractor(self._chart_processor)
+    
+    def _create_metadata_extractor(self):
+        """Create HWP-specific metadata extractor."""
+        return HWPMetadataExtractor()
     
     def extract_text(
         self,
@@ -163,8 +166,7 @@ class HWPHandler(BaseHandler):
     
     def _extract_metadata(self, ole: olefile.OleFileIO) -> str:
         """Extract metadata from OLE file."""
-        metadata = extract_metadata(ole)
-        return format_metadata(metadata)
+        return self.extract_and_format_metadata(ole)
     
     def _parse_docinfo(self, ole: olefile.OleFileIO) -> Dict:
         """Parse DocInfo stream."""

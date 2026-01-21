@@ -1,14 +1,20 @@
-# service/document_processor/processor/doc_helpers/rtf_metadata_extractor.py
+# contextifier/core/processor/doc_helpers/rtf_metadata_extractor.py
 """
-RTF 메타데이터 추출기
+DOC/RTF Metadata Extraction Module
 
-RTF 문서에서 메타데이터를 추출하는 기능을 제공합니다.
+Provides DOCMetadataExtractor class for extracting metadata from RTF documents.
+Implements BaseMetadataExtractor interface.
 """
 import logging
 import re
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any, Optional
 
+from contextifier.core.functions.metadata_extractor import (
+    BaseMetadataExtractor,
+    DocumentMetadata,
+)
 from contextifier.core.processor.doc_helpers.rtf_decoder import (
     decode_hex_escapes,
 )
@@ -19,60 +25,130 @@ from contextifier.core.processor.doc_helpers.rtf_text_cleaner import (
 logger = logging.getLogger("document-processor")
 
 
-def extract_metadata(content: str, encoding: str = "cp949") -> Dict[str, Any]:
+@dataclass
+class RTFSourceInfo:
     """
-    RTF 콘텐츠에서 메타데이터를 추출합니다.
-
-    Args:
-        content: RTF 문자열 콘텐츠
-        encoding: 사용할 인코딩
-
-    Returns:
-        메타데이터 딕셔너리
+    Source information for RTF metadata extraction.
+    
+    Container for data passed to DOCMetadataExtractor.extract().
     """
-    metadata = {}
+    content: str
+    encoding: str = "cp949"
 
-    # \info 그룹 찾기
-    info_match = re.search(r'\\info\s*\{([^}]*(?:\{[^}]*\}[^}]*)*)\}', content)
-    if info_match:
-        info_content = info_match.group(1)
 
-        # 각 메타데이터 필드 추출
-        field_patterns = {
-            'title': r'\\title\s*\{([^}]*)\}',
-            'subject': r'\\subject\s*\{([^}]*)\}',
-            'author': r'\\author\s*\{([^}]*)\}',
-            'keywords': r'\\keywords\s*\{([^}]*)\}',
-            'comments': r'\\doccomm\s*\{([^}]*)\}',
-            'last_saved_by': r'\\operator\s*\{([^}]*)\}',
-        }
+class DOCMetadataExtractor(BaseMetadataExtractor):
+    """
+    DOC/RTF Metadata Extractor.
+    
+    Extracts metadata from RTF content.
+    
+    Supported fields:
+    - title, subject, author, keywords, comments
+    - last_saved_by, create_time, last_saved_time
+    
+    Usage:
+        extractor = DOCMetadataExtractor()
+        source = RTFSourceInfo(content=rtf_content, encoding="cp949")
+        metadata = extractor.extract(source)
+        text = extractor.format(metadata)
+    """
+    
+    def extract(self, source: RTFSourceInfo) -> DocumentMetadata:
+        """
+        Extract metadata from RTF content.
+        
+        Args:
+            source: RTFSourceInfo object (RTF content string and encoding)
+            
+        Returns:
+            DocumentMetadata instance containing extracted metadata.
+        """
+        content = source.content
+        encoding = source.encoding
+        
+        title = None
+        subject = None
+        author = None
+        keywords = None
+        comments = None
+        last_saved_by = None
+        create_time = None
+        last_saved_time = None
 
-        for key, pattern in field_patterns.items():
-            match = re.search(pattern, info_content)
-            if match:
-                value = decode_hex_escapes(match.group(1), encoding)
-                value = clean_rtf_text(value, encoding)
-                if value:
-                    metadata[key] = value
+        # \info 그룹 찾기
+        info_match = re.search(r'\\info\s*\{([^}]*(?:\{[^}]*\}[^}]*)*)\}', content)
+        if info_match:
+            info_content = info_match.group(1)
 
-        # 날짜 추출
-        date_patterns = {
-            'create_time': r'\\creatim\\yr(\d+)\\mo(\d+)\\dy(\d+)(?:\\hr(\d+))?(?:\\min(\d+))?',
-            'last_saved_time': r'\\revtim\\yr(\d+)\\mo(\d+)\\dy(\d+)(?:\\hr(\d+))?(?:\\min(\d+))?',
-        }
+            # 각 메타데이터 필드 추출
+            field_patterns = {
+                'title': r'\\title\s*\{([^}]*)\}',
+                'subject': r'\\subject\s*\{([^}]*)\}',
+                'author': r'\\author\s*\{([^}]*)\}',
+                'keywords': r'\\keywords\s*\{([^}]*)\}',
+                'comments': r'\\doccomm\s*\{([^}]*)\}',
+                'last_saved_by': r'\\operator\s*\{([^}]*)\}',
+            }
 
-        for key, pattern in date_patterns.items():
-            match = re.search(pattern, content)
-            if match:
-                try:
-                    year = int(match.group(1))
-                    month = int(match.group(2))
-                    day = int(match.group(3))
-                    hour = int(match.group(4)) if match.group(4) else 0
-                    minute = int(match.group(5)) if match.group(5) else 0
-                    metadata[key] = datetime(year, month, day, hour, minute)
-                except (ValueError, TypeError):
-                    pass
+            for key, pattern in field_patterns.items():
+                match = re.search(pattern, info_content)
+                if match:
+                    value = decode_hex_escapes(match.group(1), encoding)
+                    value = clean_rtf_text(value, encoding)
+                    if value:
+                        if key == 'title':
+                            title = value
+                        elif key == 'subject':
+                            subject = value
+                        elif key == 'author':
+                            author = value
+                        elif key == 'keywords':
+                            keywords = value
+                        elif key == 'comments':
+                            comments = value
+                        elif key == 'last_saved_by':
+                            last_saved_by = value
 
-    logger.debug(f"Extracted metadata: {list(metadata.keys())}")
-    return metadata
+            # 날짜 추출
+            create_time = self._extract_date(
+                content, 
+                r'\\creatim\\yr(\d+)\\mo(\d+)\\dy(\d+)(?:\\hr(\d+))?(?:\\min(\d+))?'
+            )
+            last_saved_time = self._extract_date(
+                content,
+                r'\\revtim\\yr(\d+)\\mo(\d+)\\dy(\d+)(?:\\hr(\d+))?(?:\\min(\d+))?'
+            )
+
+        self.logger.debug(f"Extracted RTF metadata fields")
+        
+        return DocumentMetadata(
+            title=title,
+            subject=subject,
+            author=author,
+            keywords=keywords,
+            comments=comments,
+            last_saved_by=last_saved_by,
+            create_time=create_time,
+            last_saved_time=last_saved_time,
+        )
+    
+    def _extract_date(self, content: str, pattern: str) -> Optional[datetime]:
+        """Extract datetime from RTF date pattern."""
+        match = re.search(pattern, content)
+        if match:
+            try:
+                year = int(match.group(1))
+                month = int(match.group(2))
+                day = int(match.group(3))
+                hour = int(match.group(4)) if match.group(4) else 0
+                minute = int(match.group(5)) if match.group(5) else 0
+                return datetime(year, month, day, hour, minute)
+            except (ValueError, TypeError):
+                pass
+        return None
+
+
+__all__ = [
+    'DOCMetadataExtractor',
+    'RTFSourceInfo',
+]

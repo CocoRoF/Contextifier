@@ -24,8 +24,7 @@ from contextifier.core.processor.docx_helper.docx_constants import (
 
 # Metadata
 from contextifier.core.processor.docx_helper.docx_metadata import (
-    extract_docx_metadata,
-    format_metadata,
+    DOCXMetadataExtractor,
 )
 
 # Chart Extractor

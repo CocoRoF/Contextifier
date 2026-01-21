@@ -24,8 +24,7 @@ from contextifier.core.processor.ppt_helper.ppt_constants import (
 
 # === Metadata ===
 from contextifier.core.processor.ppt_helper.ppt_metadata import (
-    extract_ppt_metadata,
-    format_metadata,
+    PPTMetadataExtractor,
 )
 
 # === Bullet/Numbering ===

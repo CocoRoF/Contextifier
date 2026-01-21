@@ -45,10 +45,8 @@ from contextifier.core.processor.hwp_helper.hwp_decoder import (
 
 # Metadata
 from contextifier.core.processor.hwp_helper.hwp_metadata import (
-    extract_metadata,
+    HWPMetadataExtractor,
     parse_hwp_summary_information,
-    format_metadata,
-    MetadataHelper,
 )
 
 # Image
@@ -109,10 +107,8 @@ __all__ = [
     'decompress_stream',
     'decompress_section',
     # Metadata
-    'extract_metadata',
+    'HWPMetadataExtractor',
     'parse_hwp_summary_information',
-    'format_metadata',
-    'MetadataHelper',
     # Image
     'try_decompress_image',
     'save_image_to_local',

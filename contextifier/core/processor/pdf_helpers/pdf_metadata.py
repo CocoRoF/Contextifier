@@ -2,61 +2,71 @@
 """
 PDF Metadata Extraction Module
 
-Provides functions for extracting and formatting PDF document metadata.
+Provides PDFMetadataExtractor class for extracting and formatting PDF document metadata.
+Implements BaseMetadataExtractor interface from contextifier.core.functions.
 """
 import logging
 from datetime import datetime
 from typing import Any, Dict, Optional
 
+from contextifier.core.functions.metadata_extractor import (
+    BaseMetadataExtractor,
+    DocumentMetadata,
+)
+
 logger = logging.getLogger("document-processor")
 
 
-def extract_pdf_metadata(doc) -> Dict[str, Any]:
+class PDFMetadataExtractor(BaseMetadataExtractor):
     """
-    Extract metadata from a PDF document.
-
-    Args:
-        doc: PyMuPDF document object
-
-    Returns:
-        Metadata dictionary
+    PDF Metadata Extractor.
+    
+    Extracts metadata from PyMuPDF (fitz) document objects.
+    
+    Supported fields:
+    - title, subject, author, keywords
+    - create_time, last_saved_time
+    
+    Usage:
+        extractor = PDFMetadataExtractor()
+        metadata = extractor.extract(pdf_doc)
+        text = extractor.format(metadata)
     """
-    metadata = {}
+    
+    def extract(self, source: Any) -> DocumentMetadata:
+        """
+        Extract metadata from PDF document.
+        
+        Args:
+            source: PyMuPDF document object (fitz.Document)
+            
+        Returns:
+            DocumentMetadata instance containing extracted metadata.
+        """
+        try:
+            pdf_meta = source.metadata
+            if not pdf_meta:
+                return DocumentMetadata()
+            
+            return DocumentMetadata(
+                title=self._get_stripped(pdf_meta, 'title'),
+                subject=self._get_stripped(pdf_meta, 'subject'),
+                author=self._get_stripped(pdf_meta, 'author'),
+                keywords=self._get_stripped(pdf_meta, 'keywords'),
+                create_time=parse_pdf_date(pdf_meta.get('creationDate')),
+                last_saved_time=parse_pdf_date(pdf_meta.get('modDate')),
+            )
+        except Exception as e:
+            self.logger.debug(f"[PDF] Error extracting metadata: {e}")
+            return DocumentMetadata()
+    
+    def _get_stripped(self, meta: Dict[str, Any], key: str) -> Optional[str]:
+        """Get stripped string value from metadata dict."""
+        value = meta.get(key)
+        return value.strip() if value else None
 
-    try:
-        pdf_meta = doc.metadata
-        if not pdf_meta:
-            return metadata
 
-        if pdf_meta.get('title'):
-            metadata['title'] = pdf_meta['title'].strip()
-
-        if pdf_meta.get('subject'):
-            metadata['subject'] = pdf_meta['subject'].strip()
-
-        if pdf_meta.get('author'):
-            metadata['author'] = pdf_meta['author'].strip()
-
-        if pdf_meta.get('keywords'):
-            metadata['keywords'] = pdf_meta['keywords'].strip()
-
-        if pdf_meta.get('creationDate'):
-            create_time = parse_pdf_date(pdf_meta['creationDate'])
-            if create_time:
-                metadata['create_time'] = create_time
-
-        if pdf_meta.get('modDate'):
-            mod_time = parse_pdf_date(pdf_meta['modDate'])
-            if mod_time:
-                metadata['last_saved_time'] = mod_time
-
-    except Exception as e:
-        logger.debug(f"[PDF] Error extracting metadata: {e}")
-
-    return metadata
-
-
-def parse_pdf_date(date_str: str) -> Optional[datetime]:
+def parse_pdf_date(date_str: Optional[str]) -> Optional[datetime]:
     """
     Convert a PDF date string to datetime.
 
@@ -84,37 +94,7 @@ def parse_pdf_date(date_str: str) -> Optional[datetime]:
     return None
 
 
-def format_metadata(metadata: Dict[str, Any]) -> str:
-    """
-    Format metadata as a string.
-
-    Args:
-        metadata: Metadata dictionary
-
-    Returns:
-        Formatted metadata string
-    """
-    if not metadata:
-        return ""
-
-    lines = ["<Document-Metadata>"]
-
-    field_names = {
-        'title': 'Title',
-        'subject': 'Subject',
-        'author': 'Author',
-        'keywords': 'Keywords',
-        'create_time': 'Created',
-        'last_saved_time': 'Last Modified'
-    }
-
-    for key, label in field_names.items():
-        value = metadata.get(key)
-        if value:
-            if isinstance(value, datetime):
-                value = value.strftime("%Y-%m-%d %H:%M:%S")
-            lines.append(f"  {label}: {value}")
-
-    lines.append("</Document-Metadata>\n")
-
-    return "\n".join(lines)
+__all__ = [
+    "PDFMetadataExtractor",
+    "parse_pdf_date",
+]

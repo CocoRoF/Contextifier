@@ -11,15 +11,13 @@ from typing import Any, Dict, Optional, Tuple, TYPE_CHECKING
 from contextifier.core.processor.base_handler import BaseHandler
 from contextifier.core.functions.chart_extractor import BaseChartExtractor, NullChartExtractor
 from contextifier.core.processor.csv_helper import (
-    CSVMetadata,
-    extract_csv_metadata,
-    format_metadata,
     detect_bom,
     detect_delimiter,
     parse_csv_content,
     detect_header,
     convert_rows_to_table,
 )
+from contextifier.core.processor.csv_helper.csv_metadata import CSVMetadataExtractor, CSVSourceInfo
 
 if TYPE_CHECKING:
     from contextifier.core.document_processor import CurrentFile
@@ -36,6 +34,10 @@ class CSVHandler(BaseHandler):
     def _create_chart_extractor(self) -> BaseChartExtractor:
         """CSV files do not contain charts. Return NullChartExtractor."""
         return NullChartExtractor(self._chart_processor)
+    
+    def _create_metadata_extractor(self):
+        """Create CSV-specific metadata extractor."""
+        return CSVMetadataExtractor()
     
     def extract_text(
         self,
@@ -85,8 +87,14 @@ class CSVHandler(BaseHandler):
             has_header = detect_header(rows)
             
             if extract_metadata:
-                metadata = extract_csv_metadata(file_path, detected_encoding, delimiter, rows, has_header)
-                metadata_str = format_metadata(metadata)
+                source_info = CSVSourceInfo(
+                    file_path=file_path,
+                    encoding=detected_encoding,
+                    delimiter=delimiter,
+                    rows=rows,
+                    has_header=has_header
+                )
+                metadata_str = self.extract_and_format_metadata(source_info)
                 if metadata_str:
                     result_parts.append(metadata_str + "\n\n")
             

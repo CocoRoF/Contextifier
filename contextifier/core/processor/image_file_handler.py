@@ -48,6 +48,10 @@ class ImageFileHandler(BaseHandler):
         """Image files do not contain charts. Return NullChartExtractor."""
         return NullChartExtractor(self._chart_processor)
     
+    def _create_metadata_extractor(self):
+        """Image files do not have document metadata. Return None (uses NullMetadataExtractor)."""
+        return None
+    
     def __init__(
         self,
         config: Optional[dict] = None,

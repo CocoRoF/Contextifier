@@ -27,6 +27,10 @@ class TextHandler(BaseHandler):
         """Text files do not contain charts. Return NullChartExtractor."""
         return NullChartExtractor(self._chart_processor)
     
+    def _create_metadata_extractor(self):
+        """Text files do not have embedded metadata. Return None (uses NullMetadataExtractor)."""
+        return None
+    
     def extract_text(
         self,
         current_file: "CurrentFile",

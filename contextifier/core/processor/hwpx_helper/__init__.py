@@ -25,7 +25,7 @@ from contextifier.core.processor.hwpx_helper.hwpx_constants import (
 
 # Metadata
 from contextifier.core.processor.hwpx_helper.hwpx_metadata import (
-    extract_hwpx_metadata,
+    HWPXMetadataExtractor,
     parse_bin_item_map,
 )
 

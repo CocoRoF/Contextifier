@@ -11,15 +11,14 @@ from typing import Dict, Any, Set, TYPE_CHECKING
 
 from contextifier.core.processor.base_handler import BaseHandler
 from contextifier.core.functions.chart_extractor import BaseChartExtractor
-from contextifier.core.processor.hwp_helper import MetadataHelper
 from contextifier.core.processor.hwpx_helper import (
-    extract_hwpx_metadata,
     parse_bin_item_map,
     parse_hwpx_section,
     process_hwpx_images,
     get_remaining_images,
 )
 from contextifier.core.processor.hwpx_helper.hwpx_chart_extractor import HWPXChartExtractor
+from contextifier.core.processor.hwpx_helper.hwpx_metadata import HWPXMetadataExtractor
 
 if TYPE_CHECKING:
     from contextifier.core.document_processor import CurrentFile
@@ -34,6 +33,10 @@ class HWPXHandler(BaseHandler):
     def _create_chart_extractor(self) -> BaseChartExtractor:
         """Create HWPX-specific chart extractor."""
         return HWPXChartExtractor(self._chart_processor)
+    
+    def _create_metadata_extractor(self):
+        """Create HWPX-specific metadata extractor."""
+        return HWPXMetadataExtractor()
     
     def extract_text(
         self,
@@ -83,8 +86,7 @@ class HWPXHandler(BaseHandler):
             
             with zipfile.ZipFile(file_stream, 'r') as zf:
                 if extract_metadata:
-                    metadata = extract_hwpx_metadata(zf)
-                    metadata_text = MetadataHelper.format_metadata(metadata)
+                    metadata_text = self.extract_and_format_metadata(zf)
                     if metadata_text:
                         text_content.append(metadata_text)
                         text_content.append("")
