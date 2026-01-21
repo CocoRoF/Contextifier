@@ -1,17 +1,15 @@
-# service/document_processor/processor/doc_helpers/rtf_table_extractor.py
+# contextifier/core/processor/rtf_helper/rtf_table_extractor.py
 """
-RTF 테이블 추출기
+RTF Table Extractor
 
-RTF 문서에서 테이블을 추출하고 파싱하는 기능을 제공합니다.
+Extracts and parses tables from RTF content.
+Includes RTFCellInfo and RTFTable data models.
 """
 import logging
 import re
-from typing import List, Optional, Tuple
+from dataclasses import dataclass, field
+from typing import List, NamedTuple, Optional, Tuple
 
-from contextifier.core.processor.rtf_helper.rtf_models import (
-    RTFCellInfo,
-    RTFTable,
-)
 from contextifier.core.processor.rtf_helper.rtf_decoder import (
     decode_hex_escapes,
 )
@@ -23,84 +21,261 @@ from contextifier.core.processor.rtf_helper.rtf_region_finder import (
     is_in_excluded_region,
 )
 
-logger = logging.getLogger("document-processor")
+logger = logging.getLogger("contextify.rtf.table")
 
+
+# =============================================================================
+# Data Models
+# =============================================================================
+
+class RTFCellInfo(NamedTuple):
+    """RTF cell information with merge info."""
+    text: str              # Cell text content
+    h_merge_first: bool    # Horizontal merge start (clmgf)
+    h_merge_cont: bool     # Horizontal merge continue (clmrg)
+    v_merge_first: bool    # Vertical merge start (clvmgf)
+    v_merge_cont: bool     # Vertical merge continue (clvmrg)
+    right_boundary: int    # Cell right boundary (twips)
+
+
+@dataclass
+class RTFTable:
+    """RTF table structure with merge cell support."""
+    rows: List[List[RTFCellInfo]] = field(default_factory=list)
+    col_count: int = 0
+    position: int = 0      # Start position in document
+    end_position: int = 0  # End position in document
+    
+    def is_real_table(self) -> bool:
+        """
+        Determine if this is a real table.
+        
+        n rows x 1 column is considered a list, not a table.
+        """
+        if not self.rows:
+            return False
+        
+        effective_cols = self._get_effective_col_count()
+        return effective_cols >= 2
+    
+    def _get_effective_col_count(self) -> int:
+        """Calculate effective column count (excluding empty columns)."""
+        if not self.rows:
+            return 0
+        
+        effective_counts = []
+        for row in self.rows:
+            non_empty_cells = []
+            for i, cell in enumerate(row):
+                if cell.h_merge_cont:
+                    continue
+                if cell.text.strip() or cell.v_merge_first:
+                    non_empty_cells.append(i)
+            
+            if non_empty_cells:
+                effective_counts.append(max(non_empty_cells) + 1)
+        
+        return max(effective_counts) if effective_counts else 0
+    
+    def to_html(self) -> str:
+        """Convert table to HTML with merge cell support."""
+        if not self.rows:
+            return ""
+        
+        merge_info = self._calculate_merge_info()
+        html_parts = ['<table border="1">']
+        
+        for row_idx, row in enumerate(self.rows):
+            html_parts.append('<tr>')
+            
+            for col_idx, cell in enumerate(row):
+                if col_idx < len(merge_info[row_idx]):
+                    colspan, rowspan = merge_info[row_idx][col_idx]
+                    
+                    if colspan == 0 or rowspan == 0:
+                        continue
+                    
+                    cell_text = re.sub(r'\s+', ' ', cell.text).strip()
+                    
+                    attrs = []
+                    if colspan > 1:
+                        attrs.append(f'colspan="{colspan}"')
+                    if rowspan > 1:
+                        attrs.append(f'rowspan="{rowspan}"')
+                    
+                    attr_str = ' ' + ' '.join(attrs) if attrs else ''
+                    html_parts.append(f'<td{attr_str}>{cell_text}</td>')
+                else:
+                    cell_text = re.sub(r'\s+', ' ', cell.text).strip()
+                    html_parts.append(f'<td>{cell_text}</td>')
+            
+            html_parts.append('</tr>')
+        
+        html_parts.append('</table>')
+        return '\n'.join(html_parts)
+    
+    def to_text_list(self) -> str:
+        """
+        Convert 1-column table to text list.
+        
+        - 1x1 table: Return cell content only (container table)
+        - nx1 table: Return rows separated by blank lines
+        """
+        if not self.rows:
+            return ""
+        
+        if len(self.rows) == 1 and len(self.rows[0]) == 1:
+            return self.rows[0][0].text
+        
+        lines = []
+        for row in self.rows:
+            if row:
+                cell_text = row[0].text
+                if cell_text:
+                    lines.append(cell_text)
+        
+        return '\n\n'.join(lines)
+    
+    def _calculate_merge_info(self) -> List[List[tuple]]:
+        """Calculate colspan and rowspan for each cell."""
+        if not self.rows:
+            return []
+        
+        num_rows = len(self.rows)
+        max_cols = max(len(row) for row in self.rows) if self.rows else 0
+        
+        if max_cols == 0:
+            return []
+        
+        # Initialize with (1, 1) for all cells
+        merge_info = [[(1, 1) for _ in range(max_cols)] for _ in range(num_rows)]
+        
+        # Process horizontal merges
+        for row_idx, row in enumerate(self.rows):
+            col_idx = 0
+            while col_idx < len(row):
+                cell = row[col_idx]
+                
+                if cell.h_merge_first:
+                    colspan = 1
+                    for next_col in range(col_idx + 1, len(row)):
+                        if row[next_col].h_merge_cont:
+                            colspan += 1
+                            merge_info[row_idx][next_col] = (0, 0)
+                        else:
+                            break
+                    merge_info[row_idx][col_idx] = (colspan, 1)
+                
+                col_idx += 1
+        
+        # Process vertical merges
+        for col_idx in range(max_cols):
+            row_idx = 0
+            while row_idx < num_rows:
+                if col_idx >= len(self.rows[row_idx]):
+                    row_idx += 1
+                    continue
+                
+                cell = self.rows[row_idx][col_idx]
+                
+                if cell.v_merge_first:
+                    rowspan = 1
+                    for next_row in range(row_idx + 1, num_rows):
+                        if col_idx < len(self.rows[next_row]) and self.rows[next_row][col_idx].v_merge_cont:
+                            rowspan += 1
+                            merge_info[next_row][col_idx] = (0, 0)
+                        else:
+                            break
+                    
+                    current_colspan = merge_info[row_idx][col_idx][0]
+                    merge_info[row_idx][col_idx] = (current_colspan, rowspan)
+                    row_idx += rowspan
+                elif cell.v_merge_cont:
+                    merge_info[row_idx][col_idx] = (0, 0)
+                    row_idx += 1
+                else:
+                    row_idx += 1
+        
+        return merge_info
+
+
+# =============================================================================
+# Table Extraction Functions
+# =============================================================================
 
 def extract_tables_with_positions(
     content: str,
     encoding: str = "cp949"
 ) -> Tuple[List[RTFTable], List[Tuple[int, int, RTFTable]]]:
-    r"""
-    RTF에서 테이블을 추출합니다 (위치 정보 포함).
-
-    RTF 테이블 구조:
-    - \trowd: 테이블 행 시작 (row definition)
-    - \cellx<N>: 셀 경계 위치 정의
-    - \clmgf: 수평 병합 시작
-    - \clmrg: 수평 병합 계속
-    - \clvmgf: 수직 병합 시작
-    - \clvmrg: 수직 병합 계속
-    - \intbl: 셀 내 단락
-    - \cell: 셀 끝
-    - \row: 행 끝
-
+    """
+    Extract tables from RTF content with position information.
+    
+    RTF table structure:
+    - \\trowd: Table row start (row definition)
+    - \\cellxN: Cell boundary position
+    - \\clmgf: Horizontal merge start
+    - \\clmrg: Horizontal merge continue
+    - \\clvmgf: Vertical merge start
+    - \\clvmrg: Vertical merge continue
+    - \\intbl: Paragraph in cell
+    - \\cell: Cell end
+    - \\row: Row end
+    
     Args:
-        content: RTF 문자열 콘텐츠
-        encoding: 사용할 인코딩
-
+        content: RTF string content
+        encoding: Encoding to use
+        
     Returns:
-        (테이블 리스트, 테이블 영역 리스트) 튜플
+        Tuple of (table list, table region list [(start, end, table), ...])
     """
     tables = []
     table_regions = []
-
-    # 제외 영역 찾기 (header, footer, footnote 등)
+    
+    # Find excluded regions (header, footer, footnote, etc.)
     excluded_regions = find_excluded_regions(content)
-
-    # 1단계: \row로 끝나는 모든 위치 찾기
+    
+    # Step 1: Find all \row positions
     row_positions = []
     for match in re.finditer(r'\\row(?![a-z])', content):
         row_positions.append(match.end())
-
+    
     if not row_positions:
         return tables, table_regions
-
-    # 2단계: 각 \row 전에 있는 \trowd 찾기 (해당 행의 시작)
+    
+    # Step 2: Find \trowd before each \row
     all_rows = []
     for i, row_end in enumerate(row_positions):
-        # 이전 \row 위치 또는 시작점
         if i == 0:
             search_start = 0
         else:
             search_start = row_positions[i - 1]
-
-        # 이 영역에서 첫 번째 \trowd 찾기
+        
         segment = content[search_start:row_end]
         trowd_match = re.search(r'\\trowd', segment)
-
+        
         if trowd_match:
             row_start = search_start + trowd_match.start()
-
-            # 제외 영역(header/footer/footnote) 안에 있는 행은 무시
+            
+            # Skip rows in excluded regions
             if is_in_excluded_region(row_start, excluded_regions):
                 logger.debug(f"Skipping table row at {row_start} (in header/footer/footnote)")
                 continue
-
+            
             row_text = content[row_start:row_end]
             all_rows.append((row_start, row_end, row_text))
-
+    
     if not all_rows:
         return tables, table_regions
-
-    # 연속된 행들을 테이블로 그룹화
-    table_groups = []  # [(start_pos, end_pos, [row_texts])]
+    
+    # Group consecutive rows into tables
+    table_groups = []
     current_table = []
     current_start = -1
     current_end = -1
     prev_end = -1
-
+    
     for row_start, row_end, row_text in all_rows:
-        # 이전 행과 150자 이내면 같은 테이블
+        # Rows within 150 chars are same table
         if prev_end == -1 or row_start - prev_end < 150:
             if current_start == -1:
                 current_start = row_start
@@ -113,13 +288,13 @@ def extract_tables_with_positions(
             current_start = row_start
             current_end = row_end
         prev_end = row_end
-
+    
     if current_table:
         table_groups.append((current_start, current_end, current_table))
-
+    
     logger.info(f"Found {len(table_groups)} table groups")
-
-    # 각 테이블 그룹 파싱
+    
+    # Parse each table group
     for start_pos, end_pos, table_rows in table_groups:
         table = _parse_table_with_merge(table_rows, encoding)
         if table and table.rows:
@@ -127,51 +302,51 @@ def extract_tables_with_positions(
             table.end_position = end_pos
             tables.append(table)
             table_regions.append((start_pos, end_pos, table))
-
+    
     logger.info(f"Extracted {len(tables)} tables")
     return tables, table_regions
 
 
 def _parse_table_with_merge(rows: List[str], encoding: str = "cp949") -> Optional[RTFTable]:
     """
-    테이블 행들을 파싱하여 RTFTable 객체로 변환 (병합 셀 지원)
-
+    Parse table rows to RTFTable object with merge support.
+    
     Args:
-        rows: 테이블 행 텍스트 리스트
-        encoding: 사용할 인코딩
-
+        rows: Table row text list
+        encoding: Encoding to use
+        
     Returns:
-        RTFTable 객체
+        RTFTable object
     """
     table = RTFTable()
-
+    
     for row_text in rows:
         cells = _extract_cells_with_merge(row_text, encoding)
         if cells:
             table.rows.append(cells)
             if len(cells) > table.col_count:
                 table.col_count = len(cells)
-
+    
     return table if table.rows else None
 
 
 def _extract_cells_with_merge(row_text: str, encoding: str = "cp949") -> List[RTFCellInfo]:
     """
-    테이블 행에서 셀 내용과 병합 정보를 추출합니다.
-
+    Extract cell content and merge information from table row.
+    
     Args:
-        row_text: 테이블 행 RTF 텍스트
-        encoding: 사용할 인코딩
-
+        row_text: Table row RTF text
+        encoding: Encoding to use
+        
     Returns:
-        RTFCellInfo 리스트
+        List of RTFCellInfo
     """
     cells = []
-
-    # 1단계: 셀 정의 파싱 (cellx 전까지의 속성들)
+    
+    # Step 1: Parse cell definitions (attributes before cellx)
     cell_defs = []
-
-    # \cell 다음에 x가 오지 않는 첫 번째 \cell 찾기
+    
+    # Find first \cell that is not \cellx
     first_cell_idx = -1
     pos = 0
     while True:
@@ -179,15 +354,14 @@ def _extract_cells_with_merge(row_text: str, encoding: str = "cp949") -> List[RT
         if idx == -1:
             first_cell_idx = len(row_text)
             break
-        # \cell 다음이 x인지 확인 (\cellx는 건너뜀)
         if idx + 5 < len(row_text) and row_text[idx + 5] == 'x':
             pos = idx + 1
             continue
         first_cell_idx = idx
         break
-
+    
     def_part = row_text[:first_cell_idx]
-
+    
     current_def = {
         'h_merge_first': False,
         'h_merge_cont': False,
@@ -195,9 +369,9 @@ def _extract_cells_with_merge(row_text: str, encoding: str = "cp949") -> List[RT
         'v_merge_cont': False,
         'right_boundary': 0
     }
-
+    
     cell_def_pattern = r'\\cl(?:mgf|mrg|vmgf|vmrg)|\\cellx(-?\d+)'
-
+    
     for match in re.finditer(cell_def_pattern, def_part):
         token = match.group()
         if token == '\\clmgf':
@@ -212,7 +386,6 @@ def _extract_cells_with_merge(row_text: str, encoding: str = "cp949") -> List[RT
             if match.group(1):
                 current_def['right_boundary'] = int(match.group(1))
             cell_defs.append(current_def.copy())
-            # 다음 셀을 위해 초기화
             current_def = {
                 'h_merge_first': False,
                 'h_merge_cont': False,
@@ -220,11 +393,11 @@ def _extract_cells_with_merge(row_text: str, encoding: str = "cp949") -> List[RT
                 'v_merge_cont': False,
                 'right_boundary': 0
             }
-
-    # 2단계: 셀 내용 추출
+    
+    # Step 2: Extract cell texts
     cell_texts = _extract_cell_texts(row_text, encoding)
-
-    # 3단계: 셀 정의와 내용 매칭
+    
+    # Step 3: Match cell definitions with content
     for i, cell_text in enumerate(cell_texts):
         if i < len(cell_defs):
             cell_def = cell_defs[i]
@@ -236,7 +409,7 @@ def _extract_cells_with_merge(row_text: str, encoding: str = "cp949") -> List[RT
                 'v_merge_cont': False,
                 'right_boundary': 0
             }
-
+        
         cells.append(RTFCellInfo(
             text=cell_text,
             h_merge_first=cell_def['h_merge_first'],
@@ -245,63 +418,65 @@ def _extract_cells_with_merge(row_text: str, encoding: str = "cp949") -> List[RT
             v_merge_cont=cell_def['v_merge_cont'],
             right_boundary=cell_def['right_boundary']
         ))
-
+    
     return cells
 
 
 def _extract_cell_texts(row_text: str, encoding: str = "cp949") -> List[str]:
-    r"""
-    행에서 셀 텍스트만 추출합니다.
-
+    """
+    Extract cell texts from row.
+    
     Args:
-        row_text: 테이블 행 RTF 텍스트
-        encoding: 사용할 인코딩
-
+        row_text: Table row RTF text
+        encoding: Encoding to use
+        
     Returns:
-        셀 텍스트 리스트
+        List of cell texts
     """
     cell_texts = []
-
-    # 1단계: 모든 \cell 위치 찾기 (cellx가 아닌 순수 \cell만)
+    
+    # Step 1: Find all \cell positions (not \cellx)
     cell_positions = []
     pos = 0
     while True:
         idx = row_text.find('\\cell', pos)
         if idx == -1:
             break
-        # \cell 다음이 x인지 확인
         next_pos = idx + 5
         if next_pos < len(row_text) and row_text[next_pos] == 'x':
             pos = idx + 1
             continue
         cell_positions.append(idx)
         pos = idx + 1
-
+    
     if not cell_positions:
         return cell_texts
-
-    # 2단계: 첫 번째 \cell 위치 이전에서 마지막 \cellx 찾기
+    
+    # Step 2: Find last \cellx before first \cell
     first_cell_pos = cell_positions[0]
     def_part = row_text[:first_cell_pos]
-
+    
     last_cellx_end = 0
     for match in re.finditer(r'\\cellx-?\d+', def_part):
         last_cellx_end = match.end()
-
-    if last_cellx_end == 0:
-        last_cellx_end = 0
-
-    # 3단계: 각 셀 내용 추출
+    
+    # Step 3: Extract each cell content
     prev_end = last_cellx_end
     for cell_end in cell_positions:
         cell_content = row_text[prev_end:cell_end]
-
-        # RTF 디코딩 및 클리닝
+        
+        # RTF decoding and cleaning
         decoded = decode_hex_escapes(cell_content, encoding)
         clean = clean_rtf_text(decoded, encoding)
         cell_texts.append(clean)
-
-        # 다음 셀은 \cell 다음부터
+        
         prev_end = cell_end + 5  # len('\\cell') = 5
-
+    
     return cell_texts
+
+
+__all__ = [
+    'RTFCellInfo',
+    'RTFTable',
+    'extract_tables_with_positions',
+]

@@ -1,8 +1,8 @@
-# contextifier/core/processor/doc_helpers/rtf_metadata_extractor.py
+# contextifier/core/processor/rtf_helper/rtf_metadata_extractor.py
 """
-DOC/RTF Metadata Extraction Module
+RTF Metadata Extractor
 
-Provides DOCMetadataExtractor class for extracting metadata from RTF documents.
+Extracts metadata from RTF content.
 Implements BaseMetadataExtractor interface.
 """
 import logging
@@ -22,7 +22,7 @@ from contextifier.core.processor.rtf_helper.rtf_text_cleaner import (
     clean_rtf_text,
 )
 
-logger = logging.getLogger("document-processor")
+logger = logging.getLogger("contextify.rtf.metadata")
 
 
 @dataclass
@@ -30,15 +30,15 @@ class RTFSourceInfo:
     """
     Source information for RTF metadata extraction.
     
-    Container for data passed to DOCMetadataExtractor.extract().
+    Container for data passed to RTFMetadataExtractor.extract().
     """
     content: str
     encoding: str = "cp949"
 
 
-class DOCMetadataExtractor(BaseMetadataExtractor):
+class RTFMetadataExtractor(BaseMetadataExtractor):
     """
-    DOC/RTF Metadata Extractor.
+    RTF Metadata Extractor.
     
     Extracts metadata from RTF content.
     
@@ -47,7 +47,7 @@ class DOCMetadataExtractor(BaseMetadataExtractor):
     - last_saved_by, create_time, last_saved_time
     
     Usage:
-        extractor = DOCMetadataExtractor()
+        extractor = RTFMetadataExtractor()
         source = RTFSourceInfo(content=rtf_content, encoding="cp949")
         metadata = extractor.extract(source)
         text = extractor.format(metadata)
@@ -55,20 +55,18 @@ class DOCMetadataExtractor(BaseMetadataExtractor):
     
     def extract(self, source: Union[RTFSourceInfo, Dict[str, Any]]) -> DocumentMetadata:
         """
-        Extract metadata from RTF content or pre-parsed metadata dict.
+        Extract metadata from RTF content.
         
         Args:
-            source: RTFSourceInfo object (RTF content string and encoding)
-                    OR Dict[str, Any] (pre-parsed metadata from RTFDocument.metadata)
+            source: RTFSourceInfo object (content string and encoding)
+                    OR Dict[str, Any] (pre-parsed metadata)
             
         Returns:
-            DocumentMetadata instance containing extracted metadata.
+            DocumentMetadata instance
         """
-        # Handle pre-parsed metadata dict (from RTFDocument.metadata)
         if isinstance(source, dict):
             return self._from_dict(source)
         
-        # Handle RTFSourceInfo (raw RTF content)
         content = source.content
         encoding = source.encoding
         
@@ -80,13 +78,13 @@ class DOCMetadataExtractor(BaseMetadataExtractor):
         last_saved_by = None
         create_time = None
         last_saved_time = None
-
-        # \info 그룹 찾기
+        
+        # Find \info group
         info_match = re.search(r'\\info\s*\{([^}]*(?:\{[^}]*\}[^}]*)*)\}', content)
         if info_match:
             info_content = info_match.group(1)
-
-            # 각 메타데이터 필드 추출
+            
+            # Extract each metadata field
             field_patterns = {
                 'title': r'\\title\s*\{([^}]*)\}',
                 'subject': r'\\subject\s*\{([^}]*)\}',
@@ -95,7 +93,7 @@ class DOCMetadataExtractor(BaseMetadataExtractor):
                 'comments': r'\\doccomm\s*\{([^}]*)\}',
                 'last_saved_by': r'\\operator\s*\{([^}]*)\}',
             }
-
+            
             for key, pattern in field_patterns.items():
                 match = re.search(pattern, info_content)
                 if match:
@@ -114,8 +112,8 @@ class DOCMetadataExtractor(BaseMetadataExtractor):
                             comments = value
                         elif key == 'last_saved_by':
                             last_saved_by = value
-
-            # 날짜 추출
+            
+            # Extract dates
             create_time = self._extract_date(
                 content, 
                 r'\\creatim\\yr(\d+)\\mo(\d+)\\dy(\d+)(?:\\hr(\d+))?(?:\\min(\d+))?'
@@ -124,8 +122,8 @@ class DOCMetadataExtractor(BaseMetadataExtractor):
                 content,
                 r'\\revtim\\yr(\d+)\\mo(\d+)\\dy(\d+)(?:\\hr(\d+))?(?:\\min(\d+))?'
             )
-
-        self.logger.debug(f"Extracted RTF metadata fields")
+        
+        self.logger.debug("Extracted RTF metadata fields")
         
         return DocumentMetadata(
             title=title,
@@ -158,7 +156,7 @@ class DOCMetadataExtractor(BaseMetadataExtractor):
         Convert pre-parsed metadata dict to DocumentMetadata.
         
         Args:
-            metadata: Dict from RTFDocument.metadata
+            metadata: Pre-parsed metadata dict
             
         Returns:
             DocumentMetadata instance
@@ -176,6 +174,6 @@ class DOCMetadataExtractor(BaseMetadataExtractor):
 
 
 __all__ = [
-    'DOCMetadataExtractor',
+    'RTFMetadataExtractor',
     'RTFSourceInfo',
 ]

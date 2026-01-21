@@ -1,14 +1,14 @@
-# contextifier/core/processor/rtf_helper/rtf_image_processor.py
+# contextifier/core/processor/rtf_helper/rtf_preprocessor.py
 """
-RTF Image Processor
+RTF Preprocessor
 
-Provides RTF-specific image processing that inherits from ImageProcessor.
-Handles RTF embedded images (pict, shppict, blipuid, bin).
-
-Includes binary preprocessing functionality for RTF files:
+Preprocesses RTF binary data before conversion:
 - \\binN tag processing (skip N bytes of raw binary data)
 - \\pict group image extraction
 - Image saving and tag generation
+- Encoding detection
+
+Implements BasePreprocessor interface.
 """
 import hashlib
 import logging
@@ -16,15 +16,20 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set, Tuple
 
+from contextifier.core.functions.preprocessor import (
+    BasePreprocessor,
+    PreprocessedData,
+)
 from contextifier.core.functions.img_processor import ImageProcessor
 from contextifier.core.functions.storage_backend import BaseStorageBackend
+from contextifier.core.processor.rtf_helper.rtf_decoder import (
+    detect_encoding,
+)
 
-logger = logging.getLogger("contextify.image_processor.rtf")
+logger = logging.getLogger("contextify.rtf.preprocessor")
 
 
-# === Image Format Constants ===
-
-# Magic numbers for image format detection
+# Image format magic numbers
 IMAGE_SIGNATURES = {
     b'\xff\xd8\xff': 'jpeg',
     b'\x89PNG\r\n\x1a\n': 'png',
@@ -61,179 +66,151 @@ class RTFBinaryRegion:
     image_data: bytes = b""
 
 
-@dataclass
-class RTFBinaryProcessResult:
-    """RTF binary processing result."""
-    clean_content: bytes
-    binary_regions: List[RTFBinaryRegion] = field(default_factory=list)
-    image_tags: Dict[int, str] = field(default_factory=dict)
-
-
-class RTFImageProcessor(ImageProcessor):
+class RTFPreprocessor(BasePreprocessor):
     """
-    RTF-specific image processor.
+    RTF-specific preprocessor.
     
-    Inherits from ImageProcessor and provides RTF-specific processing.
+    Handles RTF binary preprocessing:
+    - Removes \\bin tag binary data
+    - Extracts embedded images
+    - Detects encoding
+    - Returns clean content ready for parsing
     
-    Handles:
-    - RTF embedded images (pict, shppict, blipuid)
-    - WMF/EMF metafiles
-    - JPEG/PNG/BMP embedded images
-    
-    Example:
-        processor = RTFImageProcessor()
+    Usage:
+        preprocessor = RTFPreprocessor(image_processor=img_proc)
+        result = preprocessor.preprocess(rtf_bytes)
         
-        # Process RTF picture
-        tag = processor.process_image(image_data)
+        # result.clean_content - bytes ready for parsing
+        # result.encoding - detected encoding
+        # result.extracted_resources["image_tags"] - list of image tags
     """
+    
+    RTF_MAGIC = b'{\\rtf'
     
     def __init__(
         self,
-        directory_path: str = "temp/images",
-        tag_prefix: str = "[Image:",
-        tag_suffix: str = "]",
-        storage_backend: Optional[BaseStorageBackend] = None,
+        image_processor: Optional[ImageProcessor] = None,
+        processed_images: Optional[Set[str]] = None,
     ):
         """
-        Initialize RTFImageProcessor.
+        Initialize RTFPreprocessor.
         
         Args:
-            directory_path: Image save directory
-            tag_prefix: Tag prefix for image references
-            tag_suffix: Tag suffix for image references
-            storage_backend: Storage backend for saving images
+            image_processor: Image processor for saving images
+            processed_images: Set of already processed image hashes
         """
-        super().__init__(
-            directory_path=directory_path,
-            tag_prefix=tag_prefix,
-            tag_suffix=tag_suffix,
-            storage_backend=storage_backend,
-        )
-        self._processed_images: Set[str] = set()
-        self.logger = logger
+        self._image_processor = image_processor
+        self._processed_images = processed_images if processed_images is not None else set()
     
-    def process_rtf_image(
+    def preprocess(
         self,
-        image_data: bytes,
-        blipuid: Optional[str] = None,
-        image_format: Optional[str] = None
-    ) -> Optional[str]:
+        file_data: bytes,
+        **kwargs
+    ) -> PreprocessedData:
         """
-        Process an RTF embedded image.
+        Preprocess RTF binary data.
         
         Args:
-            image_data: Raw image data
-            blipuid: Optional BLIPUID for deduplication
-            image_format: Image format hint (png, jpg, wmf, emf, etc.)
+            file_data: Raw RTF binary data
+            **kwargs: Additional options
             
         Returns:
-            Image tag string or None
+            PreprocessedData with clean content, encoding, and image tags
         """
-        if not image_data:
-            return None
+        if not file_data:
+            return PreprocessedData(
+                raw_content=b"",
+                clean_content=b"",
+                encoding="cp949",
+            )
         
-        # Check for duplicates using hash
-        import hashlib
-        image_hash = hashlib.md5(image_data).hexdigest()
+        # Get options from kwargs
+        image_processor = kwargs.get('image_processor', self._image_processor)
+        processed_images = kwargs.get('processed_images', self._processed_images)
         
-        if image_hash in self._processed_images:
-            self.logger.debug(f"Skipping duplicate RTF image: {image_hash[:8]}")
-            return None
+        # Detect encoding
+        detected_encoding = detect_encoding(file_data, "cp949")
         
-        self._processed_images.add(image_hash)
+        # Process binary data (extract images, clean content)
+        clean_content, image_tags = self._process_binary_content(
+            file_data,
+            image_processor,
+            processed_images
+        )
         
-        # Convert metafiles if needed
-        if image_format in ('wmf', 'emf'):
-            converted = self._convert_metafile(image_data, image_format)
-            if converted:
-                image_data = converted
+        # Filter valid image tags
+        valid_tags = [
+            tag for tag in image_tags
+            if tag and tag.strip() and '/uploads/.' not in tag
+        ]
         
-        return self.save_image(image_data)
+        return PreprocessedData(
+            raw_content=file_data,
+            clean_content=clean_content,
+            encoding=detected_encoding,
+            extracted_resources={
+                "image_tags": valid_tags,
+            }
+        )
     
-    def _convert_metafile(self, data: bytes, format_type: str) -> Optional[bytes]:
+    def get_format_name(self) -> str:
+        """Return format name."""
+        return "RTF Preprocessor"
+    
+    def validate(self, file_data: bytes) -> bool:
+        """Validate if data is a valid RTF file."""
+        if not file_data or len(file_data) < 5:
+            return False
+        return file_data[:5] == self.RTF_MAGIC
+    
+    def _process_binary_content(
+        self,
+        content: bytes,
+        image_processor: Optional[ImageProcessor],
+        processed_images: Set[str]
+    ) -> Tuple[bytes, List[str]]:
         """
-        Attempt to convert WMF/EMF metafile to PNG.
+        Process RTF binary content.
         
         Args:
-            data: Metafile data
-            format_type: 'wmf' or 'emf'
+            content: RTF binary content
+            image_processor: Image processor instance
+            processed_images: Set of processed image hashes
             
         Returns:
-            Converted PNG data or None
-        """
-        try:
-            from PIL import Image
-            import io
-            
-            # Try to open with PIL
-            img = Image.open(io.BytesIO(data))
-            output = io.BytesIO()
-            img.save(output, format='PNG')
-            return output.getvalue()
-        except Exception:
-            # Metafile conversion not supported
-            return None
-    
-    def reset_processed_images(self) -> None:
-        """Reset the set of processed images."""
-        self._processed_images.clear()
-    
-    @property
-    def processed_images(self) -> Set[str]:
-        """Get the set of processed image hashes."""
-        return self._processed_images
-
-    # === Binary Preprocessing Methods ===
-    
-    def preprocess_binary(self, content: bytes) -> Tuple[bytes, Dict[int, str]]:
-        """
-        Preprocess RTF binary content.
-        
-        Processes \\bin tags and \\pict groups, extracts images,
-        saves them locally, and returns clean content with image tags.
-        
-        Args:
-            content: RTF file binary content
-            
-        Returns:
-            Tuple of (clean_content, position->image_tag dict)
-        """
-        result = self._process_binary_content(content)
-        return result.clean_content, result.image_tags
-    
-    def _process_binary_content(self, content: bytes) -> RTFBinaryProcessResult:
-        """
-        Process RTF binary content internally.
-        
-        Args:
-            content: RTF file binary content
-            
-        Returns:
-            RTFBinaryProcessResult with clean content and image tags
+            Tuple of (clean_content, list of image tags)
         """
         image_tags: Dict[int, str] = {}
         
-        # Step 1: Find \\bin tag regions
+        # Find \bin tag regions
         bin_regions = self._find_bin_regions(content)
         
-        # Step 2: Find \\pict regions (excluding bin regions)
+        # Find \pict regions (excluding bin regions)
         pict_regions = self._find_pict_regions(content, bin_regions)
         
-        # Step 3: Merge and sort all regions
+        # Merge and sort all regions
         all_regions = bin_regions + pict_regions
         all_regions.sort(key=lambda r: r.start_pos)
         
-        # Step 4: Process images and generate tags
+        # Process images and generate tags
         for region in all_regions:
             if not region.image_data:
                 continue
             
-            if region.image_format in SUPPORTED_IMAGE_FORMATS:
-                image_tag = self.save_image(region.image_data)
-                if image_tag:
-                    image_tags[region.start_pos] = f"\n{image_tag}\n"
+            # Check for duplicates
+            image_hash = hashlib.md5(region.image_data).hexdigest()
+            if image_hash in processed_images:
+                image_tags[region.start_pos] = ""
+                continue
+            
+            processed_images.add(image_hash)
+            
+            if region.image_format in SUPPORTED_IMAGE_FORMATS and image_processor:
+                tag = image_processor.save_image(region.image_data)
+                if tag:
+                    image_tags[region.start_pos] = f"\n{tag}\n"
                     logger.info(
-                        f"Saved RTF image: {image_tag} "
+                        f"Saved RTF image: {tag} "
                         f"(format={region.image_format}, size={region.data_size})"
                     )
                 else:
@@ -241,14 +218,13 @@ class RTFImageProcessor(ImageProcessor):
             else:
                 image_tags[region.start_pos] = ""
         
-        # Step 5: Remove binary data from content
+        # Remove binary data from content
         clean_content = self._remove_binary_data(content, all_regions, image_tags)
         
-        return RTFBinaryProcessResult(
-            clean_content=clean_content,
-            binary_regions=all_regions,
-            image_tags=image_tags
-        )
+        # Collect all image tags as list
+        tag_list = [tag for tag in image_tags.values() if tag and tag.strip()]
+        
+        return clean_content, tag_list
     
     def _find_bin_regions(self, content: bytes) -> List[RTFBinaryRegion]:
         """Find \\binN tags and identify binary regions."""
@@ -271,7 +247,7 @@ class RTFImageProcessor(ImageProcessor):
                     binary_data = content[data_start:data_end]
                     image_format = self._detect_image_format(binary_data)
                     
-                    # Find parent \\shppict group
+                    # Find parent \shppict group
                     group_start = bin_tag_start
                     group_end = data_end
                     
@@ -429,46 +405,4 @@ class RTFImageProcessor(ImageProcessor):
         return bytes(result)
 
 
-def preprocess_rtf_binary(
-    content: bytes,
-    processed_images: Optional[Set[str]] = None,
-    image_processor: ImageProcessor = None
-) -> Tuple[bytes, Dict[int, str]]:
-    """
-    Preprocess RTF content to handle binary data.
-    
-    Removes \\bin tag binary data and extracts images,
-    saving them locally and converting to image tags.
-    
-    Call this before RTF parsing to prevent text corruption
-    from binary data.
-    
-    Args:
-        content: RTF file binary content
-        processed_images: Set of processed image hashes (optional)
-        image_processor: Image processor instance
-        
-    Returns:
-        Tuple of (clean_content, position->image_tag dict)
-    """
-    if image_processor is None:
-        # Create default processor
-        processor = RTFImageProcessor()
-    elif isinstance(image_processor, RTFImageProcessor):
-        processor = image_processor
-    else:
-        # Wrap existing ImageProcessor
-        processor = RTFImageProcessor(
-            directory_path=image_processor.config.directory_path,
-            tag_prefix=image_processor.config.tag_prefix,
-            tag_suffix=image_processor.config.tag_suffix,
-            storage_backend=image_processor.storage_backend,
-        )
-    
-    if processed_images:
-        processor._processed_images = processed_images
-    
-    return processor.preprocess_binary(content)
-
-
-__all__ = ['RTFImageProcessor', 'preprocess_rtf_binary', 'RTFBinaryRegion', 'RTFBinaryProcessResult']
+__all__ = ['RTFPreprocessor', 'RTFBinaryRegion']

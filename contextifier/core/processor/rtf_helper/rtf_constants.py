@@ -1,60 +1,94 @@
-# service/document_processor/processor/doc_helpers/rtf_constants.py
+# contextifier/core/processor/rtf_helper/rtf_constants.py
 """
-RTF Parser 상수 정의
+RTF Constants
 
-RTF 파싱에 사용되는 상수들을 정의합니다.
+Constants used for RTF parsing.
 """
 
-# Shape 속성 이름들 (\sn으로 시작하는 속성들) - 텍스트에서 제거해야 함
-SHAPE_PROPERTY_NAMES = {
-    'shapeType', 'fFlipH', 'fFlipV', 'txflTextFlow', 'fFilled', 'fLine',
-    'dxTextLeft', 'dxTextRight', 'dyTextTop', 'dyTextBottom',
-    'posrelh', 'posrelv', 'fBehindDocument', 'fLayoutInCell', 'fAllowOverlap',
-    'fillColor', 'fillBackColor', 'fNoFillHitTest', 'lineColor', 'lineWidth',
-    'posh', 'posv', 'fLockAnchor', 'fLockPosition', 'fLockAspectRatio',
-    'fLockRotation', 'fLockCropping', 'fLockAgainstGrouping', 'fNoLineDrawDash',
-    'wzName', 'wzDescription', 'pWrapPolygonVertices', 'dxWrapDistLeft',
-    'dxWrapDistRight', 'dyWrapDistTop', 'dyWrapDistBottom', 'lidRegroup',
-    'fEditedWrap', 'fBehindDocument', 'fOnDblClickNotify', 'fIsButton',
-    'fOneD', 'fHidden', 'fPrint', 'geoLeft', 'geoTop', 'geoRight', 'geoBottom',
-    'shapePath', 'pSegmentInfo', 'pVertices', 'fFillOK', 'fFillShadeShapeOK',
-    'fGtextOK', 'fLineOK', 'f3DOK', 'fShadowOK', 'fArrowheadsOK',
+# Shape property names (to be removed)
+SHAPE_PROPERTY_NAMES = [
+    'shapeType', 'fFlipH', 'fFlipV', 'rotation',
+    'posh', 'posrelh', 'posv', 'posrelv',
+    'fLayoutInCell', 'fAllowOverlap', 'fBehindDocument',
+    'fPseudoInline', 'fLockAnchor', 'fLockPosition',
+    'fLockAspectRatio', 'fLockRotation', 'fLockAgainstSelect',
+    'fLockCropping', 'fLockVerticies', 'fLockText',
+    'fLockAdjustHandles', 'fLockAgainstGrouping',
+    'geoLeft', 'geoTop', 'geoRight', 'geoBottom',
+    'shapePath', 'pWrapPolygonVertices', 'dxWrapDistLeft',
+    'dyWrapDistTop', 'dxWrapDistRight', 'dyWrapDistBottom',
+    'fLine', 'fFilled', 'fillType', 'fillColor',
+    'fillOpacity', 'fillBackColor', 'fillBackOpacity',
+    'lineColor', 'lineOpacity', 'lineWidth', 'lineStyle',
+    'lineDashing', 'lineStartArrowhead', 'lineStartArrowWidth',
+    'lineStartArrowLength', 'lineEndArrowhead', 'lineEndArrowWidth',
+    'lineEndArrowLength', 'shadowType', 'shadowColor',
+    'shadowOpacity', 'shadowOffsetX', 'shadowOffsetY',
+]
+
+# RTF destination 키워드 (제외 대상)
+EXCLUDE_DESTINATION_KEYWORDS = [
+    'fonttbl', 'colortbl', 'stylesheet', 'listtable',
+    'listoverridetable', 'revtbl', 'rsidtbl', 'generator',
+    'info', 'xmlnstbl', 'mmathPr', 'themedata', 'colorschememapping',
+    'datastore', 'latentstyles', 'pgptbl', 'protusertbl',
+]
+
+# RTF skip destinations
+SKIP_DESTINATIONS = {
+    'fonttbl', 'colortbl', 'stylesheet', 'listtable',
+    'listoverridetable', 'revtbl', 'rsidtbl', 'generator',
+    'xmlnstbl', 'mmathPr', 'themedata', 'colorschememapping',
+    'datastore', 'latentstyles', 'pgptbl', 'protusertbl',
+    'bookmarkstart', 'bookmarkend', 'bkmkstart', 'bkmkend',
+    'fldinst', 'fldrslt',  # field instructions and results
 }
 
-# 제외할 destination 키워드들 (본문이 아닌 영역)
-EXCLUDE_DESTINATION_KEYWORDS = [
-    r'\\header(?:f|l|r)?\b',      # 헤더
-    r'\\footer(?:f|l|r)?\b',      # 푸터
-    r'\\footnote\b',               # 각주
-    r'\\ftnsep\b', r'\\ftnsepc\b',  # 각주 구분선
-    r'\\aftncn\b', r'\\aftnsep\b', r'\\aftnsepc\b',  # 미주
-    r'\\pntext\b', r'\\pntxta\b', r'\\pntxtb\b',  # 번호 매기기
-]
+# Image-related destinations
+IMAGE_DESTINATIONS = {
+    'pict', 'shppict', 'nonshppict', 'blipuid',
+}
 
-# 제거할 destination 패턴들
-SKIP_DESTINATIONS = [
-    'themedata', 'colorschememapping', 'latentstyles', 'datastore',
-    'xmlnstbl', 'wgrffmtfilter', 'generator', 'mmathPr', 'xmlopen',
-    'background', 'pgptbl', 'listpicture', 'pnseclvl', 'revtbl',
-    'bkmkstart', 'bkmkend', 'fldinst', 'objdata', 'objclass',
-    'objemb', 'result', 'category', 'comment', 'company', 'creatim',
-    'doccomm', 'hlinkbase', 'keywords', 'manager', 'operator',
-    'revtim', 'subject', 'title', 'userprops',
-    'nonshppict', 'blipuid', 'picprop',
-]
-
-# 이미지 관련 destination
-IMAGE_DESTINATIONS = ['shppict']
-
-# 코드 페이지 -> 인코딩 매핑
+# Codepage to encoding mapping
 CODEPAGE_ENCODING_MAP = {
-    949: 'cp949',
-    932: 'cp932',
-    936: 'gb2312',
-    950: 'big5',
-    1252: 'cp1252',
+    437: 'cp437',
+    850: 'cp850',
+    852: 'cp852',
+    855: 'cp855',
+    857: 'cp857',
+    860: 'cp860',
+    861: 'cp861',
+    863: 'cp863',
+    865: 'cp865',
+    866: 'cp866',
+    869: 'cp869',
+    874: 'cp874',
+    932: 'cp932',     # Japanese
+    936: 'gb2312',    # Simplified Chinese
+    949: 'cp949',     # Korean
+    950: 'big5',      # Traditional Chinese
+    1250: 'cp1250',   # Central European
+    1251: 'cp1251',   # Cyrillic
+    1252: 'cp1252',   # Western European
+    1253: 'cp1253',   # Greek
+    1254: 'cp1254',   # Turkish
+    1255: 'cp1255',   # Hebrew
+    1256: 'cp1256',   # Arabic
+    1257: 'cp1257',   # Baltic
+    1258: 'cp1258',   # Vietnamese
+    10000: 'mac_roman',
     65001: 'utf-8',
 }
 
-# 기본 인코딩 시도 순서
-DEFAULT_ENCODINGS = ['cp949', 'utf-8', 'cp1252', 'latin-1']
+# Default encodings to try
+DEFAULT_ENCODINGS = ['utf-8', 'cp949', 'euc-kr', 'cp1252', 'latin-1']
+
+
+__all__ = [
+    'SHAPE_PROPERTY_NAMES',
+    'EXCLUDE_DESTINATION_KEYWORDS',
+    'SKIP_DESTINATIONS',
+    'IMAGE_DESTINATIONS',
+    'CODEPAGE_ENCODING_MAP',
+    'DEFAULT_ENCODINGS',
+]

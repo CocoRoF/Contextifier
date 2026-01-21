@@ -1,106 +1,87 @@
-# libs/core/processor/rtf_helper/rtf_file_converter.py
+# contextifier/core/processor/rtf_helper/rtf_file_converter.py
 """
-RTFFileConverter - RTF file format converter
+RTF File Converter
 
-Converts binary RTF data to RTFDocument object.
+RTF uses raw binary directly, so converter just passes through.
+All actual processing is done by Preprocessor in Handler.
 """
-from io import BytesIO
-from typing import Any, Optional, BinaryIO, Set
+import logging
+from dataclasses import dataclass, field
+from typing import Any, BinaryIO, List, Optional
 
 from contextifier.core.functions.file_converter import BaseFileConverter
+
+logger = logging.getLogger("contextify.rtf.converter")
+
+
+@dataclass
+class RTFConvertedData:
+    """
+    RTF converted data container.
+    
+    Attributes:
+        content: RTF content string (after preprocessing)
+        encoding: Detected encoding
+        image_tags: List of image tags from preprocessing
+        original_size: Original binary data size
+        has_images: Whether images were extracted
+    """
+    content: str
+    encoding: str = "cp949"
+    image_tags: List[str] = field(default_factory=list)
+    original_size: int = 0
+    has_images: bool = False
+    
+    def __post_init__(self):
+        """Set has_images based on image_tags."""
+        if self.image_tags:
+            self.has_images = True
 
 
 class RTFFileConverter(BaseFileConverter):
     """
     RTF file converter.
     
-    Converts binary RTF data to RTFDocument object using RTFParser.
+    RTF uses raw binary directly, so this converter just passes through.
+    All actual processing (image extraction, binary removal, decoding)
+    is done by RTFPreprocessor called from Handler.
     """
-    
-    # RTF magic number
-    RTF_MAGIC = b'{\\rtf'
     
     def __init__(self):
         """Initialize RTFFileConverter."""
-        self._encoding = 'cp949'
-        self._image_processor = None
-        self._processed_images: Set[str] = set()
-    
-    def configure(
-        self,
-        encoding: str = 'cp949',
-        image_processor: Any = None,
-        processed_images: Optional[Set[str]] = None
-    ) -> 'RTFFileConverter':
-        """
-        Configure the converter with additional options.
-        
-        Args:
-            encoding: Default encoding (Korean documents typically use cp949)
-            image_processor: Image processor instance
-            processed_images: Set of already processed image hashes
-            
-        Returns:
-            Self for method chaining
-        """
-        self._encoding = encoding
-        self._image_processor = image_processor
-        self._processed_images = processed_images if processed_images is not None else set()
-        return self
+        self.logger = logger
     
     def convert(
         self,
         file_data: bytes,
         file_stream: Optional[BinaryIO] = None,
         **kwargs
-    ) -> Any:
+    ) -> bytes:
         """
-        Convert binary RTF data to RTFDocument object.
+        Pass through binary data.
+        
+        RTF processing uses raw binary, so just return as-is.
         
         Args:
             file_data: Raw binary RTF data
-            file_stream: Optional file stream (ignored, uses file_data)
-            **kwargs: Additional options:
-                - encoding: Override default encoding
-                - image_processor: Override configured image processor
-                - processed_images: Override configured processed images set
-            
+            file_stream: Optional file stream (not used)
+            **kwargs: Not used
+                
         Returns:
-            RTFDocument object
+            Original bytes (pass through)
         """
-        from contextifier.core.processor.rtf_helper import parse_rtf
-        
-        # Get options from kwargs or use configured values
-        encoding = kwargs.get('encoding', self._encoding)
-        image_processor = kwargs.get('image_processor', self._image_processor)
-        processed_images = kwargs.get('processed_images', self._processed_images)
-        
-        # Parse RTF
-        rtf_doc = parse_rtf(
-            file_data,
-            processed_images=processed_images,
-            image_processor=image_processor
-        )
-        
-        return rtf_doc
+        return file_data
     
     def get_format_name(self) -> str:
         """Return format name."""
         return "RTF Document"
     
-    def validate(self, file_data: bytes) -> bool:
-        """Validate if data is a valid RTF file."""
-        if not file_data or len(file_data) < 5:
-            return False
-        return file_data[:5] == self.RTF_MAGIC
-    
     def close(self, converted_object: Any) -> None:
-        """
-        Close/cleanup the converted object.
-        
-        RTFDocument doesn't need explicit cleanup.
-        """
+        """Nothing to close."""
         pass
 
 
-__all__ = ['RTFFileConverter']
+__all__ = [
+    'RTFFileConverter',
+    'RTFConvertedData',
+]
