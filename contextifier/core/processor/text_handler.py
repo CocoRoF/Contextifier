@@ -9,6 +9,7 @@ from typing import List, Optional, TYPE_CHECKING
 
 from contextifier.core.processor.base_handler import BaseHandler
 from contextifier.core.functions.utils import clean_text, clean_code_text
+from contextifier.core.functions.chart_extractor import BaseChartExtractor, NullChartExtractor
 
 if TYPE_CHECKING:
     from contextifier.core.document_processor import CurrentFile
@@ -21,6 +22,10 @@ DEFAULT_ENCODINGS = ['utf-8', 'utf-8-sig', 'cp949', 'euc-kr', 'latin-1', 'ascii'
 
 class TextHandler(BaseHandler):
     """Text File Processing Handler Class"""
+    
+    def _create_chart_extractor(self) -> BaseChartExtractor:
+        """Text files do not contain charts. Return NullChartExtractor."""
+        return NullChartExtractor(self._chart_processor)
     
     def extract_text(
         self,

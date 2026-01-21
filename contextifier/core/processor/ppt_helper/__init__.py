@@ -8,7 +8,7 @@ PPT/PPTX 문서 처리를 위한 헬퍼 함수 모음.
 - ppt_metadata: 메타데이터 추출/포맷팅
 - ppt_bullet: 목록(Bullet/Numbering) 처리
 - ppt_table: 테이블 처리 (HTML 변환, 병합)
-- ppt_chart: 차트 데이터 추출
+- ppt_chart_extractor: 차트 데이터 추출 (ChartExtractor)
 - ppt_shape: Shape 처리 (위치, 이미지, 그룹)
 - ppt_slide: 슬라이드 처리 (노트, 요소 병합)
 """
@@ -44,9 +44,9 @@ from contextifier.core.processor.ppt_helper.ppt_table import (
     debug_table_structure,
 )
 
-# === Chart ===
-from contextifier.core.processor.ppt_helper.ppt_chart import (
-    extract_chart_data,
+# === Chart Extractor ===
+from contextifier.core.processor.ppt_helper.ppt_chart_extractor import (
+    PPTChartExtractor,
 )
 
 # === Shape ===
@@ -84,8 +84,8 @@ __all__ = [
     "convert_table_to_html",
     "extract_table_as_text",
     "debug_table_structure",
-    # Chart
-    "extract_chart_data",
+    # Chart Extractor
+    "PPTChartExtractor",
     # Shape
     "get_shape_position",
     "is_picture_shape",

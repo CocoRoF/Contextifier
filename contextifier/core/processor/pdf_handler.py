@@ -133,6 +133,11 @@ class PDFHandler(BaseHandler):
         text = handler.extract_text(current_file)
     """
     
+    def _create_chart_extractor(self):
+        """PDF chart extraction not yet implemented. Return NullChartExtractor."""
+        from contextifier.core.functions.chart_extractor import NullChartExtractor
+        return NullChartExtractor(self._chart_processor)
+    
     def extract_text(
         self,
         current_file: "CurrentFile",

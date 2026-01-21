@@ -10,7 +10,7 @@ hwpx_processor.py에서 사용하는 기능적 구성요소들을 모듈화하�
 - hwpx_table: 테이블 파싱 및 HTML 변환
 - hwpx_section: 섹션 XML 파싱
 - hwpx_image: 이미지 처리 및 업로드
-- hwpx_chart: 차트 추출
+- hwpx_chart_extractor: 차트 추출 (ChartExtractor)
 """
 
 # Constants
@@ -46,9 +46,9 @@ from contextifier.core.processor.hwpx_helper.hwpx_image import (
     get_remaining_images,
 )
 
-# Chart
-from contextifier.core.processor.hwpx_helper.hwpx_chart import (
-    extract_charts_from_hwpx,
+# Chart Extractor
+from contextifier.core.processor.hwpx_helper.hwpx_chart_extractor import (
+    HWPXChartExtractor,
 )
 
 __all__ = [
@@ -70,6 +70,6 @@ __all__ = [
     # Image
     "process_hwpx_images",
     "get_remaining_images",
-    # Chart
-    "extract_charts_from_hwpx",
+    # Chart Extractor
+    "HWPXChartExtractor",
 ]

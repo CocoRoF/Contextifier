@@ -1,13 +1,13 @@
 # service/document_processor/processor/docx_helper/docx_paragraph.py
 """
-DOCX Paragraph 처리 유틸리티
+DOCX Paragraph Processing Utility
 
-DOCX 문서의 Paragraph 요소를 처리합니다.
-- process_paragraph_element: Paragraph 요소 처리
-- has_page_break_element: 페이지 브레이크 확인
+Processes Paragraph elements in DOCX documents.
+- process_paragraph_element: Process Paragraph element
+- has_page_break_element: Check for page break
 """
 import logging
-from typing import Any, Optional, Set, Tuple
+from typing import Optional, Set, Tuple, Callable
 
 from docx import Document
 
@@ -24,22 +24,24 @@ def process_paragraph_element(
     doc: Document,
     processed_images: Set[str],
     file_path: str = None,
-    image_processor: Optional[ImageProcessor] = None
+    image_processor: Optional[ImageProcessor] = None,
+    chart_callback: Optional[Callable[[], str]] = None
 ) -> Tuple[str, bool, int, int]:
     """
-    Paragraph 요소를 처리합니다.
+    Process Paragraph element.
 
-    텍스트, 이미지, 차트를 추출하고 페이지 브레이크를 감지합니다.
+    Extracts text, images, charts and detects page breaks.
 
     Args:
-        para_elem: paragraph XML 요소
-        doc: python-docx Document 객체
-        processed_images: 처리된 이미지 경로 집합 (중복 방지)
-        file_path: 원본 파일 경로
-        image_processor: ImageProcessor 인스턴스
+        para_elem: paragraph XML element
+        doc: python-docx Document object
+        processed_images: Set of processed image paths (deduplication)
+        file_path: Original file path
+        image_processor: ImageProcessor instance
+        chart_callback: Callback function to get next chart content
 
     Returns:
-        (content, has_page_break, image_count, chart_count) 튜플
+        (content, has_page_break, image_count, chart_count) tuple
     """
     content_parts = []
     has_page_break = False
@@ -47,20 +49,22 @@ def process_paragraph_element(
     chart_count = 0
 
     try:
-        # 페이지 브레이크 확인
+        # Check for page break
         has_page_break = has_page_break_element(para_elem)
 
-        # Run 요소들 순회
+        # Traverse Run elements
         for run_elem in para_elem.findall('.//w:r', NAMESPACES):
-            # 텍스트 추출
+            # Extract text
             for t_elem in run_elem.findall('w:t', NAMESPACES):
                 if t_elem.text:
                     content_parts.append(t_elem.text)
 
-            # Drawing (이미지/차트/다이어그램) 처리
+            # Process Drawing (image/chart/diagram)
             for drawing_elem in run_elem.findall('w:drawing', NAMESPACES):
                 drawing_content, drawing_type = process_drawing_element(
-                    drawing_elem, doc, processed_images, file_path, image_processor
+                    drawing_elem, doc, processed_images, file_path, 
+                    image_processor, 
+                    chart_callback=chart_callback
                 )
                 if drawing_content:
                     content_parts.append(drawing_content)
@@ -69,7 +73,7 @@ def process_paragraph_element(
                     elif drawing_type == ElementType.CHART:
                         chart_count += 1
 
-            # pict 요소 (레거시 VML 이미지) 처리
+            # Process pict element (legacy VML image)
             for pict_elem in run_elem.findall('w:pict', NAMESPACES):
                 pict_content = process_pict_element(pict_elem, doc, processed_images, image_processor)
                 if pict_content:
@@ -78,7 +82,7 @@ def process_paragraph_element(
 
     except Exception as e:
         logger.warning(f"Error processing paragraph: {e}")
-        # 폴백: 단순 텍스트 추출
+        # Fallback: simple text extraction
         try:
             texts = para_elem.findall('.//w:t', NAMESPACES)
             content_parts = [t.text or '' for t in texts]
@@ -90,19 +94,19 @@ def process_paragraph_element(
 
 def has_page_break_element(element) -> bool:
     """
-    요소에 페이지 브레이크가 있는지 확인합니다.
+    Check if element contains a page break.
 
     Args:
-        element: XML 요소
+        element: XML element
 
     Returns:
-        페이지 브레이크 존재 여부
+        Whether page break exists
     """
     try:
-        # 명시적 페이지 브레이크
+        # Explicit page break
         if element.findall('.//w:br[@w:type="page"]', NAMESPACES):
             return True
-        # 렌더링된 페이지 브레이크
+        # Rendered page break
         if element.findall('.//w:lastRenderedPageBreak', NAMESPACES):
             return True
         return False

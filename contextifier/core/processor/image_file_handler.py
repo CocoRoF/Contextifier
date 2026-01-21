@@ -11,6 +11,7 @@ import os
 from typing import Any, Optional, TYPE_CHECKING
 
 from contextifier.core.processor.base_handler import BaseHandler
+from contextifier.core.functions.chart_extractor import BaseChartExtractor, NullChartExtractor
 
 if TYPE_CHECKING:
     from contextifier.core.document_processor import CurrentFile
@@ -42,6 +43,10 @@ class ImageFileHandler(BaseHandler):
         >>> handler = ImageFileHandler(ocr_engine=ocr)
         >>> text = handler.extract_text(current_file)
     """
+    
+    def _create_chart_extractor(self) -> BaseChartExtractor:
+        """Image files do not contain charts. Return NullChartExtractor."""
+        return NullChartExtractor(self._chart_processor)
     
     def __init__(
         self,

@@ -1,6 +1,6 @@
 # your_package/document_processor/utils.py
 """
-문서 처리 공통 유틸리티 모듈
+Common utility module for document processing
 """
 import io
 import os
@@ -15,19 +15,19 @@ from PIL import Image
 
 def sanitize_text_for_json(text: Optional[str]) -> str:
     """
-    텍스트를 UTF-8 JSON 응답에 안전하게 인코딩 가능하도록 정제합니다.
+    Sanitizes text to be safely encodable in a UTF-8 JSON response.
 
-    다음 문자들을 제거하거나 교체합니다:
-    - 잘못된 서로게이트 쌍 (U+D800-U+DFFF): 단독 high/low surrogate 제거
-    - Private Use Area 문자 (U+E000-U+F8FF, U+F0000 이상): 제거
-    - 비문자 코드 포인트 (U+FFFE, U+FFFF): 제거
-    - 문제를 일으킬 수 있는 제어 문자 (탭, 개행, 캐리지 리턴 제외)
+    Removes or replaces the following characters:
+    - Invalid surrogate pairs (U+D800-U+DFFF): removes isolated high/low surrogates
+    - Private Use Area characters (U+E000-U+F8FF, U+F0000 and above): removed
+    - Non-character code points (U+FFFE, U+FFFF): removed
+    - Problematic control characters (except tab, newline, carriage return)
 
     Args:
-        text: 잘못된 문자가 포함될 수 있는 입력 텍스트
+        text: Input text that may contain invalid characters
 
     Returns:
-        JSON 인코딩에 안전한 정제된 텍스트
+        Sanitized text safe for JSON encoding
     """
     if not text:
         return text if text is not None else ""
@@ -40,56 +40,56 @@ def sanitize_text_for_json(text: Optional[str]) -> str:
         char = text[i]
         code = ord(char)
 
-        # 서로게이트 쌍 체크 (\uD800-\uDFFF)
+        # Check for surrogate pairs (\uD800-\uDFFF)
         if 0xD800 <= code <= 0xDFFF:
             # High surrogate (\uD800-\uDBFF)
             if 0xD800 <= code <= 0xDBFF:
-                # 유효한 low surrogate가 뒤따르는지 확인
+                # Check if followed by a valid low surrogate
                 if i + 1 < text_len:
                     next_code = ord(text[i + 1])
                     if 0xDC00 <= next_code <= 0xDFFF:
-                        # 유효한 서로게이트 쌍, 실제 코드 포인트 계산
+                        # Valid surrogate pair, calculate actual code point
                         full_code = 0x10000 + ((code - 0xD800) << 10) + (next_code - 0xDC00)
                         # Supplementary Private Use Area-A: U+F0000 ~ U+FFFFF
                         # Supplementary Private Use Area-B: U+100000 ~ U+10FFFF
                         if full_code >= 0xF0000:
-                            # Private Use Supplementary 문자 건너뛰기
+                            # Skip Private Use Supplementary characters
                             i += 2
                             continue
                         else:
-                            # 유효한 supplementary 문자, 유지
+                            # Valid supplementary character, keep it
                             result.append(char)
                             result.append(text[i + 1])
                             i += 2
                             continue
-                # 잘못된 단독 high surrogate, 건너뛰기
+                # Invalid isolated high surrogate, skip it
                 i += 1
                 continue
             else:
-                # High surrogate 없는 low surrogate, 건너뛰기
+                # Low surrogate without high surrogate, skip it
                 i += 1
                 continue
 
-        # Basic Private Use Area 체크 (U+E000 ~ U+F8FF)
+        # Check Basic Private Use Area (U+E000 ~ U+F8FF)
         if 0xE000 <= code <= 0xF8FF:
-            # Private Use 문자 건너뛰기
+            # Skip Private Use characters
             i += 1
             continue
 
-        # 문제가 될 수 있는 제어 문자 체크
-        # 유지: \t (9), \n (10), \r (13), 공백 (32) 이후
-        # 제거: \x00-\x08, \x0B, \x0C, \x0E-\x1F (위 예외 제외)
+        # Check for problematic control characters
+        # Keep: \t (9), \n (10), \r (13), space (32) and above
+        # Remove: \x00-\x08, \x0B, \x0C, \x0E-\x1F (except those above)
         if code < 32 and code not in (9, 10, 13):
-            # 문제 있는 제어 문자 건너뛰기
+            # Skip problematic control characters
             i += 1
             continue
 
-        # 비문자 체크 (U+FFFE, U+FFFF)
+        # Check for non-characters (U+FFFE, U+FFFF)
         if code in (0xFFFE, 0xFFFF):
             i += 1
             continue
 
-        # 유효한 문자, 유지
+        # Valid character, keep it
         result.append(char)
         i += 1
 

@@ -10,11 +10,11 @@ Text Chunker - 텍스트 청킹
 """
 import logging
 import re
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from contextifier.chunking.constants import LANGCHAIN_CODE_LANGUAGE_MAP
+from contextifier.chunking.constants import LANGCHAIN_CODE_LANGUAGE_MAP, HTML_TABLE_PATTERN
 
 logger = logging.getLogger("document-processor")
 
@@ -41,10 +41,11 @@ def chunk_text_without_tables(
     chunk_size: int,
     chunk_overlap: int,
     metadata: Optional[str],
-    prepend_metadata_func
+    prepend_metadata_func,
+    page_tag_processor: Optional[Any] = None
 ) -> List[str]:
     """
-    테이블이 없는 텍스트에 대한 기존 청킹 로직.
+    테이블이 없는 텍스트를 청킹합니다.
 
     Args:
         text: 청킹할 텍스트
@@ -52,17 +53,19 @@ def chunk_text_without_tables(
         chunk_overlap: 청크 간 겹침 크기
         metadata: 청크에 추가할 메타데이터
         prepend_metadata_func: 메타데이터 추가 함수
+        page_tag_processor: PageTagProcessor 인스턴스 (커스텀 태그 패턴용)
 
     Returns:
         청크 리스트
     """
-    # HTML 코드 블록 처리
+    if not text or not text.strip():
+        return []
+
+    # HTML 코드 블록(```html ... ```)을 별도 처리
     html_code_pattern = r'```html\s*(.*?)\s*```'
-    table_section_pattern = r'<div class="table-section">(.*?)</div>'
-    combined_pattern = f'({html_code_pattern}|{table_section_pattern})'
 
     html_chunks = []
-    matches = list(re.finditer(combined_pattern, text, re.DOTALL))
+    matches = list(re.finditer(html_code_pattern, text, re.DOTALL))
 
     if matches:
         current_pos = 0
@@ -83,56 +86,15 @@ def chunk_text_without_tables(
 
     for kind, content in html_chunks:
         if kind == 'html':
+            # HTML 코드 블록은 그대로 유지
             final_chunks.append(content)
             continue
 
-        # 섹션 마커 처리
-        section_markers = [
-            "[색션 구분]", "[표 구분]", "[섹션 구분]",
-            "<!-- [섹션 구분] -->", "<!-- [표 구분] -->", "<!-- [section] -->",
-            '<div class="table-section">'
-        ]
+        # 일반 텍스트는 RecursiveCharacterTextSplitter로 청킹
+        text_chunks = chunk_plain_text(content, chunk_size, chunk_overlap)
+        final_chunks.extend(text_chunks)
 
-        if any(m in content for m in section_markers):
-            pattern = r'(\[색션 구분\]|\[표 구분\]|\[섹션 구분\]|<!-- \[섹션 구분\] -->|<!-- \[표 구분\] -->|<!-- \[section\] -->|<div class="table-section">)'
-            parts = re.split(pattern, content)
-            majors = [p.strip() for p in parts if p.strip() and not any(m in p for m in section_markers)]
-
-            merged: List[str] = []
-            current = ""
-            prev_tail = ""
-
-            for sec in majors:
-                pot = (current + "\n\n" + sec) if current else sec
-                if len(pot) <= chunk_size:
-                    current = pot
-                else:
-                    if current:
-                        prev_tail = current[-chunk_overlap:] if len(current) > chunk_overlap else current
-                        merged.append(current)
-                        current = (prev_tail + "\n\n" + sec) if prev_tail else sec
-                    else:
-                        current = sec
-
-            if current:
-                if prev_tail and len(merged) > 0 and not current.startswith(prev_tail):
-                    current = prev_tail + "\n\n" + current
-                merged.append(current)
-
-            for sec in merged:
-                if len(sec) > chunk_size * 2:
-                    splitter = RecursiveCharacterTextSplitter(
-                        chunk_size=chunk_size, chunk_overlap=chunk_overlap,
-                        length_function=len, separators=["\n\n", "\n", " ", ""]
-                    )
-                    final_chunks.extend(splitter.split_text(sec))
-                else:
-                    final_chunks.append(sec)
-        else:
-            text_chunks = chunk_plain_text(content, chunk_size, chunk_overlap)
-            final_chunks.extend(text_chunks)
-
-    cleaned_chunks = clean_chunks(final_chunks)
+    cleaned_chunks = clean_chunks(final_chunks, page_tag_processor)
     cleaned_chunks = prepend_metadata_func(cleaned_chunks, metadata)
 
     return cleaned_chunks
@@ -166,12 +128,11 @@ def chunk_with_row_protection(
 
     # === HTML 테이블을 먼저 추출하여 별도 처리 ===
     # HTML 테이블을 찾고, 테이블/비테이블 세그먼트로 분리
-    table_pattern = r'<table[^>]*>.*?</table>'
 
     segments: List[Tuple[str, str]] = []  # [(type, content), ...]
     last_end = 0
 
-    for match in re.finditer(table_pattern, text, re.DOTALL | re.IGNORECASE):
+    for match in re.finditer(HTML_TABLE_PATTERN, text, re.DOTALL | re.IGNORECASE):
         # 테이블 이전 텍스트
         if match.start() > last_end:
             before_text = text[last_end:match.start()].strip()
@@ -266,17 +227,41 @@ def chunk_with_row_protection_simple(
     return split_with_protected_regions_func(text, merged_rows, chunk_size, chunk_overlap)
 
 
-def clean_chunks(chunks: List[str]) -> List[str]:
+def clean_chunks(
+    chunks: List[str],
+    page_tag_processor: Optional[Any] = None
+) -> List[str]:
     """
     Clean chunks: remove empty chunks and chunks with only page markers.
+
+    Args:
+        chunks: 청크 리스트
+        page_tag_processor: PageTagProcessor 인스턴스 (커스텀 태그 패턴용)
+
+    Returns:
+        정리된 청크 리스트
     """
     cleaned_chunks = []
 
-    # Only recognize the standard format from PageTagProcessor
-    page_marker_patterns = [
-        r"\[Page Number:\s*\d+(\s*\(OCR[+Ref]*\))?\]",
-        r"\[Slide Number:\s*\d+(\s*\(OCR\))?\]",
-    ]
+    # Build patterns from PageTagProcessor or use defaults
+    if page_tag_processor is not None:
+        config = page_tag_processor.config
+        # Page pattern with optional OCR suffix
+        page_prefix = re.escape(config.tag_prefix)
+        page_suffix = re.escape(config.tag_suffix)
+        slide_prefix = re.escape(config.slide_prefix)
+        slide_suffix = re.escape(config.slide_suffix)
+
+        page_marker_patterns = [
+            f"{page_prefix}\\d+(\\s*\\(OCR[+Ref]*\\))?{page_suffix}",
+            f"{slide_prefix}\\d+(\\s*\\(OCR\\))?{slide_suffix}",
+        ]
+    else:
+        # Default patterns
+        page_marker_patterns = [
+            r"\[Page Number:\s*\d+(\s*\(OCR[+Ref]*\))?\]",
+            r"\[Slide Number:\s*\d+(\s*\(OCR\))?\]",
+        ]
 
     for chunk in chunks:
         if not chunk.strip():

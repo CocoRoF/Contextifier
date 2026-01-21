@@ -12,6 +12,8 @@ import logging
 import re
 from typing import List, Optional, Tuple
 
+from contextifier.chunking.constants import HTML_TABLE_PATTERN
+
 logger = logging.getLogger("document-processor")
 
 
@@ -305,8 +307,7 @@ def chunk_single_table_content(
     context_prefix = "\n\n".join(context_parts) if context_parts else ""
 
     # 테이블 추출
-    table_pattern = r'<table\s+border=["\']1["\']>.*?</table>'
-    table_matches = list(re.finditer(table_pattern, text, re.DOTALL | re.IGNORECASE))
+    table_matches = list(re.finditer(HTML_TABLE_PATTERN, text, re.DOTALL | re.IGNORECASE))
 
     if not table_matches:
         # 테이블이 없으면 일반 청킹

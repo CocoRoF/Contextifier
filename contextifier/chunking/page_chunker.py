@@ -9,7 +9,7 @@ Page Chunker - 페이지 기반 청킹
 """
 import logging
 import re
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from contextifier.chunking.protected_regions import (
     find_protected_regions, get_protected_region_positions,
@@ -95,7 +95,8 @@ def chunk_by_pages(
     chunk_overlap: int,
     is_table_based: bool = False,
     force_chunking: bool = False,
-    page_tag_processor = None
+    page_tag_processor = None,
+    image_pattern: Optional[str] = None
 ) -> List[str]:
     """
     페이지 단위로 텍스트를 청킹합니다.
@@ -117,6 +118,7 @@ def chunk_by_pages(
         is_table_based: Whether the file is table-based
         force_chunking: Force chunking (disable table protection)
         page_tag_processor: PageTagProcessor instance for custom patterns
+        image_pattern: Custom regex pattern for image tags
     """
     # Build page marker patterns from PageTagProcessor or use defaults
     if page_tag_processor is not None:
@@ -147,9 +149,9 @@ def chunk_by_pages(
 
     logger.debug(f"Split into {len(pages)} pages")
 
-    # 보호 영역 위치 식별 (HTML 테이블, 차트 블록, Markdown 테이블)
+    # 보호 영역 위치 식별 (HTML 테이블, 차트 블록, Markdown 테이블, 이미지 태그)
     # force_chunking 시 테이블 보호 해제 (차트는 항상 보호)
-    protected_regions = find_protected_regions(text, is_table_based, force_chunking)
+    protected_regions = find_protected_regions(text, is_table_based, force_chunking, image_pattern)
     protected_positions = get_protected_region_positions(protected_regions)
 
     # 페이지 병합하여 청크 생성
@@ -219,7 +221,7 @@ def chunk_by_pages(
     for chunk in chunks:
         if len(chunk) > max_size * 1.5:
             # 매우 큰 청크: 보호 영역 보호하면서 분할
-            sub_chunks = split_large_chunk_with_protected_regions(chunk, chunk_size, chunk_overlap, is_table_based, force_chunking)
+            sub_chunks = split_large_chunk_with_protected_regions(chunk, chunk_size, chunk_overlap, is_table_based, force_chunking, image_pattern)
             final_chunks.extend(sub_chunks)
         else:
             final_chunks.append(chunk)

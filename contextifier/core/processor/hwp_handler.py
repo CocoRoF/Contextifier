@@ -15,6 +15,7 @@ from typing import List, Dict, Any, Optional, Set, TYPE_CHECKING
 import olefile
 
 from contextifier.core.processor.base_handler import BaseHandler
+from contextifier.core.functions.chart_extractor import BaseChartExtractor
 from contextifier.core.processor.hwp_helper import (
     HWPTAG_PARA_HEADER,
     HWPTAG_PARA_TEXT,
@@ -29,7 +30,6 @@ from contextifier.core.processor.hwp_helper import (
     extract_bindata_index,
     extract_and_upload_image,
     process_images_from_bindata,
-    ChartHelper,
     parse_doc_info,
     parse_table,
     extract_text_from_stream_raw,
@@ -37,15 +37,21 @@ from contextifier.core.processor.hwp_helper import (
     recover_images_from_raw,
     check_file_signature,
 )
+from contextifier.core.processor.hwp_helper.hwp_chart_extractor import HWPChartExtractor
 
 if TYPE_CHECKING:
     from contextifier.core.document_processor import CurrentFile
+    from contextifier.core.functions.chart_extractor import ChartData
 
 logger = logging.getLogger("document-processor")
 
 
 class HWPHandler(BaseHandler):
     """HWP 5.0 OLE Format File Processing Handler Class"""
+    
+    def _create_chart_extractor(self) -> BaseChartExtractor:
+        """Create HWP-specific chart extractor."""
+        return HWPChartExtractor(self._chart_processor)
     
     def extract_text(
         self,
@@ -77,6 +83,12 @@ class HWPHandler(BaseHandler):
         try:
             # Open OLE file from stream
             file_stream = self.get_file_stream(current_file)
+            
+            # Pre-extract all charts using ChartExtractor
+            chart_data_list = self.chart_extractor.extract_all_from_file(file_stream)
+            
+            file_stream.seek(0)
+            
             with olefile.OleFileIO(file_stream) as ole:
                 if extract_metadata:
                     metadata_text = self._extract_metadata(ole)
@@ -93,15 +105,37 @@ class HWPHandler(BaseHandler):
                     text_content.append("\n\n=== Extracted Images (Not Inline) ===\n")
                     text_content.append(image_text)
                 
-                chart_texts = self._extract_charts_from_bindata(ole, processed_images)
-                if chart_texts:
-                    text_content.extend(chart_texts)
+                # Add pre-extracted charts
+                for chart_data in chart_data_list:
+                    chart_text = self._format_chart_data(chart_data)
+                    if chart_text:
+                        text_content.append(chart_text)
         
         except Exception as e:
             self.logger.error(f"Error processing HWP file: {e}")
             return f"Error processing HWP file: {str(e)}"
         
         return "\n".join(text_content)
+    
+    def _format_chart_data(self, chart_data: "ChartData") -> str:
+        """Format ChartData using ChartProcessor."""
+        from contextifier.core.functions.chart_extractor import ChartData
+        
+        if not isinstance(chart_data, ChartData):
+            return ""
+        
+        if chart_data.has_data():
+            return self.chart_processor.format_chart_data(
+                chart_type=chart_data.chart_type,
+                title=chart_data.title,
+                categories=chart_data.categories,
+                series=chart_data.series
+            )
+        else:
+            return self.chart_processor.format_chart_fallback(
+                chart_type=chart_data.chart_type,
+                title=chart_data.title
+            )
     
     def _is_ole_file(self, file_data: bytes) -> bool:
         """Check if file data is OLE format."""
@@ -292,51 +326,6 @@ class HWPHandler(BaseHandler):
                 target_stream = find_bindata_stream(ole, storage_id, ext)
                 if target_stream:
                     return extract_and_upload_image(ole, target_stream, processed_images, image_processor=self.image_processor)
-        
-        return None
-    
-    def _extract_charts_from_bindata(self, ole: olefile.OleFileIO, processed_images: Set[str]) -> List[str]:
-        """Extract charts from BinData streams."""
-        chart_results = []
-        image_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tif', '.tiff', '.wmf', '.emf'}
-        
-        try:
-            bindata_streams = [e for e in ole.listdir() if len(e) >= 2 and e[0] == "BinData"]
-            
-            for stream_path in bindata_streams:
-                stream_name = stream_path[-1]
-                ext = os.path.splitext(stream_name)[1].lower()
-                
-                if ext in image_extensions:
-                    continue
-                
-                chart_text = self._process_chart_stream(ole, stream_path, processed_images)
-                if chart_text:
-                    chart_results.append(chart_text)
-        except Exception as e:
-            self.logger.warning(f"Error extracting charts: {e}")
-        
-        return chart_results
-    
-    def _process_chart_stream(self, ole, stream_path, processed_images) -> Optional[str]:
-        """Process chart stream."""
-        try:
-            stream = ole.openstream(stream_path)
-            ole_data = stream.read()
-            
-            try:
-                ole_data = zlib.decompress(ole_data, -15)
-            except:
-                try:
-                    ole_data = zlib.decompress(ole_data)
-                except:
-                    pass
-            
-            chart_data = ChartHelper.extract_chart_from_ole_stream(ole_data)
-            if chart_data:
-                return ChartHelper.process_chart(chart_data, processed_images, image_processor=self.image_processor)
-        except:
-            pass
         
         return None
     

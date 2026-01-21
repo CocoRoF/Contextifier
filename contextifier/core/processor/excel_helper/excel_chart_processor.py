@@ -1,50 +1,62 @@
 """
-Excel 차트 처리 메인 모듈
+Excel Chart Processing Module
 
-차트 처리의 진입점 역할을 합니다.
-1순위: 데이터를 표(테이블)로 변환
-2순위: 실패 시 matplotlib로 이미지 생성
+Extracts chart data from Excel files and formats using ChartProcessor.
+Output format:
+    {chart_prefix}
+    {chart_title}
+    {chart_type}
+    <table>...</table>
+    {chart_suffix}
 """
 
 import logging
-from typing import Any, Dict, Set
+from typing import Any, Callable, Dict, List, Optional, Set, TYPE_CHECKING
 
-from contextifier.core.processor.excel_helper.excel_chart_formatter import format_chart_data_as_table, format_chart_fallback
-from contextifier.core.processor.excel_helper.excel_chart_renderer import render_chart_to_image
+if TYPE_CHECKING:
+    from contextifier.core.functions.chart_processor import ChartProcessor
 
 logger = logging.getLogger("document-processor")
 
 
 def process_chart(
     chart_info: Dict[str, Any],
-    processed_images: Set[str] = None,
-    upload_func=None
+    chart_processor: "ChartProcessor"
 ) -> str:
     """
-    차트를 처리합니다.
-
-    1순위: 데이터를 표(테이블)로 변환 - LLM이 직접 해석 가능
-    2순위: 실패 시 matplotlib로 이미지 생성 후 로컬 저장
+    Process a chart using ChartProcessor.
 
     Args:
-        chart_info: 차트 정보 딕셔너리
-        processed_images: 이미 처리된 이미지 해시 집합
-        upload_func: 이미지 업로드 함수
+        chart_info: Chart information dictionary containing:
+            - chart_type: Type of chart (bar, line, pie, etc.)
+            - title: Chart title (optional)
+            - categories: List of category labels
+            - series: List of series dicts with 'name' and 'values'
+        chart_processor: ChartProcessor instance for formatting
 
     Returns:
-        [chart]...[/chart] 형태의 문자열
+        Formatted chart string with tags
     """
-    # 1순위: 테이블로 변환 시도
-    table_result = format_chart_data_as_table(chart_info)
-    if table_result:
-        logger.debug("Chart converted to table successfully")
-        return table_result
-
-    # 2순위: 이미지로 렌더링
-    image_result = render_chart_to_image(chart_info, processed_images, upload_func)
-    if image_result:
-        logger.debug("Chart rendered to image successfully")
-        return image_result
-
-    # 최종 폴백: 기본 정보만 출력
-    return format_chart_fallback(chart_info)
+    if not chart_info:
+        return chart_processor.format_chart_fallback(chart_type="Unknown")
+    
+    chart_type = chart_info.get('chart_type', 'Unknown')
+    title = chart_info.get('title')
+    categories = chart_info.get('categories', [])
+    series_list = chart_info.get('series', [])
+    
+    # Check if we have valid data
+    has_data = series_list and any(len(s.get('values', [])) > 0 for s in series_list)
+    
+    if has_data:
+        result = chart_processor.format_chart_data(
+            chart_type=chart_type,
+            series_data=series_list,
+            title=title,
+            categories=categories
+        )
+        logger.debug(f"Chart '{title}' converted to table successfully")
+        return result
+    
+    # Fallback: no data available
+    return chart_processor.format_chart_fallback(chart_type=chart_type, title=title)

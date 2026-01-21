@@ -62,8 +62,8 @@ from contextifier.core.processor.hwp_helper.hwp_image import (
     ImageHelper,
 )
 
-# Chart
-from contextifier.core.processor.hwp_helper.hwp_chart import ChartHelper
+# Chart Extractor
+from contextifier.core.processor.hwp_helper.hwp_chart_extractor import HWPChartExtractor
 
 # DocInfo
 from contextifier.core.processor.hwp_helper.hwp_docinfo import (
@@ -121,8 +121,8 @@ __all__ = [
     'extract_and_upload_image',
     'process_images_from_bindata',
     'ImageHelper',
-    # Chart
-    'ChartHelper',
+    # Chart Extractor
+    'HWPChartExtractor',
     # DocInfo
     'parse_doc_info',
     'scan_bindata_folder',

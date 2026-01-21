@@ -21,12 +21,7 @@ Usage:
 
 # === Main Chunking Functions (chunking.py) ===
 from contextifier.chunking.chunking import (
-    # Primary API
     create_chunks,
-    # Backward compatibility (deprecated)
-    split_text_preserving_html_blocks,
-    split_table_based_content,
-    is_table_based_file_type,
 )
 
 # constants
@@ -113,10 +108,6 @@ from contextifier.chunking.sheet_processor import (
 __all__ = [
     # === Primary API ===
     "create_chunks",
-    # === Backward Compatibility (deprecated) ===
-    "split_text_preserving_html_blocks",
-    "split_table_based_content",
-    "is_table_based_file_type",
     # constants
     "LANGCHAIN_CODE_LANGUAGE_MAP",
     "HTML_TABLE_PATTERN",
