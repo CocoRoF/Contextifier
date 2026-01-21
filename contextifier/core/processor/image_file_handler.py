@@ -53,6 +53,7 @@ class ImageFileHandler(BaseHandler):
         config: Optional[dict] = None,
         image_processor: Optional[Any] = None,
         page_tag_processor: Optional[Any] = None,
+        chart_processor: Optional[Any] = None,
         ocr_engine: Optional["BaseOCR"] = None
     ):
         """
@@ -62,13 +63,15 @@ class ImageFileHandler(BaseHandler):
             config: Configuration dictionary (passed from DocumentProcessor)
             image_processor: ImageProcessor instance (passed from DocumentProcessor)
             page_tag_processor: PageTagProcessor instance (passed from DocumentProcessor)
+            chart_processor: ChartProcessor instance (passed from DocumentProcessor)
             ocr_engine: OCR engine instance (BaseOCR subclass) for image-to-text conversion.
                        If None, images cannot be converted to text.
         """
         super().__init__(
             config=config,
             image_processor=image_processor,
-            page_tag_processor=page_tag_processor
+            page_tag_processor=page_tag_processor,
+            chart_processor=chart_processor
         )
         self._ocr_engine = ocr_engine
     

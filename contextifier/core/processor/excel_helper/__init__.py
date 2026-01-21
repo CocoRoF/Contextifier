@@ -1,19 +1,17 @@
 """
-Excel Helper 모듈
+Excel Helper Module
 
-XLSX/XLS 파일의 세부 요소(텍스트박스, 차트, 이미지, 테이블 등) 추출을 담당합니다.
+Handles extraction of elements (textboxes, charts, images, tables, etc.) from XLSX/XLS files.
 
-모듈 구성:
-- excel_chart_constants: 차트 타입 맵핑 상수
-- excel_chart_parser: OOXML 차트 XML 파싱
-- excel_chart_formatter: 차트 데이터 테이블 포맷팅
-- excel_chart_renderer: matplotlib 이미지 렌더링
-- excel_chart_processor: 차트 처리 메인 (테이블/이미지 폴백)
-- excel_table_xlsx: XLSX 테이블 변환
-- excel_table_xls: XLS 테이블 변환
-- textbox_extractor: 텍스트박스 추출
-- metadata_extractor: 메타데이터 추출
-- image_extractor: 이미지 추출
+Module Structure:
+- excel_chart_constants: Chart type mapping constants
+- excel_chart_extractor: Chart extraction (ChartExtractor)
+- excel_table_xlsx: XLSX table conversion
+- excel_table_xls: XLS table conversion
+- excel_textbox: Textbox extraction
+- excel_metadata: Metadata extraction
+- excel_image: Image extraction
+- excel_layout_detector: Layout detection
 """
 
 # === Textbox ===
@@ -32,27 +30,9 @@ from contextifier.core.processor.excel_helper.excel_chart_constants import (
     CHART_NAMESPACES,
 )
 
-# === Chart Parser ===
-from contextifier.core.processor.excel_helper.excel_chart_parser import (
-    extract_charts_from_xlsx,
-    parse_ooxml_chart_xml,
-    extract_chart_info_basic,
-)
-
-# === Chart Formatter ===
-from contextifier.core.processor.excel_helper.excel_chart_formatter import (
-    format_chart_data_as_table,
-    format_chart_fallback,
-)
-
-# === Chart Renderer ===
-from contextifier.core.processor.excel_helper.excel_chart_renderer import (
-    render_chart_to_image,
-)
-
-# === Chart Processor ===
-from contextifier.core.processor.excel_helper.excel_chart_processor import (
-    process_chart,
+# === Chart Extractor ===
+from contextifier.core.processor.excel_helper.excel_chart_extractor import (
+    ExcelChartExtractor,
 )
 
 # === Image ===
@@ -100,17 +80,8 @@ __all__ = [
     # Chart Constants
     'CHART_TYPE_MAP',
     'CHART_NAMESPACES',
-    # Chart Parser
-    'extract_charts_from_xlsx',
-    'parse_ooxml_chart_xml',
-    'extract_chart_info_basic',
-    # Chart Formatter
-    'format_chart_data_as_table',
-    'format_chart_fallback',
-    # Chart Renderer
-    'render_chart_to_image',
-    # Chart Processor
-    'process_chart',
+    # Chart Extractor
+    'ExcelChartExtractor',
     # Image
     'extract_images_from_xlsx',
     'get_sheet_images',

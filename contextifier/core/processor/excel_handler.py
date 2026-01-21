@@ -7,7 +7,7 @@ Main Features:
 - Text extraction (direct parsing via openpyxl/xlrd)
 - Table extraction (Markdown or HTML conversion based on merged cells)
 - Inline image extraction and local storage
-- Chart processing (1st priority: convert to table, 2nd priority: matplotlib image)
+- Chart processing (convert to table)
 - Multi-sheet support
 
 Class-based Handler:

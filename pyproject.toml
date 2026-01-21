@@ -75,7 +75,6 @@ dependencies = [
     "pdf2image==1.17.0",
     "pytesseract==0.3.13",
     "striprtf==0.0.29",
-    "matplotlib==3.10.8",
     "cachetools==6.2.4",
 ]
 
