@@ -35,6 +35,8 @@ from lxml import etree
 # Base handler
 from contextifier.core.processor.base_handler import BaseHandler
 from contextifier.core.functions.img_processor import ImageProcessor
+from contextifier.core.functions.chart_extractor import BaseChartExtractor
+from contextifier.core.processor.docx_helper.docx_chart_extractor import DOCXChartExtractor
 
 if TYPE_CHECKING:
     from contextifier.core.document_processor import CurrentFile
@@ -75,6 +77,10 @@ class DOCXHandler(BaseHandler):
         handler = DOCXHandler(config=config, image_processor=image_processor)
         text = handler.extract_text(current_file)
     """
+    
+    def _create_chart_extractor(self) -> BaseChartExtractor:
+        """Create DOCX-specific chart extractor."""
+        return DOCXChartExtractor(self._chart_processor)
     
     def extract_text(
         self,
@@ -208,6 +214,19 @@ class DOCXHandler(BaseHandler):
             total_images = 0
             total_charts = 0
 
+            # Pre-extract all charts using ChartExtractor
+            file_stream.seek(0)
+            chart_data_list = self.chart_extractor.extract_all_from_file(file_stream)
+            chart_idx = [0]  # Mutable container for closure
+            
+            def get_next_chart() -> str:
+                """Callback to get the next pre-extracted chart content."""
+                if chart_idx[0] < len(chart_data_list):
+                    chart_data = chart_data_list[chart_idx[0]]
+                    chart_idx[0] += 1
+                    return self._format_chart_data(chart_data)
+                return ""
+
             # Metadata extraction
             if extract_metadata:
                 metadata = extract_docx_metadata(doc)
@@ -225,10 +244,11 @@ class DOCXHandler(BaseHandler):
                 local_tag = etree.QName(body_elem).localname
 
                 if local_tag == 'p':
-                    # Paragraph processing - pass image_processor
+                    # Paragraph processing - pass chart_callback for pre-extracted charts
                     content, has_page_break, img_count, chart_count = process_paragraph_element(
                         body_elem, doc, processed_images, file_path,
-                        image_processor=self.image_processor
+                        image_processor=self.image_processor,
+                        chart_callback=get_next_chart
                     )
 
                     if has_page_break:
@@ -261,6 +281,26 @@ class DOCXHandler(BaseHandler):
             self.logger.error(f"Error in enhanced DOCX processing: {e}")
             self.logger.debug(traceback.format_exc())
             return self._extract_docx_simple_text(current_file)
+    
+    def _format_chart_data(self, chart_data) -> str:
+        """Format ChartData using ChartProcessor."""
+        from contextifier.core.functions.chart_extractor import ChartData
+        
+        if not isinstance(chart_data, ChartData):
+            return ""
+        
+        if chart_data.has_data():
+            return self.chart_processor.format_chart_data(
+                chart_type=chart_data.chart_type,
+                title=chart_data.title,
+                categories=chart_data.categories,
+                series=chart_data.series
+            )
+        else:
+            return self.chart_processor.format_chart_fallback(
+                chart_type=chart_data.chart_type,
+                title=chart_data.title
+            )
     
     def _extract_docx_simple_text(self, current_file: "CurrentFile") -> str:
         """Simple text extraction (fallback)."""

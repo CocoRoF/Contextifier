@@ -289,6 +289,8 @@ class DocumentProcessor:
         page_tag_suffix: Optional[str] = None,
         slide_tag_prefix: Optional[str] = None,
         slide_tag_suffix: Optional[str] = None,
+        chart_tag_prefix: Optional[str] = None,
+        chart_tag_suffix: Optional[str] = None,
         **kwargs
     ):
         """
@@ -320,6 +322,12 @@ class DocumentProcessor:
                    - Default: "[Slide Number: "
             slide_tag_suffix: Suffix for slide number tags
                    - Default: "]"
+            chart_tag_prefix: Prefix for chart tags in extracted text
+                   - Default: "[chart]"
+                   - Example: "<chart>" for XML format
+            chart_tag_suffix: Suffix for chart tags in extracted text
+                   - Default: "[/chart]"
+                   - Example: "</chart>" for XML format
             **kwargs: Additional configuration options
 
         Example:
@@ -332,7 +340,9 @@ class DocumentProcessor:
             ...     image_tag_prefix="<img src='",
             ...     image_tag_suffix="'/>",
             ...     page_tag_prefix="<page>",
-            ...     page_tag_suffix="</page>"
+            ...     page_tag_suffix="</page>",
+            ...     chart_tag_prefix="<chart>",
+            ...     chart_tag_suffix="</chart>"
             ... )
 
             >>> # Markdown format
@@ -340,7 +350,9 @@ class DocumentProcessor:
             ...     image_tag_prefix="![image](",
             ...     image_tag_suffix=")",
             ...     page_tag_prefix="<!-- Page ",
-            ...     page_tag_suffix=" -->"
+            ...     page_tag_suffix=" -->",
+            ...     chart_tag_prefix="```chart",
+            ...     chart_tag_suffix="```"
             ... )
         """
         self._config = config or {}
@@ -372,10 +384,17 @@ class DocumentProcessor:
             slide_tag_suffix=slide_tag_suffix
         )
 
+        # Create instance-specific ChartProcessor
+        self._chart_processor = self._create_chart_processor(
+            chart_tag_prefix=chart_tag_prefix,
+            chart_tag_suffix=chart_tag_suffix
+        )
+
         # Add processors to config for handlers to access
         if isinstance(self._config, dict):
             self._config["image_processor"] = self._image_processor
             self._config["page_tag_processor"] = self._page_tag_processor
+            self._config["chart_processor"] = self._chart_processor
 
     # =========================================================================
     # Public Properties
@@ -444,6 +463,26 @@ class DocumentProcessor:
     def page_tag_processor(self) -> Any:
         """Current PageTagProcessor instance for this DocumentProcessor."""
         return self._page_tag_processor
+
+    @property
+    def chart_tag_config(self) -> Dict[str, Any]:
+        """
+        Current chart processor configuration.
+
+        Returns:
+            Dictionary containing:
+            - tag_prefix: Chart tag prefix
+            - tag_suffix: Chart tag suffix
+        """
+        return {
+            "tag_prefix": self._chart_processor.config.tag_prefix,
+            "tag_suffix": self._chart_processor.config.tag_suffix,
+        }
+
+    @property
+    def chart_processor(self) -> Any:
+        """Current ChartProcessor instance for this DocumentProcessor."""
+        return self._chart_processor
 
     @property
     def ocr_engine(self) -> Optional[Any]:
@@ -577,7 +616,8 @@ class DocumentProcessor:
             chunk_overlap=chunk_overlap,
             force_chunking=force_chunking,
             include_position_metadata=include_position_metadata,
-            page_tag_processor=self._page_tag_processor
+            page_tag_processor=self._page_tag_processor,
+            image_processor=self._image_processor
         )
 
         return result
@@ -810,6 +850,31 @@ class DocumentProcessor:
             slide_suffix=slide_tag_suffix
         )
 
+    def _create_chart_processor(
+        self,
+        chart_tag_prefix: Optional[str] = None,
+        chart_tag_suffix: Optional[str] = None
+    ) -> Any:
+        """
+        Create a ChartProcessor instance for this DocumentProcessor.
+
+        This creates an instance-specific ChartProcessor that will be
+        passed to handlers via config.
+
+        Args:
+            chart_tag_prefix: Chart tag prefix (default: "[chart]")
+            chart_tag_suffix: Chart tag suffix (default: "[/chart]")
+
+        Returns:
+            ChartProcessor instance
+        """
+        from contextifier.core.functions.chart_processor import ChartProcessor
+
+        return ChartProcessor(
+            tag_prefix=chart_tag_prefix,
+            tag_suffix=chart_tag_suffix
+        )
+
     def _build_supported_extensions(self) -> List[str]:
         """Build list of supported extensions."""
         extensions = list(
@@ -842,7 +907,8 @@ class DocumentProcessor:
             pdf_handler = PDFHandler(
                 config=self._config,
                 image_processor=self._image_processor,
-                page_tag_processor=self._page_tag_processor
+                page_tag_processor=self._page_tag_processor,
+                chart_processor=self._chart_processor
             )
             self._handler_registry['pdf'] = pdf_handler.extract_text
         except ImportError as e:
@@ -854,7 +920,8 @@ class DocumentProcessor:
             docx_handler = DOCXHandler(
                 config=self._config,
                 image_processor=self._image_processor,
-                page_tag_processor=self._page_tag_processor
+                page_tag_processor=self._page_tag_processor,
+                chart_processor=self._chart_processor
             )
             self._handler_registry['docx'] = docx_handler.extract_text
         except ImportError as e:
@@ -866,7 +933,8 @@ class DocumentProcessor:
             doc_handler = DOCHandler(
                 config=self._config,
                 image_processor=self._image_processor,
-                page_tag_processor=self._page_tag_processor
+                page_tag_processor=self._page_tag_processor,
+                chart_processor=self._chart_processor
             )
             self._handler_registry['doc'] = doc_handler.extract_text
         except ImportError as e:
@@ -878,7 +946,8 @@ class DocumentProcessor:
             ppt_handler = PPTHandler(
                 config=self._config,
                 image_processor=self._image_processor,
-                page_tag_processor=self._page_tag_processor
+                page_tag_processor=self._page_tag_processor,
+                chart_processor=self._chart_processor
             )
             self._handler_registry['ppt'] = ppt_handler.extract_text
             self._handler_registry['pptx'] = ppt_handler.extract_text
@@ -891,7 +960,8 @@ class DocumentProcessor:
             excel_handler = ExcelHandler(
                 config=self._config,
                 image_processor=self._image_processor,
-                page_tag_processor=self._page_tag_processor
+                page_tag_processor=self._page_tag_processor,
+                chart_processor=self._chart_processor
             )
             self._handler_registry['xlsx'] = excel_handler.extract_text
             self._handler_registry['xls'] = excel_handler.extract_text
@@ -904,7 +974,8 @@ class DocumentProcessor:
             csv_handler = CSVHandler(
                 config=self._config,
                 image_processor=self._image_processor,
-                page_tag_processor=self._page_tag_processor
+                page_tag_processor=self._page_tag_processor,
+                chart_processor=self._chart_processor
             )
             self._handler_registry['csv'] = csv_handler.extract_text
             self._handler_registry['tsv'] = csv_handler.extract_text
@@ -917,7 +988,8 @@ class DocumentProcessor:
             hwp_handler = HWPHandler(
                 config=self._config,
                 image_processor=self._image_processor,
-                page_tag_processor=self._page_tag_processor
+                page_tag_processor=self._page_tag_processor,
+                chart_processor=self._chart_processor
             )
             self._handler_registry['hwp'] = hwp_handler.extract_text
         except ImportError as e:
@@ -929,7 +1001,8 @@ class DocumentProcessor:
             hwpx_handler = HWPXHandler(
                 config=self._config,
                 image_processor=self._image_processor,
-                page_tag_processor=self._page_tag_processor
+                page_tag_processor=self._page_tag_processor,
+                chart_processor=self._chart_processor
             )
             self._handler_registry['hwpx'] = hwpx_handler.extract_text
         except ImportError as e:
@@ -941,7 +1014,8 @@ class DocumentProcessor:
             text_handler = TextHandler(
                 config=self._config,
                 image_processor=self._image_processor,
-                page_tag_processor=self._page_tag_processor
+                page_tag_processor=self._page_tag_processor,
+                chart_processor=self._chart_processor
             )
             text_extensions = (
                 self.TEXT_TYPES |
@@ -964,6 +1038,7 @@ class DocumentProcessor:
                 config=self._config,
                 image_processor=self._image_processor,
                 page_tag_processor=self._page_tag_processor,
+                chart_processor=self._chart_processor,
                 ocr_engine=self._ocr_engine
             )
             for ext in self.IMAGE_TYPES:

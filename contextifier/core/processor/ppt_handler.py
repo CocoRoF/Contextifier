@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional, Set, TYPE_CHECKING
 from pptx import Presentation
 
 from contextifier.core.processor.base_handler import BaseHandler
+from contextifier.core.functions.chart_extractor import BaseChartExtractor
 from contextifier.core.processor.ppt_helper import (
     ElementType,
     SlideElement,
@@ -20,7 +21,6 @@ from contextifier.core.processor.ppt_helper import (
     extract_simple_table_as_text,
     convert_table_to_html,
     extract_table_as_text,
-    extract_chart_data,
     get_shape_position,
     is_picture_shape,
     process_image_shape,
@@ -28,15 +28,21 @@ from contextifier.core.processor.ppt_helper import (
     extract_slide_notes,
     merge_slide_elements,
 )
+from contextifier.core.processor.ppt_helper.ppt_chart_extractor import PPTChartExtractor
 
 if TYPE_CHECKING:
     from contextifier.core.document_processor import CurrentFile
+    from contextifier.core.functions.chart_extractor import ChartData
 
 logger = logging.getLogger("document-processor")
 
 
 class PPTHandler(BaseHandler):
     """PPT/PPTX File Processing Handler Class"""
+    
+    def _create_chart_extractor(self) -> BaseChartExtractor:
+        """Create PPT-specific chart extractor."""
+        return PPTChartExtractor(self._chart_processor)
     
     def extract_text(
         self,
@@ -60,7 +66,7 @@ class PPTHandler(BaseHandler):
         return self._extract_ppt_enhanced(current_file, extract_metadata)
     
     def _extract_ppt_enhanced(self, current_file: "CurrentFile", extract_metadata: bool = True) -> str:
-        """Enhanced PPT processing."""
+        """Enhanced PPT processing with pre-extracted charts."""
         file_path = current_file.get("file_path", "unknown")
         self.logger.info(f"Enhanced PPT processing: {file_path}")
         
@@ -72,6 +78,20 @@ class PPTHandler(BaseHandler):
             processed_images: Set[str] = set()
             total_tables = 0
             total_images = 0
+            total_charts = 0
+            
+            # Pre-extract all charts using ChartExtractor
+            file_stream.seek(0)
+            chart_data_list = self.chart_extractor.extract_all_from_file(file_stream)
+            chart_idx = [0]  # Mutable container for closure
+            
+            def get_next_chart() -> str:
+                """Callback to get the next pre-extracted chart content."""
+                if chart_idx[0] < len(chart_data_list):
+                    chart_data = chart_data_list[chart_idx[0]]
+                    chart_idx[0] += 1
+                    return self._format_chart_data(chart_data)
+                return ""
             
             if extract_metadata:
                 metadata = extract_ppt_metadata(prs)
@@ -124,8 +144,10 @@ class PPTHandler(BaseHandler):
                                 ))
                         
                         elif shape.has_chart:
-                            chart_text = extract_chart_data(shape.chart)
+                            # Use pre-extracted chart via callback
+                            chart_text = get_next_chart()
                             if chart_text:
+                                total_charts += 1
                                 elements.append(SlideElement(
                                     element_type=ElementType.CHART,
                                     content=chart_text,
@@ -172,7 +194,8 @@ class PPTHandler(BaseHandler):
                     result_parts.append(f"\n[Slide Notes]\n{notes_text}\n")
             
             result = "".join(result_parts)
-            self.logger.info(f"Enhanced PPT: {len(prs.slides)} slides, {total_tables} tables, {total_images} images")
+            self.logger.info(f"Enhanced PPT: {len(prs.slides)} slides, {total_tables} tables, "
+                           f"{total_images} images, {total_charts} charts")
             
             return result
             
@@ -181,6 +204,26 @@ class PPTHandler(BaseHandler):
             import traceback
             self.logger.debug(traceback.format_exc())
             return self._extract_ppt_simple(current_file)
+    
+    def _format_chart_data(self, chart_data: "ChartData") -> str:
+        """Format ChartData using ChartProcessor."""
+        from contextifier.core.functions.chart_extractor import ChartData
+        
+        if not isinstance(chart_data, ChartData):
+            return ""
+        
+        if chart_data.has_data():
+            return self.chart_processor.format_chart_data(
+                chart_type=chart_data.chart_type,
+                title=chart_data.title,
+                categories=chart_data.categories,
+                series=chart_data.series
+            )
+        else:
+            return self.chart_processor.format_chart_fallback(
+                chart_type=chart_data.chart_type,
+                title=chart_data.title
+            )
     
     def _extract_ppt_simple(self, current_file: "CurrentFile") -> str:
         """Simple text extraction (fallback)."""

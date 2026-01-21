@@ -14,7 +14,7 @@ from typing import Any, List, Optional, Tuple
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from contextifier.chunking.constants import LANGCHAIN_CODE_LANGUAGE_MAP
+from contextifier.chunking.constants import LANGCHAIN_CODE_LANGUAGE_MAP, HTML_TABLE_PATTERN
 
 logger = logging.getLogger("document-processor")
 
@@ -128,12 +128,11 @@ def chunk_with_row_protection(
 
     # === HTML 테이블을 먼저 추출하여 별도 처리 ===
     # HTML 테이블을 찾고, 테이블/비테이블 세그먼트로 분리
-    table_pattern = r'<table[^>]*>.*?</table>'
 
     segments: List[Tuple[str, str]] = []  # [(type, content), ...]
     last_end = 0
 
-    for match in re.finditer(table_pattern, text, re.DOTALL | re.IGNORECASE):
+    for match in re.finditer(HTML_TABLE_PATTERN, text, re.DOTALL | re.IGNORECASE):
         # 테이블 이전 텍스트
         if match.start() > last_end:
             before_text = text[last_end:match.start()].strip()

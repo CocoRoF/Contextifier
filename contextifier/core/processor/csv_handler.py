@@ -9,6 +9,7 @@ import os
 from typing import Any, Dict, Optional, Tuple, TYPE_CHECKING
 
 from contextifier.core.processor.base_handler import BaseHandler
+from contextifier.core.functions.chart_extractor import BaseChartExtractor, NullChartExtractor
 from contextifier.core.processor.csv_helper import (
     CSVMetadata,
     extract_csv_metadata,
@@ -31,6 +32,10 @@ ENCODING_CANDIDATES = ['utf-8', 'utf-8-sig', 'cp949', 'euc-kr', 'iso-8859-1', 'l
 
 class CSVHandler(BaseHandler):
     """CSV/TSV File Processing Handler Class"""
+    
+    def _create_chart_extractor(self) -> BaseChartExtractor:
+        """CSV files do not contain charts. Return NullChartExtractor."""
+        return NullChartExtractor(self._chart_processor)
     
     def extract_text(
         self,

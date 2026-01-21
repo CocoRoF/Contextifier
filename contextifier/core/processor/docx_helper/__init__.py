@@ -7,10 +7,10 @@ DOCX 문서 처리에 필요한 유틸리티를 기능별로 분리한 모듈입
 모듈 구성:
 - docx_constants: 상수, Enum, 데이터클래스 (ElementType, NAMESPACES 등)
 - docx_metadata: 메타데이터 추출 및 포맷팅
-- docx_chart: OOXML 차트 파싱 및 포맷팅
+- docx_chart_extractor: 차트 추출 (ChartExtractor)
 - docx_image: 이미지 추출 및 업로드
 - docx_table: 테이블 HTML 변환 (rowspan/colspan 지원)
-- docx_drawing: Drawing 요소 처리 (이미지/차트/다이어그램)
+- docx_drawing: Drawing 요소 처리 (이미지/다이어그램)
 - docx_paragraph: Paragraph 처리 및 페이지 브레이크
 """
 
@@ -28,12 +28,9 @@ from contextifier.core.processor.docx_helper.docx_metadata import (
     format_metadata,
 )
 
-# Chart
-from contextifier.core.processor.docx_helper.docx_chart import (
-    parse_ooxml_chart_xml,
-    extract_chart_series,
-    format_chart_data,
-    parse_chart_data_basic,
+# Chart Extractor
+from contextifier.core.processor.docx_helper.docx_chart_extractor import (
+    DOCXChartExtractor,
 )
 
 # Image
@@ -55,9 +52,6 @@ from contextifier.core.processor.docx_helper.docx_table import (
 # Drawing
 from contextifier.core.processor.docx_helper.docx_drawing import (
     process_drawing_element,
-    extract_chart_from_drawing,
-    parse_chart_data_enhanced,
-    extract_diagram_from_drawing,
 )
 
 # Paragraph
@@ -76,11 +70,8 @@ __all__ = [
     # Metadata
     'extract_docx_metadata',
     'format_metadata',
-    # Chart
-    'parse_ooxml_chart_xml',
-    'extract_chart_series',
-    'format_chart_data',
-    'parse_chart_data_basic',
+    # Chart Extractor
+    'DOCXChartExtractor',
     # Image
     'extract_image_from_drawing',
     'process_pict_element',
@@ -93,9 +84,6 @@ __all__ = [
     'extract_table_as_text',
     # Drawing
     'process_drawing_element',
-    'extract_chart_from_drawing',
-    'parse_chart_data_enhanced',
-    'extract_diagram_from_drawing',
     # Paragraph
     'process_paragraph_element',
     'has_page_break_element',

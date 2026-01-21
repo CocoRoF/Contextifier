@@ -3,22 +3,28 @@
 BaseHandler - Abstract base class for document processing handlers
 
 Defines the base interface for all document handlers.
-Manages config, ImageProcessor, and PageTagProcessor passed from DocumentProcessor
-at instance level for reuse by internal methods.
+Manages config, ImageProcessor, PageTagProcessor, and ChartProcessor passed from 
+DocumentProcessor at instance level for reuse by internal methods.
+
+Each handler should override _create_chart_extractor() to provide a format-specific
+chart extractor implementation.
 
 Usage Example:
     class PDFHandler(BaseHandler):
         def extract_text(self, current_file: CurrentFile, extract_metadata: bool = True) -> str:
             # Access self.config, self.image_processor, self.page_tag_processor
+            # Use self.chart_extractor.process(chart_element) for chart extraction
             ...
 """
 import io
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from contextifier.core.functions.img_processor import ImageProcessor
 from contextifier.core.functions.page_tag_processor import PageTagProcessor
+from contextifier.core.functions.chart_processor import ChartProcessor
+from contextifier.core.functions.chart_extractor import BaseChartExtractor, NullChartExtractor
 
 if TYPE_CHECKING:
     from contextifier.core.document_processor import CurrentFile
@@ -31,14 +37,19 @@ class BaseHandler(ABC):
     Abstract base class for document handlers.
     
     All handlers inherit from this class.
-    config, image_processor, and page_tag_processor are passed at creation 
-    and stored as instance variables, accessible via self.config, 
-    self.image_processor, self.page_tag_processor from all internal methods.
+    config, image_processor, page_tag_processor, and chart_processor are passed 
+    at creation and stored as instance variables.
+    
+    Each handler should override _create_chart_extractor() to provide a
+    format-specific chart extractor. The chart_extractor is lazy-initialized
+    on first access.
     
     Attributes:
         config: Configuration dictionary passed from DocumentProcessor
         image_processor: ImageProcessor instance passed from DocumentProcessor
         page_tag_processor: PageTagProcessor instance passed from DocumentProcessor
+        chart_processor: ChartProcessor instance passed from DocumentProcessor
+        chart_extractor: Format-specific chart extractor instance
         logger: Logging instance
     """
     
@@ -46,7 +57,8 @@ class BaseHandler(ABC):
         self,
         config: Optional[Dict[str, Any]] = None,
         image_processor: Optional[ImageProcessor] = None,
-        page_tag_processor: Optional[PageTagProcessor] = None
+        page_tag_processor: Optional[PageTagProcessor] = None,
+        chart_processor: Optional[ChartProcessor] = None
     ):
         """
         Initialize BaseHandler.
@@ -55,10 +67,13 @@ class BaseHandler(ABC):
             config: Configuration dictionary (passed from DocumentProcessor)
             image_processor: ImageProcessor instance (passed from DocumentProcessor)
             page_tag_processor: PageTagProcessor instance (passed from DocumentProcessor)
+            chart_processor: ChartProcessor instance (passed from DocumentProcessor)
         """
         self._config = config or {}
         self._image_processor = image_processor or ImageProcessor()
         self._page_tag_processor = page_tag_processor or self._get_page_tag_processor_from_config()
+        self._chart_processor = chart_processor or self._get_chart_processor_from_config()
+        self._chart_extractor: Optional[BaseChartExtractor] = None
         self._logger = logging.getLogger(f"document-processor.{self.__class__.__name__}")
     
     def _get_page_tag_processor_from_config(self) -> PageTagProcessor:
@@ -66,6 +81,24 @@ class BaseHandler(ABC):
         if self._config and "page_tag_processor" in self._config:
             return self._config["page_tag_processor"]
         return PageTagProcessor()
+    
+    def _get_chart_processor_from_config(self) -> ChartProcessor:
+        """Get ChartProcessor from config or create default."""
+        if self._config and "chart_processor" in self._config:
+            return self._config["chart_processor"]
+        return ChartProcessor()
+    
+    def _create_chart_extractor(self) -> BaseChartExtractor:
+        """
+        Create format-specific chart extractor.
+        
+        Override this method in subclasses to provide the appropriate
+        chart extractor for the file format.
+        
+        Returns:
+            BaseChartExtractor subclass instance
+        """
+        return NullChartExtractor(self._chart_processor)
     
     @property
     def config(self) -> Dict[str, Any]:
@@ -81,6 +114,22 @@ class BaseHandler(ABC):
     def page_tag_processor(self) -> PageTagProcessor:
         """PageTagProcessor instance."""
         return self._page_tag_processor
+    
+    @property
+    def chart_processor(self) -> ChartProcessor:
+        """ChartProcessor instance."""
+        return self._chart_processor
+    
+    @property
+    def chart_extractor(self) -> BaseChartExtractor:
+        """
+        Format-specific chart extractor (lazy-initialized).
+        
+        Returns the chart extractor for this handler's file format.
+        """
+        if self._chart_extractor is None:
+            self._chart_extractor = self._create_chart_extractor()
+        return self._chart_extractor
     
     @property
     def logger(self) -> logging.Logger:
@@ -182,6 +231,22 @@ class BaseHandler(ABC):
             Sheet tag string (e.g., "[Sheet: Sheet1]")
         """
         return self._page_tag_processor.create_sheet_tag(sheet_name)
+
+    def process_chart(self, chart_element: Any) -> str:
+        """
+        Process chart element using the format-specific chart extractor.
+        
+        This is the main method for chart processing. It uses the chart_extractor
+        to extract data from the format-specific chart element and formats it
+        using ChartProcessor.
+        
+        Args:
+            chart_element: Format-specific chart object/element
+            
+        Returns:
+            Formatted chart text with tags
+        """
+        return self.chart_extractor.process(chart_element)
 
 
 __all__ = ["BaseHandler"]

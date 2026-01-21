@@ -9,7 +9,7 @@ Protected Regions - 보호 영역 감지 및 처리
 """
 import logging
 import re
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from contextifier.chunking.constants import (
     HTML_TABLE_PATTERN, CHART_BLOCK_PATTERN, TEXTBOX_BLOCK_PATTERN,
@@ -22,7 +22,8 @@ logger = logging.getLogger("document-processor")
 def find_protected_regions(
     text: str,
     is_table_based: bool = False,
-    force_chunking: bool = False
+    force_chunking: bool = False,
+    image_pattern: Optional[str] = None
 ) -> List[Tuple[int, int, str]]:
     """
     청킹 시 분할되지 않아야 하는 보호 영역을 찾습니다.
@@ -31,13 +32,14 @@ def find_protected_regions(
     1. HTML 테이블: <table border='1'>...</table> (force_chunking/테이블 기반에서는 row 단위만 보호)
     2. 차트 블록: [chart]...[/chart] - 항상 보호 (어떤 조건에서도 분할 불가)
     3. 텍스트박스 블록: [textbox]...[/textbox] - 항상 보호 (어떤 조건에서도 분할 불가)
-    4. 이미지 태그: [image:...], [Image: {...}] 등 - 항상 보호 (어떤 조건에서도 분할 불가)
+    4. 이미지 태그: 커스텀 패턴 또는 기본 [image:...] - 항상 보호 (어떤 조건에서도 분할 불가)
     5. Markdown 테이블: |...|\n|---|...|\n|...| (force_chunking/테이블 기반에서는 row 단위만 보호)
 
     Args:
         text: 검색할 텍스트
         is_table_based: 테이블 기반 파일 여부 (True이면 테이블 전체 보호 대신 row 단위 보호)
         force_chunking: 강제 청킹 여부 (True이면 테이블 기반과 동일하게 row 단위 보호)
+        image_pattern: 이미지 태그 패턴 (None이면 기본 IMAGE_TAG_PATTERN 사용)
 
     Returns:
         [(start, end, type), ...] - 정렬된 보호 영역 리스트
@@ -62,8 +64,9 @@ def find_protected_regions(
         regions.append((match.start(), match.end(), 'textbox'))
 
     # 4. 이미지 태그 - 항상 보호 (어떤 조건에서도 분할 불가)
-    # 형식: [image:path], [Image: {path}], [image : path] 등
-    for match in re.finditer(IMAGE_TAG_PATTERN, text):
+    # 커스텀 패턴이 제공되면 사용, 아니면 기본 패턴 사용
+    img_pattern = image_pattern if image_pattern is not None else IMAGE_TAG_PATTERN
+    for match in re.finditer(img_pattern, text):
         regions.append((match.start(), match.end(), 'image_tag'))
 
     # 5. Markdown 테이블 (보호 해제 시 row 단위만 보호)
@@ -387,7 +390,8 @@ def split_large_chunk_with_protected_regions(
     chunk_size: int,
     chunk_overlap: int,
     is_table_based: bool = False,
-    force_chunking: bool = False
+    force_chunking: bool = False,
+    image_pattern: Optional[str] = None
 ) -> List[str]:
     """
     큰 청크를 보호 영역(HTML 테이블, 차트, Markdown 테이블)을 보호하면서 분할합니다.
@@ -397,7 +401,7 @@ def split_large_chunk_with_protected_regions(
     - find_protected_regions에서 테이블이 보호 영역으로 등록되지 않음
     - 하지만 split_with_protected_regions에서 테이블을 직접 스캔하여 처리
     """
-    protected_regions = find_protected_regions(text, is_table_based, force_chunking)
+    protected_regions = find_protected_regions(text, is_table_based, force_chunking, image_pattern)
     protected_positions = get_protected_region_positions(protected_regions)
 
     # force_chunking 시에도 split_with_protected_regions가 테이블을 처리함

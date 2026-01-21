@@ -25,6 +25,7 @@ from striprtf.striprtf import rtf_to_text
 from contextifier.core.processor.doc_helpers.rtf_parser import parse_rtf, RTFDocument
 from contextifier.core.processor.base_handler import BaseHandler
 from contextifier.core.functions.img_processor import ImageProcessor
+from contextifier.core.functions.chart_extractor import BaseChartExtractor, NullChartExtractor
 
 if TYPE_CHECKING:
     from contextifier.core.document_processor import CurrentFile
@@ -61,6 +62,10 @@ METADATA_FIELD_NAMES = {
 
 class DOCHandler(BaseHandler):
     """DOC file processing handler class."""
+    
+    def _create_chart_extractor(self) -> BaseChartExtractor:
+        """DOC files chart extraction not yet implemented. Return NullChartExtractor."""
+        return NullChartExtractor(self._chart_processor)
     
     def extract_text(
         self,

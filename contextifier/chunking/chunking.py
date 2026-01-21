@@ -26,51 +26,21 @@ from typing import Any, Dict, List, Optional, Union
 
 # Import from individual modules
 from contextifier.chunking.constants import (
-    LANGCHAIN_CODE_LANGUAGE_MAP,
-    HTML_TABLE_PATTERN,
-    CHART_BLOCK_PATTERN,
-    TEXTBOX_BLOCK_PATTERN,
-    IMAGE_TAG_PATTERN,
-    MARKDOWN_TABLE_PATTERN,
-    TABLE_WRAPPER_OVERHEAD,
-    CHUNK_INDEX_OVERHEAD,
     TABLE_SIZE_THRESHOLD_MULTIPLIER,
     TABLE_BASED_FILE_TYPES,
-    TableRow,
-    ParsedTable,
+    HTML_TABLE_PATTERN,
 )
-
-from contextifier.chunking.table_parser import (
-    parse_html_table as _parse_html_table,
-    extract_cell_spans as _extract_cell_spans,
-    extract_cell_spans_with_positions as _extract_cell_spans_with_positions,
-    has_complex_spans as _has_complex_spans,
-)
-
 from contextifier.chunking.table_chunker import (
-    calculate_available_space as _calculate_available_space,
-    adjust_rowspan_in_chunk as _adjust_rowspan_in_chunk,
-    build_table_chunk as _build_table_chunk,
-    update_chunk_metadata as _update_chunk_metadata,
-    split_table_into_chunks as _split_table_into_chunks,
-    split_table_preserving_rowspan as _split_table_preserving_rowspan,
     chunk_large_table as _chunk_large_table,
 )
 
 from contextifier.chunking.protected_regions import (
     find_protected_regions as _find_protected_regions,
     get_protected_region_positions as _get_protected_region_positions,
-    ensure_protected_region_integrity as _ensure_protected_region_integrity,
     split_with_protected_regions as _split_with_protected_regions,
-    split_large_chunk_with_protected_regions as _split_large_chunk_with_protected_regions,
-    ensure_table_integrity as _ensure_table_integrity,
-    split_large_chunk_with_table_protection as _split_large_chunk_with_table_protection,
 )
 
 from contextifier.chunking.page_chunker import (
-    split_into_pages as _split_into_pages,
-    merge_pages as _merge_pages,
-    get_overlap_content as _get_overlap_content,
     chunk_by_pages as _chunk_by_pages,
 )
 
@@ -78,19 +48,15 @@ from contextifier.chunking.text_chunker import (
     chunk_plain_text as _chunk_plain_text,
     chunk_text_without_tables,
     chunk_with_row_protection,
-    chunk_with_row_protection_simple,
     clean_chunks as _clean_chunks,
-    chunk_code_text,
     reconstruct_text_from_chunks,
     find_overlap_length,
-    estimate_chunks_count,
 )
 
 from contextifier.chunking.sheet_processor import (
     extract_document_metadata as _extract_document_metadata,
     prepend_metadata_to_chunks as _prepend_metadata_to_chunks,
     extract_sheet_sections as _extract_sheet_sections,
-    extract_content_segments as _extract_content_segments,
     chunk_multi_sheet_content,
     chunk_single_table_content,
 )
@@ -148,6 +114,24 @@ def _get_sheet_marker_pattern(page_tag_processor: Optional[Any] = None) -> str:
         return r'\[Sheet:\s*([^\]]+)\]'
 
 
+def _get_image_tag_pattern(image_processor: Optional[Any] = None) -> str:
+    """
+    Get image tag regex pattern from ImageProcessor or use default.
+    
+    Args:
+        image_processor: ImageProcessor instance (optional)
+        
+    Returns:
+        Regex pattern for image tags
+    """
+    if image_processor is not None:
+        return image_processor.get_pattern_string()
+    else:
+        # Default pattern: [Image:...] or [image:...] with optional spaces and braces
+        from contextifier.chunking.constants import IMAGE_TAG_PATTERN
+        return IMAGE_TAG_PATTERN
+
+
 # ============================================================================
 # Public API - Single entry point for external use
 # ============================================================================
@@ -161,6 +145,7 @@ def create_chunks(
     include_position_metadata: bool = True,
     chunking_strategy: str = "recursive",
     page_tag_processor: Optional[Any] = None,
+    image_processor: Optional[Any] = None,
     stride: Optional[int] = None,
     parent_chunk_size: Optional[int] = None,
     child_chunk_size: Optional[int] = None,
@@ -182,6 +167,9 @@ def create_chunks(
         page_tag_processor: PageTagProcessor instance for custom tag patterns
             - If None, uses default patterns [Page Number: n], [Slide Number: n], [Sheet: name]
             - If provided, uses the processor's configured patterns
+        image_processor: ImageProcessor instance for custom image tag patterns
+            - If None, uses default pattern [Image:...]
+            - If provided, uses the processor's configured patterns for protected regions
         stride: Stride for sliding window strategy - future implementation
         parent_chunk_size: Parent chunk size for hierarchical strategy - future implementation
         child_chunk_size: Child chunk size for hierarchical strategy - future implementation
@@ -204,7 +192,8 @@ def create_chunks(
         text, chunk_size, chunk_overlap,
         file_extension=file_extension,
         force_chunking=force_chunking,
-        page_tag_processor=page_tag_processor
+        page_tag_processor=page_tag_processor,
+        image_processor=image_processor
     )
 
     # Return chunks without metadata
@@ -317,7 +306,8 @@ def _split_text(
     chunk_overlap: int,
     file_extension: Optional[str] = None,
     force_chunking: Optional[bool] = False,
-    page_tag_processor: Optional[Any] = None
+    page_tag_processor: Optional[Any] = None,
+    image_processor: Optional[Any] = None
 ) -> List[str]:
     """
     Split text into chunks. (Internal use)
@@ -338,6 +328,7 @@ def _split_text(
         file_extension: File extension (csv, xlsx, pdf, etc.) - used for table-based processing
         force_chunking: Force chunking (disable table protection except for table-based files)
         page_tag_processor: PageTagProcessor instance for custom tag patterns
+        image_processor: ImageProcessor instance for custom image tag patterns
 
     Returns:
         List of chunks
@@ -355,8 +346,7 @@ def _split_text(
 
     if is_table_based:
         # Check for large tables
-        table_pattern = r'<table\s+border=["\']1["\']>.*?</table>'
-        table_matches = list(re.finditer(table_pattern, text, re.DOTALL | re.IGNORECASE))
+        table_matches = list(re.finditer(HTML_TABLE_PATTERN, text, re.DOTALL | re.IGNORECASE))
 
         # Need to split if table is larger than chunk_size
         has_large_table = any(
@@ -377,14 +367,17 @@ def _split_text(
     page_marker_patterns = _get_page_marker_patterns(page_tag_processor)
     has_page_markers = any(re.search(pattern, text) for pattern in page_marker_patterns)
 
+    # Get image tag pattern from ImageProcessor or use default
+    image_pattern = _get_image_tag_pattern(image_processor)
+
     if has_page_markers:
         # Page-based chunking
         logger.debug("Page markers found, using page-based chunking")
-        chunks = _chunk_by_pages(text, chunk_size, chunk_overlap, is_table_based, force_chunking, page_tag_processor)
+        chunks = _chunk_by_pages(text, chunk_size, chunk_overlap, is_table_based, force_chunking, page_tag_processor, image_pattern)
     else:
         # Find protected regions (HTML tables, chart blocks, Markdown tables)
         # Disable table protection on force_chunking (charts are always protected)
-        protected_regions = _find_protected_regions(text, is_table_based, force_chunking)
+        protected_regions = _find_protected_regions(text, is_table_based, force_chunking, image_pattern)
         protected_positions = _get_protected_region_positions(protected_regions)
 
         if protected_positions:
@@ -411,22 +404,6 @@ def _split_text(
     logger.info(f"Final text split into {len(cleaned_chunks)} chunks")
 
     return cleaned_chunks
-
-
-def _is_table_based_file_type(file_extension: Optional[str]) -> bool:
-    """
-    Check if the file extension is a table-based file type. (Internal use)
-
-    Args:
-        file_extension: File extension
-
-    Returns:
-        True if table-based file type
-    """
-    if not file_extension:
-        return False
-    return file_extension.lower() in TABLE_BASED_FILE_TYPES
-
 
 # ============================================================================
 # Internal Wrapper Functions

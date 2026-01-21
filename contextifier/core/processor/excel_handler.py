@@ -21,6 +21,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
 
 from contextifier.core.processor.base_handler import BaseHandler
 from contextifier.core.functions.img_processor import ImageProcessor
+from contextifier.core.functions.chart_extractor import BaseChartExtractor
+from contextifier.core.processor.excel_helper.excel_chart_extractor import ExcelChartExtractor
 
 if TYPE_CHECKING:
     from openpyxl.workbook import Workbook
@@ -33,17 +35,13 @@ from contextifier.core.processor.excel_helper import (
     extract_xlsx_metadata,
     extract_xls_metadata,
     format_metadata,
-    # Chart
-    extract_charts_from_xlsx,
-    process_chart,
-    extract_chart_info_basic,
     # Image
     extract_images_from_xlsx,
     get_sheet_images,
     # Table
     convert_xlsx_sheet_to_table,
     convert_xls_sheet_to_table,
-    # Object Detection (개별 테이블 청킹)
+    # Object Detection
     convert_xlsx_objects_to_tables,
     convert_xls_objects_to_tables,
 )
@@ -68,6 +66,10 @@ class ExcelHandler(BaseHandler):
         handler = ExcelHandler(config=config, image_processor=image_processor)
         text = handler.extract_text(current_file)
     """
+    
+    def _create_chart_extractor(self) -> BaseChartExtractor:
+        """Create Excel-specific chart extractor."""
+        return ExcelChartExtractor(self._chart_processor)
     
     def extract_text(
         self,
@@ -125,7 +127,7 @@ class ExcelHandler(BaseHandler):
                 result_parts.append(sheet_result)
 
             remaining = self._process_remaining_charts(
-                preload["charts"], preload["chart_idx"], processed_images, stats
+                preload["chart_data_list"], preload["chart_idx"], processed_images, stats
             )
             if remaining:
                 result_parts.append(remaining)
@@ -192,9 +194,11 @@ class ExcelHandler(BaseHandler):
     ) -> Dict[str, Any]:
         """Extract preprocessing data from XLSX file."""
         file_path = current_file.get("file_path", "unknown")
+        file_stream = self.get_file_stream(current_file)
+        
         result = {
             "metadata_str": "",
-            "charts": [],
+            "chart_data_list": [],  # ChartData instances from extractor
             "images_data": [],
             "textboxes_by_sheet": {},
             "chart_idx": 0,
@@ -206,9 +210,10 @@ class ExcelHandler(BaseHandler):
             if result["metadata_str"]:
                 result["metadata_str"] += "\n\n"
 
+        # Use ChartExtractor for chart extraction
+        result["chart_data_list"] = self.chart_extractor.extract_all_from_file(file_stream)
+        
         # NOTE: These helper functions still require file_path for now
-        # They will need to be updated to use BytesIO streams in future
-        result["charts"] = extract_charts_from_xlsx(file_path)
         result["images_data"] = extract_images_from_xlsx(file_path)
         result["textboxes_by_sheet"] = extract_textboxes_from_xlsx(file_path)
 
@@ -230,17 +235,14 @@ class ExcelHandler(BaseHandler):
                 else:
                     parts.append(f"\n{table_content}\n")
 
-        # Chart processing
+        # Chart processing using ChartExtractor
         if hasattr(ws, '_charts') and ws._charts:
-            charts = preload["charts"]
+            chart_data_list = preload["chart_data_list"]
             for chart in ws._charts:
-                if preload["chart_idx"] < len(charts):
-                    chart_data = charts[preload["chart_idx"]]
-                    chart_output = process_chart(
-                        chart_data,
-                        processed_images,
-                        self.image_processor.save_image
-                    )
+                if preload["chart_idx"] < len(chart_data_list):
+                    chart_data = chart_data_list[preload["chart_idx"]]
+                    # chart_data is already ChartData instance, format it
+                    chart_output = self._format_chart_data(chart_data)
                     if chart_output:
                         parts.append(f"\n{chart_output}\n")
                         stats["charts"] += 1
@@ -258,26 +260,41 @@ class ExcelHandler(BaseHandler):
         # Textbox processing
         textboxes = preload["textboxes_by_sheet"].get(sheet_name, [])
         for tb in textboxes:
-            # textbox는 문자열 리스트로 반환됨
             if tb:
                 parts.append(f"\n[Textbox] {tb}\n")
                 stats["textboxes"] += 1
 
         return "".join(parts)
+    
+    def _format_chart_data(self, chart_data) -> str:
+        """Format ChartData using ChartProcessor."""
+        from contextifier.core.functions.chart_extractor import ChartData
+        
+        if not isinstance(chart_data, ChartData):
+            return ""
+        
+        if chart_data.has_data():
+            return self.chart_processor.format_chart_data(
+                chart_type=chart_data.chart_type,
+                title=chart_data.title,
+                categories=chart_data.categories,
+                series=chart_data.series
+            )
+        else:
+            return self.chart_processor.format_chart_fallback(
+                chart_type=chart_data.chart_type,
+                title=chart_data.title
+            )
 
     def _process_remaining_charts(
-        self, charts: List, chart_idx: int,
+        self, chart_data_list: List, chart_idx: int,
         processed_images: Set[str], stats: Dict[str, int]
     ) -> str:
-        """Process remaining charts."""
+        """Process remaining charts not associated with sheets."""
         parts = []
-        while chart_idx < len(charts):
-            chart_data = charts[chart_idx]
-            chart_output = process_chart(
-                chart_data,
-                processed_images,
-                self.image_processor.save_image
-            )
+        while chart_idx < len(chart_data_list):
+            chart_data = chart_data_list[chart_idx]
+            chart_output = self._format_chart_data(chart_data)
             if chart_output:
                 parts.append(f"\n{chart_output}\n")
                 stats["charts"] += 1
