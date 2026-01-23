@@ -1,8 +1,8 @@
 # chunking_helper/constants.py
 """
-Chunking Module Constants - 청킹 관련 상수, 패턴, 데이터클래스 정의
+Chunking Module Constants - Definition of constants, patterns, and dataclasses for chunking
 
-이 모듈은 청킹 시스템 전반에서 사용되는 모든 상수와 데이터 구조를 정의합니다.
+This module defines all constants and data structures used throughout the chunking system.
 """
 import logging
 from dataclasses import dataclass
@@ -13,7 +13,7 @@ logger = logging.getLogger("document-processor")
 
 
 # ============================================================================
-# 코드 언어 맵핑
+# Code Language Mapping
 # ============================================================================
 
 LANGCHAIN_CODE_LANGUAGE_MAP = {
@@ -27,60 +27,85 @@ LANGCHAIN_CODE_LANGUAGE_MAP = {
 
 
 # ============================================================================
-# 보호 영역 패턴 (청킹 시 분할되지 않아야 하는 블록)
+# Protected Region Patterns (Blocks that should not be split during chunking)
 # ============================================================================
 
-# HTML 테이블 - 모든 <table> 태그 보호 (속성에 관계없이)
+# HTML table - Protect all <table> tags (regardless of attributes)
 HTML_TABLE_PATTERN = r'<table[^>]*>.*?</table>'
 
-# 차트 블록 - 항상 보호됨 (어떤 조건에서도 chunking 불가)
+# Chart block - Always protected (cannot be chunked under any condition)
+# Default format: [chart]...[/chart] - can be customized via ChartProcessor
 CHART_BLOCK_PATTERN = r'\[chart\].*?\[/chart\]'
 
-# 텍스트박스 블록 - 항상 보호됨 (어떤 조건에서도 chunking 불가)
+# Textbox block - Always protected (cannot be chunked under any condition)
 TEXTBOX_BLOCK_PATTERN = r'\[textbox\].*?\[/textbox\]'
 
-# 이미지 태그 - 항상 보호됨 (어떤 조건에서도 chunking 불가)
-# 형식: [image:path], [Image: {path}], [image : path] 등 (대소문자 무관, 띄어쓰기 허용, {} 감싸기 허용)
+# Image tag - Always protected (cannot be chunked under any condition)
+# Format: [image:path], [Image: {path}], [image : path] etc. (case-insensitive, whitespace allowed, {} wrapping allowed)
 IMAGE_TAG_PATTERN = r'\[(?i:image)\s*:\s*\{?[^\]\}]+\}?\]'
 
-# Markdown 테이블 (| 로 시작하는 연속된 행들, 헤더 구분선 |---|---| 포함)
+# Page/Slide/Sheet tag patterns - Always protected (NEVER overlap)
+# Default formats from PageTagProcessor
+PAGE_TAG_PATTERN = r'\[Page Number:\s*\d+\]'
+SLIDE_TAG_PATTERN = r'\[Slide Number:\s*\d+\]'
+SHEET_TAG_PATTERN = r'\[Sheet:\s*[^\]]+\]'
+
+# OCR variants of page/slide tags
+PAGE_TAG_OCR_PATTERN = r'\[Page Number:\s*\d+\s*\(OCR(?:\+Ref)?\)\]'
+SLIDE_TAG_OCR_PATTERN = r'\[Slide Number:\s*\d+\s*\(OCR(?:\+Ref)?\)\]'
+
+# Document metadata block - Always protected (NEVER overlap)
+# Default format: <Document-Metadata>...</Document-Metadata> - can be customized via MetadataFormatter
+METADATA_BLOCK_PATTERN = r'<Document-Metadata>.*?</Document-Metadata>'
+
+# Data analysis block - Always protected
+DATA_ANALYSIS_PATTERN = r'\[(?:Data Analysis|데이터 분석)\].*?\[/(?:Data Analysis|데이터 분석)\]'
+
+# Markdown table patterns
+# Complete Markdown table pattern (rows starting with |, including header separator |---|---|)
 MARKDOWN_TABLE_PATTERN = r'(?:^|\n)(\|[^\n]+\|\n\|[-:|\s]+\|\n(?:\|[^\n]+\|(?:\n|$))+)'
 
-# Markdown 테이블 개별 행 패턴 (row 단위 보호용)
+# Markdown table individual row pattern (for row-level protection)
 MARKDOWN_TABLE_ROW_PATTERN = r'\|[^\n]+\|'
 
+# Markdown table header separator pattern (|---|---| or |:---:|---| etc.)
+MARKDOWN_TABLE_SEPARATOR_PATTERN = r'^\|[\s\-:]+\|[\s\-:|]*$'
+
+# Markdown table header detection (first row followed by separator)
+MARKDOWN_TABLE_HEADER_PATTERN = r'^(\|[^\n]+\|\n)(\|[-:|\s]+\|)'
+
 
 # ============================================================================
-# 테이블 청킹 관련 상수
+# Table Chunking Related Constants
 # ============================================================================
 
-# 테이블 래핑 오버헤드 (테이블 태그, 줄바꿈 등)
+# Table wrapping overhead (table tags, line breaks, etc.)
 TABLE_WRAPPER_OVERHEAD = 30  # <table border='1'>\n</table>
 
-# 행당 최소 오버헤드 (<tr>\n</tr>)
+# Minimum overhead per row (<tr>\n</tr>)
 ROW_OVERHEAD = 12
 
-# 셀당 오버헤드 (<td></td> 또는 <th></th>)
+# Overhead per cell (<td></td> or <th></th>)
 CELL_OVERHEAD = 10
 
-# 청크 인덱스 메타데이터 오버헤드
-CHUNK_INDEX_OVERHEAD = 30  # [테이블 청크 1/10]\n
+# Chunk index metadata overhead
+CHUNK_INDEX_OVERHEAD = 30  # [Table chunk 1/10]\n
 
-# 테이블이 이 크기보다 크면 분할 대상
-TABLE_SIZE_THRESHOLD_MULTIPLIER = 1.2  # chunk_size의 1.2배
+# Tables larger than this are subject to splitting
+TABLE_SIZE_THRESHOLD_MULTIPLIER = 1.2  # 1.2x of chunk_size
 
-# 테이블 기반 파일 타입 (CSV, Excel)
+# Table-based file types (CSV, TSV, Excel)
 TABLE_BASED_FILE_TYPES = {'csv', 'tsv', 'xlsx', 'xls'}
 
 
 # ============================================================================
-# 데이터클래스
+# Dataclasses
 # ============================================================================
 
 @dataclass
 class TableRow:
-    """테이블 행 데이터"""
-    html: str
+    """Table row data (HTML or Markdown)"""
+    html: str  # Raw content (HTML or Markdown)
     is_header: bool
     cell_count: int
     char_length: int
@@ -88,10 +113,22 @@ class TableRow:
 
 @dataclass
 class ParsedTable:
-    """파싱된 테이블 정보"""
-    header_rows: List[TableRow]  # 헤더 행들
-    data_rows: List[TableRow]    # 데이터 행들
-    total_cols: int              # 총 열 수
-    original_html: str           # 원본 HTML
-    header_html: str             # 헤더 HTML (재사용용)
-    header_size: int             # 헤더 크기 (문자 수)
+    """Parsed table information (HTML)"""
+    header_rows: List[TableRow]  # Header rows
+    data_rows: List[TableRow]    # Data rows
+    total_cols: int              # Total columns
+    original_html: str           # Original HTML
+    header_html: str             # Header HTML (for reuse)
+    header_size: int             # Header size (characters)
+
+
+@dataclass
+class ParsedMarkdownTable:
+    """Parsed Markdown table information"""
+    header_row: str              # Header row (first row with column names)
+    separator_row: str           # Separator row (|---|---|)
+    data_rows: List[str]         # Data rows
+    total_cols: int              # Total columns
+    original_text: str           # Original Markdown text
+    header_text: str             # Header + separator for reuse
+    header_size: int             # Header size (characters)

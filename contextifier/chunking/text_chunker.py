@@ -1,12 +1,13 @@
 # chunking_helper/text_chunker.py
 """
-Text Chunker - 텍스트 청킹
+Text Chunker - Text chunking functionality
 
-주요 기능:
-- 일반 텍스트 청킹
-- 테이블 없는 텍스트 청킹
-- 행(row) 보호 청킹
-- 코드 텍스트 청킹
+Main Features:
+- Plain text chunking
+- Table-free text chunking
+- Row-preserving chunking (for tables)
+- Code text chunking
+- Markdown table support with NO overlap
 """
 import logging
 import re
@@ -14,14 +15,16 @@ from typing import Any, List, Optional, Tuple
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from contextifier.chunking.constants import LANGCHAIN_CODE_LANGUAGE_MAP, HTML_TABLE_PATTERN
+from contextifier.chunking.constants import (
+    LANGCHAIN_CODE_LANGUAGE_MAP, HTML_TABLE_PATTERN, MARKDOWN_TABLE_PATTERN
+)
 
 logger = logging.getLogger("document-processor")
 
 
 def chunk_plain_text(text: str, chunk_size: int, chunk_overlap: int) -> List[str]:
     """
-    일반 텍스트를 RecursiveCharacterTextSplitter로 청킹합니다.
+    Chunk plain text using RecursiveCharacterTextSplitter.
     """
     if not text or not text.strip():
         return []
@@ -45,23 +48,23 @@ def chunk_text_without_tables(
     page_tag_processor: Optional[Any] = None
 ) -> List[str]:
     """
-    테이블이 없는 텍스트를 청킹합니다.
+    Chunk text that does not contain tables.
 
     Args:
-        text: 청킹할 텍스트
-        chunk_size: 청크 최대 크기
-        chunk_overlap: 청크 간 겹침 크기
-        metadata: 청크에 추가할 메타데이터
-        prepend_metadata_func: 메타데이터 추가 함수
-        page_tag_processor: PageTagProcessor 인스턴스 (커스텀 태그 패턴용)
+        text: Text to chunk
+        chunk_size: Maximum chunk size
+        chunk_overlap: Overlap size between chunks
+        metadata: Metadata to prepend to chunks
+        prepend_metadata_func: Function to prepend metadata
+        page_tag_processor: PageTagProcessor instance (for custom tag patterns)
 
     Returns:
-        청크 리스트
+        List of chunks
     """
     if not text or not text.strip():
         return []
 
-    # HTML 코드 블록(```html ... ```)을 별도 처리
+    # Handle HTML code blocks (```html ... ```) separately
     html_code_pattern = r'```html\s*(.*?)\s*```'
 
     html_chunks = []
@@ -86,11 +89,11 @@ def chunk_text_without_tables(
 
     for kind, content in html_chunks:
         if kind == 'html':
-            # HTML 코드 블록은 그대로 유지
+            # Keep HTML code blocks as-is
             final_chunks.append(content)
             continue
 
-        # 일반 텍스트는 RecursiveCharacterTextSplitter로 청킹
+        # Plain text uses RecursiveCharacterTextSplitter for chunking
         text_chunks = chunk_plain_text(content, chunk_size, chunk_overlap)
         final_chunks.extend(text_chunks)
 
@@ -98,6 +101,18 @@ def chunk_text_without_tables(
     cleaned_chunks = prepend_metadata_func(cleaned_chunks, metadata)
 
     return cleaned_chunks
+
+
+def _is_markdown_table(text: str) -> bool:
+    """
+    Check if text is a Markdown table.
+    """
+    lines = text.strip().split('\n')
+    if len(lines) < 2:
+        return False
+    has_pipe_rows = any(line.strip().startswith('|') for line in lines)
+    has_separator = any('---' in line and '|' in line for line in lines)
+    return has_pipe_rows and has_separator
 
 
 def chunk_with_row_protection(
@@ -108,63 +123,95 @@ def chunk_with_row_protection(
     chunk_large_table_func
 ) -> List[str]:
     """
-    테이블 보호 해제 시 row 단위로는 보호하면서 청킹합니다.
+    Chunk with row-level protection when table protection is disabled.
 
-    HTML 테이블은 chunk_large_table_func로 처리하여 테이블 구조를 유지합니다.
-    Markdown 테이블의 |...| 행은 중간에서 자르지 않고 보호합니다.
+    HTML tables are processed with chunk_large_table_func to maintain structure.
+    Markdown tables are processed with chunk_large_markdown_table for proper row-level splitting.
+    Both table types have NO overlap applied.
 
     Args:
-        text: 청킹할 텍스트
-        chunk_size: 청크 최대 크기
-        chunk_overlap: 청크 간 겹침 크기
-        split_with_protected_regions_func: 보호 영역 분할 함수
-        chunk_large_table_func: 큰 테이블 청킹 함수
+        text: Text to chunk
+        chunk_size: Maximum chunk size
+        chunk_overlap: Overlap size between chunks (NOT applied to tables)
+        split_with_protected_regions_func: Protected region splitting function
+        chunk_large_table_func: Large table chunking function (for HTML)
 
     Returns:
-        청크 리스트
+        List of chunks
     """
     if not text or not text.strip():
         return []
 
-    # === HTML 테이블을 먼저 추출하여 별도 처리 ===
-    # HTML 테이블을 찾고, 테이블/비테이블 세그먼트로 분리
-
+    # === Extract both HTML and Markdown tables for separate processing ===
     segments: List[Tuple[str, str]] = []  # [(type, content), ...]
+    
+    # Find all HTML tables
+    html_matches = list(re.finditer(HTML_TABLE_PATTERN, text, re.DOTALL | re.IGNORECASE))
+    
+    # Find all Markdown tables
+    markdown_matches = list(re.finditer(MARKDOWN_TABLE_PATTERN, text, re.MULTILINE))
+    
+    # Combine and sort by start position
+    all_matches = []
+    for match in html_matches:
+        all_matches.append((match.start(), match.end(), 'html_table', match.group(0)))
+    for match in markdown_matches:
+        start = match.start()
+        if match.group(0).startswith('\n'):
+            start += 1
+        all_matches.append((start, match.end(), 'markdown_table', match.group(0).strip()))
+    
+    # Sort by start position
+    all_matches.sort(key=lambda x: x[0])
+    
+    # Remove overlapping matches (first non-overlapping match by position wins)
+    filtered_matches = []
     last_end = 0
-
-    for match in re.finditer(HTML_TABLE_PATTERN, text, re.DOTALL | re.IGNORECASE):
-        # 테이블 이전 텍스트
-        if match.start() > last_end:
-            before_text = text[last_end:match.start()].strip()
+    for start, end, ttype, content in all_matches:
+        if start >= last_end:
+            filtered_matches.append((start, end, ttype, content))
+            last_end = end
+    
+    # Build segments
+    last_end = 0
+    for start, end, ttype, content in filtered_matches:
+        # Text before table
+        if start > last_end:
+            before_text = text[last_end:start].strip()
             if before_text:
                 segments.append(('text', before_text))
-
-        # 테이블
-        segments.append(('table', match.group(0)))
-        last_end = match.end()
-
-    # 마지막 테이블 이후 텍스트
+        
+        # Table
+        segments.append((ttype, content))
+        last_end = end
+    
+    # Text after last table
     if last_end < len(text):
         after_text = text[last_end:].strip()
         if after_text:
             segments.append(('text', after_text))
 
-    # 테이블이 없으면 기존 로직 사용
-    if not any(seg_type == 'table' for seg_type, _ in segments):
+    # If no tables, use simple row protection
+    if not any(seg_type in ('html_table', 'markdown_table') for seg_type, _ in segments):
         return chunk_with_row_protection_simple(
             text, chunk_size, chunk_overlap, split_with_protected_regions_func
         )
 
-    # === 세그먼트별로 처리 ===
+    # === Process each segment ===
     all_chunks: List[str] = []
 
     for seg_type, content in segments:
-        if seg_type == 'table':
-            # HTML 테이블 → chunk_large_table_func로 효율적 분할
-            table_chunks = chunk_large_table_func(content, chunk_size, chunk_overlap, "")
+        if seg_type == 'html_table':
+            # HTML table -> split efficiently by rows with NO overlap
+            table_chunks = chunk_large_table_func(content, chunk_size, 0, "")
+            all_chunks.extend(table_chunks)
+        elif seg_type == 'markdown_table':
+            # Markdown table -> split efficiently by rows with NO overlap
+            from .table_chunker import chunk_large_markdown_table
+            table_chunks = chunk_large_markdown_table(content, chunk_size, 0, "")
             all_chunks.extend(table_chunks)
         else:
-            # 일반 텍스트 → Markdown row 보호하면서 청킹
+            # Plain text -> chunk with Markdown row protection
             text_chunks = chunk_with_row_protection_simple(
                 content, chunk_size, chunk_overlap, split_with_protected_regions_func
             )
@@ -180,50 +227,60 @@ def chunk_with_row_protection_simple(
     split_with_protected_regions_func
 ) -> List[str]:
     """
-    Markdown 테이블 행을 보호하면서 청킹합니다.
-    HTML 테이블은 이미 분리되어 있다고 가정합니다.
+    Chunk while protecting Markdown table rows from being split mid-row.
+    Assumes HTML tables have already been separated.
+
+    NOTE: If a complete Markdown table is found, it will be chunked with NO overlap
+    using chunk_large_markdown_table. Only individual rows (not part of a complete table)
+    are protected as regions.
 
     Args:
-        text: 청킹할 텍스트
-        chunk_size: 청크 최대 크기
-        chunk_overlap: 청크 간 겹침 크기
-        split_with_protected_regions_func: 보호 영역 분할 함수
+        text: Text to chunk
+        chunk_size: Maximum chunk size
+        chunk_overlap: Overlap size between chunks (NOT applied to Markdown tables)
+        split_with_protected_regions_func: Protected region splitting function
 
     Returns:
-        청크 리스트
+        List of chunks
     """
     if not text or not text.strip():
         return []
 
-    # Markdown 테이블 행만 보호 (HTML 테이블은 이미 분리됨)
+    # Check if text contains a complete Markdown table
+    if _is_markdown_table(text):
+        # Process as a complete Markdown table with NO overlap
+        from .table_chunker import chunk_large_markdown_table
+        return chunk_large_markdown_table(text, chunk_size, 0, "")
+
+    # Protect individual Markdown table rows (for mixed content)
     row_patterns = [
-        r'\|[^\n]+\|',  # Markdown 테이블 행 (헤더, 데이터, 구분선 모두 포함)
+        r'\|[^\n]+\|',  # Markdown table row (headers, data, separators)
     ]
 
-    # 모든 행 위치 찾기
+    # Find all row positions
     row_positions: List[Tuple[int, int]] = []
     for pattern in row_patterns:
         for match in re.finditer(pattern, text, re.DOTALL | re.IGNORECASE):
             row_positions.append((match.start(), match.end()))
 
-    # 위치로 정렬
+    # Sort by position
     row_positions.sort(key=lambda x: x[0])
 
-    # 겹치는 영역 병합
+    # Merge overlapping regions
     merged_rows: List[Tuple[int, int]] = []
     for start, end in row_positions:
         if merged_rows and start < merged_rows[-1][1]:
-            # 겹침 -> 병합
+            # Overlap -> merge
             prev_start, prev_end = merged_rows[-1]
             merged_rows[-1] = (prev_start, max(prev_end, end))
         else:
             merged_rows.append((start, end))
 
     if not merged_rows:
-        # 행이 없으면 일반 청킹
+        # No rows to protect -> use plain chunking
         return chunk_plain_text(text, chunk_size, chunk_overlap)
 
-    # 행을 보호하면서 청킹
+    # Chunk while protecting rows
     return split_with_protected_regions_func(text, merged_rows, chunk_size, chunk_overlap)
 
 
@@ -235,11 +292,11 @@ def clean_chunks(
     Clean chunks: remove empty chunks and chunks with only page markers.
 
     Args:
-        chunks: 청크 리스트
-        page_tag_processor: PageTagProcessor 인스턴스 (커스텀 태그 패턴용)
+        chunks: List of chunks
+        page_tag_processor: PageTagProcessor instance (for custom tag patterns)
 
     Returns:
-        정리된 청크 리스트
+        Cleaned list of chunks
     """
     cleaned_chunks = []
 
@@ -267,7 +324,7 @@ def clean_chunks(
         if not chunk.strip():
             continue
 
-        # 페이지 마커만 있는지 확인
+        # Check if chunk contains only page marker
         is_page_marker_only = False
         for pattern in page_marker_patterns:
             if re.fullmatch(pattern, chunk.strip()):
@@ -287,16 +344,16 @@ def chunk_code_text(
     chunk_overlap: int = 300
 ) -> List[str]:
     """
-    코드 텍스트를 언어별 splitter로 청킹합니다.
+    Chunk code text using language-specific splitter.
 
     Args:
-        text: 코드 텍스트
-        file_type: 파일 확장자 (e.g., 'py', 'js')
-        chunk_size: 청크 최대 크기
-        chunk_overlap: 청크 간 겹침 크기
+        text: Code text
+        file_type: File extension (e.g., 'py', 'js')
+        chunk_size: Maximum chunk size
+        chunk_overlap: Overlap size between chunks
 
     Returns:
-        청크 리스트
+        List of chunks
     """
     if not text or not text.strip():
         return [""]
@@ -321,15 +378,15 @@ def chunk_code_text(
 
 def reconstruct_text_from_chunks(chunks: List[str], chunk_overlap: int) -> str:
     """
-    청크들을 원본 텍스트로 재조합합니다.
-    overlap 부분을 제거하여 중복 없이 합칩니다.
+    Reconstruct original text from chunks.
+    Removes overlap portions to avoid duplication.
 
     Args:
-        chunks: 청크 리스트
-        chunk_overlap: 청크 간 겹침 크기
+        chunks: List of chunks
+        chunk_overlap: Overlap size between chunks
 
     Returns:
-        재조합된 텍스트
+        Reconstructed text
     """
     if not chunks:
         return ""
@@ -348,15 +405,15 @@ def reconstruct_text_from_chunks(chunks: List[str], chunk_overlap: int) -> str:
 
 def find_overlap_length(c1: str, c2: str, max_overlap: int) -> int:
     """
-    두 청크 간 실제 overlap 길이를 찾습니다.
+    Find the actual overlap length between two chunks.
 
     Args:
-        c1: 이전 청크
-        c2: 현재 청크
-        max_overlap: 최대 overlap 크기
+        c1: Previous chunk
+        c2: Current chunk
+        max_overlap: Maximum overlap size
 
     Returns:
-        실제 overlap 길이
+        Actual overlap length
     """
     max_check = min(len(c1), len(c2), max_overlap)
     for ov in range(max_check, 0, -1):
@@ -367,15 +424,15 @@ def find_overlap_length(c1: str, c2: str, max_overlap: int) -> int:
 
 def estimate_chunks_count(text: str, chunk_size: int = 1000, chunk_overlap: int = 200) -> int:
     """
-    텍스트를 청킹했을 때 예상 청크 수를 계산합니다.
+    Estimate the number of chunks when text is chunked.
 
     Args:
-        text: 텍스트
-        chunk_size: 청크 최대 크기
-        chunk_overlap: 청크 간 겹침 크기
+        text: Text
+        chunk_size: Maximum chunk size
+        chunk_overlap: Overlap size between chunks
 
     Returns:
-        예상 청크 수
+        Estimated chunk count
     """
     if not text:
         return 0

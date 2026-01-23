@@ -1,11 +1,11 @@
 # chunking_helper/table_parser.py
 """
-Table Parser - HTML 테이블 파싱 관련 함수들
+Table Parser - HTML table parsing functions
 
-주요 기능:
-- HTML 테이블 파싱 및 구조 분석
-- 셀 span 정보 추출 (rowspan, colspan)
-- 테이블 복잡도 분석
+Main Features:
+- HTML table parsing and structure analysis
+- Cell span information extraction (rowspan, colspan)
+- Table complexity analysis
 """
 import logging
 import re
@@ -18,16 +18,16 @@ logger = logging.getLogger("document-processor")
 
 def parse_html_table(table_html: str) -> Optional[ParsedTable]:
     """
-    HTML 테이블을 파싱하여 구조화된 정보를 추출합니다.
+    Parse an HTML table and extract structured information.
 
     Args:
-        table_html: HTML 테이블 문자열
+        table_html: HTML table string
 
     Returns:
-        ParsedTable 객체 또는 None (파싱 실패 시)
+        ParsedTable object or None (if parsing fails)
     """
     try:
-        # 행 추출
+        # Extract rows
         row_pattern = r'<tr[^>]*>(.*?)</tr>'
         row_matches = re.findall(row_pattern, table_html, re.DOTALL | re.IGNORECASE)
 
@@ -40,7 +40,7 @@ def parse_html_table(table_html: str) -> Optional[ParsedTable]:
         max_cols = 0
 
         for row_content in row_matches:
-            # 셀 추출
+            # Extract cells
             th_cells = re.findall(r'<th[^>]*>(.*?)</th>', row_content, re.DOTALL | re.IGNORECASE)
             td_cells = re.findall(r'<td[^>]*>(.*?)</td>', row_content, re.DOTALL | re.IGNORECASE)
 
@@ -48,7 +48,7 @@ def parse_html_table(table_html: str) -> Optional[ParsedTable]:
             cell_count = len(th_cells) if is_header else len(td_cells)
             max_cols = max(max_cols, cell_count)
 
-            # 원본 행 HTML 재구성
+            # Reconstruct original row HTML
             row_html = f"<tr>{row_content}</tr>"
             row_length = len(row_html)
 
@@ -60,15 +60,15 @@ def parse_html_table(table_html: str) -> Optional[ParsedTable]:
             )
 
             if is_header and not data_rows:
-                # 데이터 행이 나오기 전 헤더 행
+                # Header row before any data rows
                 header_rows.append(table_row)
             else:
                 data_rows.append(table_row)
 
-        # 헤더 HTML 구성
+        # Build header HTML
         if header_rows:
             header_html = "\n".join(row.html for row in header_rows)
-            header_size = sum(row.char_length for row in header_rows) + len(header_rows)  # 줄바꿈 포함
+            header_size = sum(row.char_length for row in header_rows) + len(header_rows)  # Including newlines
         else:
             header_html = ""
             header_size = 0
@@ -89,27 +89,27 @@ def parse_html_table(table_html: str) -> Optional[ParsedTable]:
 
 def extract_cell_spans(row_html: str) -> List[Tuple[int, int]]:
     """
-    행에서 셀의 rowspan/colspan 정보를 추출합니다.
+    Extract rowspan/colspan information from cells in a row.
 
     Args:
-        row_html: 행 HTML
+        row_html: Row HTML
 
     Returns:
-        [(rowspan, colspan), ...] 리스트
+        [(rowspan, colspan), ...] list
     """
     spans = []
 
-    # th와 td 셀 찾기
+    # Find th and td cells
     cell_pattern = r'<(th|td)([^>]*)>'
 
     for match in re.finditer(cell_pattern, row_html, re.IGNORECASE):
         attrs = match.group(2)
 
-        # rowspan 추출
+        # Extract rowspan
         rowspan_match = re.search(r'rowspan=["\']?(\d+)["\']?', attrs, re.IGNORECASE)
         rowspan = int(rowspan_match.group(1)) if rowspan_match else 1
 
-        # colspan 추출
+        # Extract colspan
         colspan_match = re.search(r'colspan=["\']?(\d+)["\']?', attrs, re.IGNORECASE)
         colspan = int(colspan_match.group(1)) if colspan_match else 1
 
@@ -120,13 +120,13 @@ def extract_cell_spans(row_html: str) -> List[Tuple[int, int]]:
 
 def extract_cell_spans_with_positions(row_html: str) -> Dict[int, int]:
     """
-    행에서 열 위치별 rowspan 정보를 추출합니다 (colspan 고려).
+    Extract rowspan information by column position from a row (considering colspan).
 
     Args:
-        row_html: 행 HTML
+        row_html: Row HTML
 
     Returns:
-        {열_위치: rowspan} 딕셔너리 (rowspan > 1인 셀만)
+        {column_position: rowspan} dictionary (only cells with rowspan > 1)
     """
     spans: Dict[int, int] = {}
     cell_pattern = r'<(th|td)([^>]*)>'
@@ -135,11 +135,11 @@ def extract_cell_spans_with_positions(row_html: str) -> Dict[int, int]:
     for match in re.finditer(cell_pattern, row_html, re.IGNORECASE):
         attrs = match.group(2)
 
-        # rowspan 추출
+        # Extract rowspan
         rowspan_match = re.search(r'rowspan=["\']?(\d+)["\']?', attrs, re.IGNORECASE)
         rowspan = int(rowspan_match.group(1)) if rowspan_match else 1
 
-        # colspan 추출
+        # Extract colspan
         colspan_match = re.search(r'colspan=["\']?(\d+)["\']?', attrs, re.IGNORECASE)
         colspan = int(colspan_match.group(1)) if colspan_match else 1
 
@@ -153,14 +153,14 @@ def extract_cell_spans_with_positions(row_html: str) -> Dict[int, int]:
 
 def has_complex_spans(table_html: str) -> bool:
     """
-    테이블에 복잡한 rowspan이 있는지 확인합니다.
-    (colspan은 행 분할에 영향 없음, rowspan만 문제됨)
+    Check if a table has complex rowspan.
+    (colspan does not affect row splitting, only rowspan is problematic)
 
     Args:
-        table_html: 테이블 HTML
+        table_html: Table HTML
 
     Returns:
-        rowspan > 1인 셀이 있으면 True
+        True if there are cells with rowspan > 1
     """
     rowspan_pattern = r'rowspan=["\']?(\d+)["\']?'
     matches = re.findall(rowspan_pattern, table_html, re.IGNORECASE)

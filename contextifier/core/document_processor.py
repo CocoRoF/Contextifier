@@ -658,7 +658,9 @@ class DocumentProcessor:
             force_chunking=force_chunking,
             include_position_metadata=include_position_metadata,
             page_tag_processor=self._page_tag_processor,
-            image_processor=self._image_processor
+            image_processor=self._image_processor,
+            chart_processor=self._chart_processor,
+            metadata_formatter=self._metadata_formatter
         )
 
         return result

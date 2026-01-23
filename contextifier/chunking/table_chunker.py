@@ -1,20 +1,23 @@
 # chunking_helper/table_chunker.py
 """
-Table Chunker - 테이블 청킹 핵심 로직
+Table Chunker - Core table chunking logic
 
-주요 기능:
-- 대용량 HTML 테이블을 chunk_size에 맞게 분할
-- 테이블 구조(헤더) 보존 및 복원
-- rowspan/colspan 인식 분할
-- rowspan 재조정
+Main Features:
+- Split large HTML tables to fit chunk_size
+- Split large Markdown tables to fit chunk_size  
+- Preserve and restore table structure (headers)
+- rowspan/colspan aware splitting for HTML
+- rowspan adjustment
+- NO OVERLAP for table chunks (intentional to prevent data duplication)
 """
 import logging
 import re
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from contextifier.chunking.constants import (
-    ParsedTable, TableRow,
-    TABLE_WRAPPER_OVERHEAD, CHUNK_INDEX_OVERHEAD
+    ParsedTable, TableRow, ParsedMarkdownTable,
+    TABLE_WRAPPER_OVERHEAD, CHUNK_INDEX_OVERHEAD,
+    MARKDOWN_TABLE_SEPARATOR_PATTERN
 )
 from contextifier.chunking.table_parser import (
     parse_html_table, extract_cell_spans_with_positions, has_complex_spans
@@ -30,45 +33,45 @@ def calculate_available_space(
     total_chunks: int = 1
 ) -> int:
     """
-    청크에서 데이터 행을 위해 사용 가능한 공간을 계산합니다.
+    Calculate available space for data rows in a chunk.
 
     Args:
-        chunk_size: 전체 청크 크기
-        header_size: 헤더 크기
-        chunk_index: 현재 청크 인덱스 (0부터)
-        total_chunks: 예상 총 청크 수
+        chunk_size: Total chunk size
+        header_size: Header size
+        chunk_index: Current chunk index (0-based)
+        total_chunks: Expected total number of chunks
 
     Returns:
-        데이터 행을 위해 사용 가능한 문자 수
+        Number of characters available for data rows
     """
-    # 고정 오버헤드
+    # Fixed overhead
     overhead = TABLE_WRAPPER_OVERHEAD
 
-    # 청크 인덱스 메타데이터 오버헤드 (총 청크가 2개 이상일 때만)
+    # Chunk index metadata overhead (only when total chunks > 1)
     if total_chunks > 1:
         overhead += CHUNK_INDEX_OVERHEAD
 
-    # 헤더 오버헤드 (첫 번째 청크가 아닐 때도 헤더 포함)
+    # Header overhead (include header even for non-first chunks)
     overhead += header_size
 
     available = chunk_size - overhead
 
-    return max(available, 100)  # 최소 100자는 보장
+    return max(available, 100)  # Guarantee at least 100 characters
 
 
 def adjust_rowspan_in_chunk(rows_html: List[str], total_rows_in_chunk: int) -> List[str]:
     """
-    청크 내 행들의 rowspan을 재조정합니다.
+    Readjust rowspan values for rows in a chunk.
 
-    청크에 포함된 행 수에 맞게 rowspan 값을 조정하여
-    테이블이 올바르게 렌더링되도록 합니다.
+    Adjusts rowspan values to match the number of rows included in the chunk
+    so that the table renders correctly.
 
     Args:
-        rows_html: 청크에 포함된 행들의 HTML 리스트
-        total_rows_in_chunk: 청크 내 총 행 수
+        rows_html: List of HTML row strings included in the chunk
+        total_rows_in_chunk: Total number of rows in the chunk
 
     Returns:
-        rowspan이 조정된 행들의 HTML 리스트
+        List of HTML row strings with adjusted rowspan values
     """
     if not rows_html:
         return rows_html
@@ -79,24 +82,24 @@ def adjust_rowspan_in_chunk(rows_html: List[str], total_rows_in_chunk: int) -> L
         remaining_rows = total_rows_in_chunk - row_idx
 
         def adjust_cell_rowspan(match):
-            """셀의 rowspan을 조정하는 콜백 함수"""
-            tag = match.group(1)  # td 또는 th
+            """Callback function to adjust cell rowspan"""
+            tag = match.group(1)  # td or th
             attrs = match.group(2)
             content = match.group(3)
 
-            # 현재 rowspan 추출
+            # Extract current rowspan
             rowspan_match = re.search(r'rowspan=["\']?(\d+)["\']?', attrs, re.IGNORECASE)
             if rowspan_match:
                 original_rowspan = int(rowspan_match.group(1))
 
-                # 남은 행 수보다 크면 조정
+                # Adjust if greater than remaining rows
                 adjusted_rowspan = min(original_rowspan, remaining_rows)
 
                 if adjusted_rowspan <= 1:
-                    # rowspan=1이면 속성 제거
+                    # Remove attribute if rowspan=1
                     new_attrs = re.sub(r'\s*rowspan=["\']?\d+["\']?', '', attrs, flags=re.IGNORECASE)
                 else:
-                    # rowspan 값 조정
+                    # Adjust rowspan value
                     new_attrs = re.sub(
                         r'rowspan=["\']?\d+["\']?',
                         f"rowspan='{adjusted_rowspan}'",
@@ -108,7 +111,7 @@ def adjust_rowspan_in_chunk(rows_html: List[str], total_rows_in_chunk: int) -> L
 
             return match.group(0)
 
-        # 셀 패턴: <td ...>...</td> 또는 <th ...>...</th>
+        # Cell pattern: <td ...>...</td> or <th ...>...</th>
         cell_pattern = r'<(td|th)([^>]*)>(.*?)</\1>'
         adjusted_row = re.sub(cell_pattern, adjust_cell_rowspan, row_html, flags=re.DOTALL | re.IGNORECASE)
 
@@ -125,48 +128,48 @@ def build_table_chunk(
     context_prefix: str = ""
 ) -> str:
     """
-    청크용 완전한 테이블 HTML을 구성합니다.
+    Build a complete table HTML for a chunk.
 
-    rowspan이 청크 범위를 초과하는 경우 자동으로 조정합니다.
+    Automatically adjusts rowspan if it exceeds the chunk boundary.
 
     Args:
-        header_html: 헤더 행들의 HTML
-        data_rows: 데이터 행들
-        chunk_index: 현재 청크 인덱스 (0부터)
-        total_chunks: 총 청크 수
-        context_prefix: 컨텍스트 정보 (메타데이터, 시트 정보 등) - 모든 청크에 포함
+        header_html: HTML of header rows
+        data_rows: Data rows
+        chunk_index: Current chunk index (0-based)
+        total_chunks: Total number of chunks
+        context_prefix: Context info (metadata, sheet info, etc.) - included in all chunks
 
     Returns:
-        완전한 테이블 HTML
+        Complete table HTML
     """
     parts = []
 
-    # 컨텍스트 정보 (메타데이터, 시트 정보 등) - 모든 청크에 포함
+    # Context info (metadata, sheet info, etc.) - included in all chunks
     if context_prefix:
         parts.append(context_prefix)
 
-    # 청크 인덱스 메타데이터 (2개 이상일 때만)
+    # Chunk index metadata (only when more than 1 chunk)
     if total_chunks > 1:
-        parts.append(f"[테이블 청크 {chunk_index + 1}/{total_chunks}]")
+        parts.append(f"[Table Chunk {chunk_index + 1}/{total_chunks}]")
 
-    # 테이블 시작
+    # Table start
     parts.append("<table border='1'>")
 
-    # 헤더 (있는 경우)
+    # Header (if exists)
     if header_html:
         parts.append(header_html)
 
-    # 데이터 행들의 HTML 추출
+    # Extract HTML for data rows
     rows_html = [row.html for row in data_rows]
 
-    # rowspan 조정
+    # Adjust rowspan
     adjusted_rows = adjust_rowspan_in_chunk(rows_html, len(data_rows))
 
-    # 조정된 행들 추가
+    # Add adjusted rows
     for row_html in adjusted_rows:
         parts.append(row_html)
 
-    # 테이블 종료
+    # Table end
     parts.append("</table>")
 
     return "\n".join(parts)
@@ -174,19 +177,19 @@ def build_table_chunk(
 
 def update_chunk_metadata(chunks: List[str], total_chunks: int) -> List[str]:
     """
-    청크들의 메타데이터(총 청크 수)를 업데이트합니다.
+    Update chunk metadata (total chunk count).
     """
     updated_chunks = []
 
     for idx, chunk in enumerate(chunks):
-        # 기존 메타데이터 패턴
-        old_pattern = r'\[테이블 청크 \d+/\d+\]'
-        new_metadata = f"[테이블 청크 {idx + 1}/{total_chunks}]"
+        # Existing metadata pattern
+        old_pattern = r'\[Table Chunk \d+/\d+\]'
+        new_metadata = f"[Table Chunk {idx + 1}/{total_chunks}]"
 
         if re.search(old_pattern, chunk):
             updated_chunk = re.sub(old_pattern, new_metadata, chunk)
         else:
-            # 메타데이터가 없으면 추가
+            # Add metadata if not present
             updated_chunk = f"{new_metadata}\n{chunk}"
 
         updated_chunks.append(updated_chunk)
@@ -201,68 +204,83 @@ def split_table_into_chunks(
     context_prefix: str = ""
 ) -> List[str]:
     """
-    파싱된 테이블을 chunk_size에 맞게 분할합니다.
-    각 청크는 완전한 테이블 구조를 가집니다 (헤더 포함).
+    Split a parsed table to fit chunk_size.
+    Each chunk has a complete table structure (including headers).
 
-    주의: 테이블 청킹에서는 overlap이 적용되지 않습니다.
-    테이블 데이터의 중복은 검색 품질을 저하시키므로 의도적으로 제외합니다.
+    NOTE: Table chunking does NOT apply overlap.
+    Data duplication degrades search quality, so overlap is intentionally excluded.
+
+    Row splitting rules:
+    - Minimum 1 row per chunk (rows are NEVER split)
+    - Chunks can expand up to 1.5x of chunk_size to include more rows
+    - Only exceeds chunk_size when necessary to maintain row integrity
 
     Args:
-        parsed_table: 파싱된 테이블 정보
-        chunk_size: 청크 최대 크기
-        chunk_overlap: 사용되지 않음 (호환성을 위해 유지)
-        context_prefix: 컨텍스트 정보 (메타데이터, 시트 정보 등) - 모든 청크에 포함
+        parsed_table: Parsed table information
+        chunk_size: Maximum chunk size
+        chunk_overlap: Not used (kept for compatibility)
+        context_prefix: Context info (metadata, sheet info, etc.) - included in all chunks
 
     Returns:
-        분할된 테이블 HTML 청크 리스트
+        List of split table HTML chunks
     """
     data_rows = parsed_table.data_rows
     header_html = parsed_table.header_html
     header_size = parsed_table.header_size
 
-    # 컨텍스트 크기 계산
-    context_size = len(context_prefix) + 2 if context_prefix else 0  # 줄바꿈 포함
+    # Calculate context size
+    context_size = len(context_prefix) + 2 if context_prefix else 0  # Including newline
 
     if not data_rows:
-        # 데이터 행이 없으면 원본 반환
+        # Return original if no data rows
         return [parsed_table.original_html]
 
-    # 예상 청크 수 계산 (대략적)
+    # Calculate estimated chunk count (approximate)
     total_data_size = sum(row.char_length for row in data_rows)
     available_per_chunk = calculate_available_space(chunk_size, header_size + context_size, 0, 1)
     estimated_chunks = max(1, (total_data_size + available_per_chunk - 1) // available_per_chunk)
 
-    # 실제 청크 수로 다시 계산
+    # Recalculate with actual chunk count
     available_per_chunk = calculate_available_space(chunk_size, header_size + context_size, 0, estimated_chunks)
+
+    # Maximum allowed chunk size (1.5x of chunk_size)
+    max_chunk_data_size = int(chunk_size * 1.5) - header_size - context_size - CHUNK_INDEX_OVERHEAD
 
     chunks: List[str] = []
     current_rows: List[TableRow] = []
     current_size = 0
-    # 테이블 청킹에서는 overlap을 적용하지 않음 (데이터 중복 방지)
+    # Table chunking does not apply overlap (prevent data duplication)
 
     for row_idx, row in enumerate(data_rows):
-        row_size = row.char_length + 1  # 줄바꿈 포함
+        row_size = row.char_length + 1  # Including newline
 
-        # 현재 청크에 추가 가능한지 확인
+        # Check if adding this row exceeds available space
         if current_rows and (current_size + row_size > available_per_chunk):
-            # 현재 청크 완료
-            chunk_html = build_table_chunk(
-                header_html,
-                current_rows,
-                chunk_index=len(chunks),
-                total_chunks=estimated_chunks,
-                context_prefix=context_prefix
-            )
-            chunks.append(chunk_html)
+            # Check if we can still fit within 1.5x limit
+            if current_size + row_size <= max_chunk_data_size:
+                # Still within 1.5x limit - add row to current chunk
+                current_rows.append(row)
+                current_size += row_size
+            else:
+                # Exceeds 1.5x limit - flush current chunk and start new one
+                chunk_html = build_table_chunk(
+                    header_html,
+                    current_rows,
+                    chunk_index=len(chunks),
+                    total_chunks=estimated_chunks,
+                    context_prefix=context_prefix
+                )
+                chunks.append(chunk_html)
 
-            # 새 청크 시작 (테이블에서는 overlap 없음)
-            current_rows = []
-            current_size = 0
+                # Start new chunk with this row (minimum 1 row guaranteed)
+                current_rows = [row]
+                current_size = row_size
+        else:
+            # Row fits - add to current chunk
+            current_rows.append(row)
+            current_size += row_size
 
-        current_rows.append(row)
-        current_size += row_size
-
-    # 마지막 청크 처리
+    # Process last chunk
     if current_rows:
         chunk_html = build_table_chunk(
             header_html,
@@ -273,7 +291,7 @@ def split_table_into_chunks(
         )
         chunks.append(chunk_html)
 
-    # 총 청크 수 업데이트하여 메타데이터 수정
+    # Update metadata with actual total chunk count
     if len(chunks) != estimated_chunks and len(chunks) > 1:
         chunks = update_chunk_metadata(chunks, len(chunks))
 
@@ -289,32 +307,32 @@ def split_table_preserving_rowspan(
     context_prefix: str = ""
 ) -> List[str]:
     """
-    rowspan을 고려하여 테이블을 분할합니다.
+    Split a table considering rowspan.
 
-    rowspan으로 연결된 행들은 의미론적 블록 단위로 함께 유지합니다.
+    Rows connected by rowspan are kept together as semantic blocks.
 
-    주의: 테이블 청킹에서는 overlap이 적용되지 않습니다.
-    테이블 데이터의 중복은 검색 품질을 저하시키므로 의도적으로 제외합니다.
+    NOTE: Table chunking does NOT apply overlap.
+    Data duplication degrades search quality, so overlap is intentionally excluded.
 
-    알고리즘:
-    1. 각 행에서 활성 rowspan을 추적 (열 위치별, colspan 고려)
-    2. 이전 행에서 모든 rowspan이 끝나고 새 rowspan이 시작되면 새 블록
-    3. 블록들을 chunk_size에 맞게 조합
+    Algorithm:
+    1. Track active rowspan for each row (by column position, considering colspan)
+    2. If all rowspans from previous row end and new rowspan starts, create new block
+    3. Combine blocks to fit chunk_size
 
     Args:
-        parsed_table: 파싱된 테이블
-        chunk_size: 청크 크기
-        chunk_overlap: 사용되지 않음 (호환성을 위해 유지)
-        context_prefix: 컨텍스트 정보 (메타데이터, 시트 정보 등)
+        parsed_table: Parsed table
+        chunk_size: Chunk size
+        chunk_overlap: Not used (kept for compatibility)
+        context_prefix: Context info (metadata, sheet info, etc.)
 
     Returns:
-        분할된 테이블 청크 리스트
+        List of split table chunks
     """
     data_rows = parsed_table.data_rows
     header_html = parsed_table.header_html
     header_size = parsed_table.header_size
 
-    # 컨텍스트 크기 계산
+    # Calculate context size
     context_size = len(context_prefix) + 2 if context_prefix else 0
 
     if not data_rows:
@@ -322,14 +340,14 @@ def split_table_preserving_rowspan(
             return [f"{context_prefix}\n{parsed_table.original_html}"]
         return [parsed_table.original_html]
 
-    # === rowspan 블록 식별 ===
-    # 블록 = rowspan으로 연결된 연속 행들의 그룹
-    active_rowspans: Dict[int, int] = {}  # 열_위치 -> 남은_행_수 (현재 행 포함)
-    row_block_ids: List[int] = []  # 각 행의 블록 ID
+    # === Identify rowspan blocks ===
+    # Block = group of consecutive rows connected by rowspan
+    active_rowspans: Dict[int, int] = {}  # column_position -> remaining_rows (including current row)
+    row_block_ids: List[int] = []  # Block ID for each row
     current_block_id = -1
 
     for row_idx, row in enumerate(data_rows):
-        # 1. 이전 행 처리 후 남은 rowspan 감소 (첫 행 제외)
+        # 1. Decrease remaining rowspan from previous row (except first row)
         if row_idx > 0:
             finished_cols = []
             for col in list(active_rowspans.keys()):
@@ -339,79 +357,87 @@ def split_table_preserving_rowspan(
             for col in finished_cols:
                 del active_rowspans[col]
 
-        # 감소 후 상태 (새 span 추가 전)
+        # State after decrease (before adding new spans)
         had_active_before_new = len(active_rowspans) > 0
 
-        # 2. 현재 행에서 시작하는 새 rowspan 추가
+        # 2. Add new rowspans starting from current row
         new_spans = extract_cell_spans_with_positions(row.html)
         for col, span in new_spans.items():
-            # 기존 rowspan보다 크면 갱신 (더 긴 span이 우선)
+            # Update if larger than existing rowspan (longer span takes priority)
             if col not in active_rowspans or span > active_rowspans[col]:
                 active_rowspans[col] = span
 
         has_active_now = len(active_rowspans) > 0
         has_new_span = len(new_spans) > 0
 
-        # 블록 결정 로직:
-        # - 활성 rowspan이 없으면 독립 블록
-        # - 이전 행 처리 후 활성이 없었는데 새 span이 시작되면 새 블록
-        # - 그 외 기존 블록 유지
+        # Block determination logic:
+        # - No active rowspan -> independent block
+        # - No active after previous row processing but new span starts -> new block
+        # - Otherwise maintain existing block
         if not has_active_now:
-            # rowspan 없음 - 독립 행
+            # No rowspan - independent row
             current_block_id += 1
             row_block_ids.append(current_block_id)
         elif not had_active_before_new and has_new_span:
-            # 이전 rowspan 모두 끝나고 새 rowspan 시작 - 새 블록
+            # All previous rowspans ended and new rowspan starts - new block
             current_block_id += 1
             row_block_ids.append(current_block_id)
         else:
-            # 기존 블록 유지
+            # Maintain existing block
             row_block_ids.append(current_block_id)
 
-    # 블록별로 행 그룹화
+    # Group rows by block
     block_groups: Dict[int, List[int]] = {}
     for row_idx, block_id in enumerate(row_block_ids):
         if block_id not in block_groups:
             block_groups[block_id] = []
         block_groups[block_id].append(row_idx)
 
-    # 정렬된 블록 순서로 row_groups 생성
+    # Create row_groups in sorted block order
     row_groups: List[List[int]] = [
         block_groups[block_id]
         for block_id in sorted(block_groups.keys())
     ]
 
-    # === 그룹들을 청크로 조합 ===
+    # === Combine groups into chunks ===
     chunks: List[str] = []
     current_rows: List[TableRow] = []
     current_size = 0
 
     available_space = calculate_available_space(chunk_size, header_size + context_size, 0, 1)
+    # Maximum allowed chunk size (1.5x of chunk_size)
+    max_chunk_data_size = int(chunk_size * 1.5) - header_size - context_size - CHUNK_INDEX_OVERHEAD
 
     for group in row_groups:
         group_rows = [data_rows[idx] for idx in group]
         group_size = sum(row.char_length + 1 for row in group_rows)
 
         if current_rows and current_size + group_size > available_space:
-            # 현재 청크 완료
-            chunks.append(build_table_chunk(
-                header_html, current_rows, len(chunks), len(chunks) + 2,
-                context_prefix=context_prefix
-            ))
-            current_rows = []
-            current_size = 0
+            # Check if we can still fit within 1.5x limit
+            if current_size + group_size <= max_chunk_data_size:
+                # Still within 1.5x limit - add group to current chunk
+                current_rows.extend(group_rows)
+                current_size += group_size
+            else:
+                # Exceeds 1.5x limit - flush current chunk and start new one
+                chunks.append(build_table_chunk(
+                    header_html, current_rows, len(chunks), len(chunks) + 2,
+                    context_prefix=context_prefix
+                ))
+                current_rows = group_rows[:]
+                current_size = group_size
+        else:
+            current_rows.extend(group_rows)
+            current_size += group_size
 
-        current_rows.extend(group_rows)
-        current_size += group_size
-
-    # 마지막 청크
+    # Last chunk
     if current_rows:
         chunks.append(build_table_chunk(
             header_html, current_rows, len(chunks), len(chunks) + 1,
             context_prefix=context_prefix
         ))
 
-    # 청크 수 업데이트
+    # Update chunk count
     if len(chunks) > 1:
         chunks = update_chunk_metadata(chunks, len(chunks))
 
@@ -425,24 +451,24 @@ def chunk_large_table(
     context_prefix: str = ""
 ) -> List[str]:
     """
-    대용량 테이블을 chunk_size에 맞게 분할합니다.
-    테이블 구조(헤더)를 각 청크에서 복원합니다.
+    Split large HTML table to fit chunk_size.
+    Restores table structure (headers) in each chunk.
 
-    rowspan이 있는 복잡한 테이블도 처리합니다.
+    Also handles complex tables with rowspan.
 
-    주의: 테이블 청킹에서는 overlap이 적용되지 않습니다.
-    테이블 데이터의 중복은 검색 품질을 저하시키므로 의도적으로 제외합니다.
+    NOTE: Table chunking does NOT apply overlap.
+    Data duplication degrades search quality, so overlap is intentionally excluded.
 
     Args:
-        table_html: HTML 테이블 문자열
-        chunk_size: 청크 최대 크기
-        chunk_overlap: 사용되지 않음 (호환성을 위해 유지)
-        context_prefix: 컨텍스트 정보 (메타데이터, 시트 정보 등) - 모든 청크에 포함
+        table_html: HTML table string
+        chunk_size: Maximum chunk size
+        chunk_overlap: Not used (kept for compatibility)
+        context_prefix: Context info (metadata, sheet info, etc.) - included in all chunks
 
     Returns:
-        분할된 테이블 청크 리스트
+        List of split table HTML chunks
     """
-    # 테이블 파싱
+    # Parse table
     parsed = parse_html_table(table_html)
 
     if not parsed:
@@ -451,24 +477,356 @@ def chunk_large_table(
             return [f"{context_prefix}\n{table_html}"]
         return [table_html]
 
-    # 테이블 크기가 chunk_size 이하면 분할 불필요
+    # No need to split if table fits in chunk_size
     if len(table_html) + len(context_prefix) <= chunk_size:
         if context_prefix:
             return [f"{context_prefix}\n{table_html}"]
         return [table_html]
 
-    # 데이터 행이 없으면 분할 불필요
+    # No need to split if no data rows
     if not parsed.data_rows:
         if context_prefix:
             return [f"{context_prefix}\n{table_html}"]
         return [table_html]
 
-    # rowspan이 있는지 확인
+    # Check for complex spans (rowspan)
     if has_complex_spans(table_html):
         logger.info("Complex table with rowspan detected, using span-aware splitting")
         return split_table_preserving_rowspan(parsed, chunk_size, chunk_overlap, context_prefix)
 
-    # 일반 테이블 분할
+    # Standard table splitting
     chunks = split_table_into_chunks(parsed, chunk_size, chunk_overlap, context_prefix)
 
     return chunks
+
+
+# ============================================================================
+# Markdown Table Chunking Functions
+# ============================================================================
+
+def parse_markdown_table(table_text: str) -> Optional[ParsedMarkdownTable]:
+    """
+    Parse a Markdown table and extract structural information.
+
+    A Markdown table has:
+    - Header row: | col1 | col2 | col3 |
+    - Separator row: |---|---|---| or |:---:|:---|---:|
+    - Data rows: | data1 | data2 | data3 |
+
+    Args:
+        table_text: Markdown table text
+
+    Returns:
+        ParsedMarkdownTable object or None if parsing fails
+    """
+    try:
+        # Split into lines and filter empty lines
+        lines = [line.strip() for line in table_text.strip().split('\n') if line.strip()]
+
+        if len(lines) < 2:
+            logger.debug("Not enough lines for a valid Markdown table")
+            return None
+
+        # Find header and separator rows
+        header_row = None
+        separator_row = None
+        separator_idx = -1
+
+        for idx, line in enumerate(lines):
+            # Check if this line is a separator (contains only |, -, :, and spaces)
+            if re.match(MARKDOWN_TABLE_SEPARATOR_PATTERN, line):
+                separator_row = line
+                separator_idx = idx
+                # Header is the line before separator
+                if idx > 0:
+                    header_row = lines[idx - 1]
+                break
+
+        if not separator_row or not header_row:
+            # Try simpler detection: first row is header, second row is separator
+            if len(lines) >= 2 and lines[0].startswith('|') and '---' in lines[1]:
+                header_row = lines[0]
+                separator_row = lines[1]
+                separator_idx = 1
+            else:
+                logger.debug("Could not identify header/separator in Markdown table")
+                return None
+
+        # Count columns from separator
+        total_cols = separator_row.count('|') - 1  # -1 because |---|---| has n+1 pipes for n columns
+
+        # Data rows are all rows after separator
+        data_rows = lines[separator_idx + 1:]
+
+        # Construct header text (header + separator) for restoration in each chunk
+        header_text = f"{header_row}\n{separator_row}"
+        header_size = len(header_text) + 1  # +1 for newline
+
+        return ParsedMarkdownTable(
+            header_row=header_row,
+            separator_row=separator_row,
+            data_rows=data_rows,
+            total_cols=total_cols,
+            original_text=table_text,
+            header_text=header_text,
+            header_size=header_size
+        )
+
+    except Exception as e:
+        logger.warning(f"Failed to parse Markdown table: {e}")
+        return None
+
+
+def build_markdown_table_chunk(
+    header_text: str,
+    data_rows: List[str],
+    chunk_index: int = 0,
+    total_chunks: int = 1,
+    context_prefix: str = ""
+) -> str:
+    """
+    Build a complete Markdown table chunk with header restored.
+
+    Args:
+        header_text: Header row + separator row
+        data_rows: List of data row strings
+        chunk_index: Current chunk index (0-based)
+        total_chunks: Total number of chunks
+        context_prefix: Context info (metadata, sheet info, etc.) - included in all chunks
+
+    Returns:
+        Complete Markdown table chunk
+    """
+    parts = []
+
+    # Add context prefix if provided
+    if context_prefix:
+        parts.append(context_prefix)
+
+    # Add chunk index metadata (only if more than 1 chunk)
+    if total_chunks > 1:
+        parts.append(f"[Table Chunk {chunk_index + 1}/{total_chunks}]")
+
+    # Add header (header row + separator row)
+    parts.append(header_text)
+
+    # Add data rows
+    for row in data_rows:
+        parts.append(row)
+
+    return "\n".join(parts)
+
+
+def update_markdown_chunk_metadata(chunks: List[str], total_chunks: int) -> List[str]:
+    """
+    Update chunk metadata (total chunk count) in Markdown table chunks.
+
+    Args:
+        chunks: List of chunks
+        total_chunks: Actual total number of chunks
+
+    Returns:
+        Updated chunks with correct metadata
+    """
+    updated_chunks = []
+
+    for idx, chunk in enumerate(chunks):
+        # Pattern for existing metadata
+        old_pattern = r'\[Table Chunk \d+/\d+\]'
+        new_metadata = f"[Table Chunk {idx + 1}/{total_chunks}]"
+
+        if re.search(old_pattern, chunk):
+            updated_chunk = re.sub(old_pattern, new_metadata, chunk)
+        else:
+            # No metadata found - add it
+            updated_chunk = f"{new_metadata}\n{chunk}"
+
+        updated_chunks.append(updated_chunk)
+
+    return updated_chunks
+
+
+def split_markdown_table_into_chunks(
+    parsed_table: ParsedMarkdownTable,
+    chunk_size: int,
+    chunk_overlap: int = 0,
+    context_prefix: str = ""
+) -> List[str]:
+    """
+    Split a parsed Markdown table into chunks that fit chunk_size.
+    Each chunk is a complete Markdown table with headers restored.
+
+    NOTE: Table chunking does NOT apply overlap.
+    Data duplication degrades search quality, so overlap is intentionally excluded.
+
+    Args:
+        parsed_table: Parsed Markdown table information
+        chunk_size: Maximum chunk size
+        chunk_overlap: Not used (kept for compatibility)
+        context_prefix: Context info (metadata, sheet info, etc.) - included in all chunks
+
+    Returns:
+        List of Markdown table chunk strings
+    """
+    data_rows = parsed_table.data_rows
+    header_text = parsed_table.header_text
+    header_size = parsed_table.header_size
+
+    # Calculate context size
+    context_size = len(context_prefix) + 2 if context_prefix else 0  # +2 for newline
+
+    if not data_rows:
+        # No data rows - return original
+        if context_prefix:
+            return [f"{context_prefix}\n{parsed_table.original_text}"]
+        return [parsed_table.original_text]
+
+    # Calculate available space per chunk
+    # Overhead: chunk index metadata (~25 chars) + header + context
+    estimated_chunks = 1
+    total_data_size = sum(len(row) + 1 for row in data_rows)  # +1 for newline
+    available_per_chunk = chunk_size - header_size - context_size - CHUNK_INDEX_OVERHEAD
+
+    if available_per_chunk > 0:
+        estimated_chunks = max(1, (total_data_size + available_per_chunk - 1) // available_per_chunk)
+
+    # Recalculate with estimated chunks
+    if estimated_chunks > 1:
+        available_per_chunk = chunk_size - header_size - context_size - CHUNK_INDEX_OVERHEAD
+    else:
+        available_per_chunk = chunk_size - header_size - context_size
+
+    # Maximum allowed chunk size (1.5x of chunk_size)
+    max_chunk_data_size = int(chunk_size * 1.5) - header_size - context_size - CHUNK_INDEX_OVERHEAD
+
+    chunks: List[str] = []
+    current_rows: List[str] = []
+    current_size = 0
+
+    for row in data_rows:
+        row_size = len(row) + 1  # +1 for newline
+
+        # Check if adding this row exceeds available space
+        if current_rows and (current_size + row_size > available_per_chunk):
+            # Check if we can still fit within 1.5x limit
+            if current_size + row_size <= max_chunk_data_size:
+                # Still within 1.5x limit - add row to current chunk
+                current_rows.append(row)
+                current_size += row_size
+            else:
+                # Exceeds 1.5x limit - flush current chunk and start new one
+                chunk_text = build_markdown_table_chunk(
+                    header_text,
+                    current_rows,
+                    chunk_index=len(chunks),
+                    total_chunks=estimated_chunks,
+                    context_prefix=context_prefix
+                )
+                chunks.append(chunk_text)
+
+                # Start new chunk with this row (minimum 1 row guaranteed)
+                current_rows = [row]
+                current_size = row_size
+        else:
+            # Row fits - add to current chunk
+            current_rows.append(row)
+            current_size += row_size
+
+    # Handle last chunk
+    if current_rows:
+        chunk_text = build_markdown_table_chunk(
+            header_text,
+            current_rows,
+            chunk_index=len(chunks),
+            total_chunks=max(len(chunks) + 1, estimated_chunks),
+            context_prefix=context_prefix
+        )
+        chunks.append(chunk_text)
+
+    # Update total chunk count in metadata if different from estimate
+    if len(chunks) != estimated_chunks and len(chunks) > 1:
+        chunks = update_markdown_chunk_metadata(chunks, len(chunks))
+
+    logger.info(f"Markdown table split into {len(chunks)} chunks (original: {len(parsed_table.original_text)} chars)")
+
+    return chunks
+
+
+def chunk_large_markdown_table(
+    table_text: str,
+    chunk_size: int,
+    chunk_overlap: int,
+    context_prefix: str = ""
+) -> List[str]:
+    """
+    Split a large Markdown table to fit chunk_size.
+    Restores table structure (header + separator) in each chunk.
+
+    NOTE: Table chunking does NOT apply overlap.
+    Data duplication degrades search quality, so overlap is intentionally excluded.
+
+    Args:
+        table_text: Markdown table text
+        chunk_size: Maximum chunk size
+        chunk_overlap: Not used (kept for compatibility)
+        context_prefix: Context info (metadata, sheet info, etc.) - included in all chunks
+
+    Returns:
+        List of split Markdown table chunks
+    """
+    # Parse table
+    parsed = parse_markdown_table(table_text)
+
+    if not parsed:
+        logger.warning("Failed to parse Markdown table, returning original")
+        if context_prefix:
+            return [f"{context_prefix}\n{table_text}"]
+        return [table_text]
+
+    # No need to split if table fits in chunk_size
+    if len(table_text) + len(context_prefix) <= chunk_size:
+        if context_prefix:
+            return [f"{context_prefix}\n{table_text}"]
+        return [table_text]
+
+    # No need to split if no data rows
+    if not parsed.data_rows:
+        if context_prefix:
+            return [f"{context_prefix}\n{table_text}"]
+        return [table_text]
+
+    # Split table into chunks
+    chunks = split_markdown_table_into_chunks(parsed, chunk_size, chunk_overlap, context_prefix)
+
+    return chunks
+
+
+def is_markdown_table(text: str) -> bool:
+    """
+    Check if text is a Markdown table.
+
+    A Markdown table has:
+    - Lines starting with |
+    - A separator line with |---|
+
+    Args:
+        text: Text to check
+
+    Returns:
+        True if text is a Markdown table
+    """
+    lines = text.strip().split('\n')
+    if len(lines) < 2:
+        return False
+
+    # Check for | at start of lines and separator pattern
+    has_pipe_rows = any(line.strip().startswith('|') for line in lines)
+    has_separator = any('---' in line and '|' in line for line in lines)
+
+    return has_pipe_rows and has_separator
+
+
+# Note: detect_table_type and chunk_large_table_unified were removed because they
+# were not referenced anywhere in the codebase and duplicated logic handled elsewhere
+# (e.g., via _chunk_table_unified in chunking.py). Keeping a single authoritative
+# implementation reduces the risk of divergent behavior.

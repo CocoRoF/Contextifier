@@ -1,34 +1,46 @@
 # chunking_helper/sheet_processor.py
 """
-Sheet Processor - 시트 및 메타데이터 처리
+Sheet Processor - Sheet and metadata processing
 
-주요 기능:
-- 문서 메타데이터 추출
-- 시트 섹션 추출
-- 다중 시트 콘텐츠 청킹
-- 단일 테이블 콘텐츠 청킹
+Main Features:
+- Document metadata extraction
+- Sheet section extraction
+- Multi-sheet content chunking
+- Single table content chunking
+- NO overlap for table chunks (intentional for search quality)
 """
 import logging
 import re
 from typing import List, Optional, Tuple
 
-from contextifier.chunking.constants import HTML_TABLE_PATTERN
+from contextifier.chunking.constants import (
+    HTML_TABLE_PATTERN,
+    MARKDOWN_TABLE_PATTERN,
+    IMAGE_TAG_PATTERN,
+    CHART_BLOCK_PATTERN,
+    TEXTBOX_BLOCK_PATTERN
+)
 
 logger = logging.getLogger("document-processor")
 
 
-def extract_document_metadata(text: str) -> Tuple[Optional[str], str]:
+def extract_document_metadata(
+    text: str,
+    metadata_pattern: Optional[str] = None
+) -> Tuple[Optional[str], str]:
     """
-    텍스트에서 Document-Metadata 블록을 추출합니다.
+    Extract Document-Metadata block from text.
 
     Args:
-        text: 원본 텍스트
+        text: Original text
+        metadata_pattern: Custom metadata pattern (if None, uses default)
 
     Returns:
-        (metadata_block, remaining_text) 튜플
+        (metadata_block, remaining_text) tuple
     """
-    metadata_pattern = r'<Document-Metadata>.*?</Document-Metadata>\s*'
-    match = re.search(metadata_pattern, text, re.DOTALL)
+    # Use custom pattern or default
+    pattern = metadata_pattern if metadata_pattern is not None else r'<Document-Metadata>.*?</Document-Metadata>\s*'
+    match = re.search(pattern, text, re.DOTALL)
 
     if match:
         metadata_block = match.group(0).strip()
@@ -40,14 +52,14 @@ def extract_document_metadata(text: str) -> Tuple[Optional[str], str]:
 
 def prepend_metadata_to_chunks(chunks: List[str], metadata: Optional[str]) -> List[str]:
     """
-    각 청크에 메타데이터를 추가합니다.
+    Prepend metadata to each chunk.
 
     Args:
-        chunks: 청크 리스트
-        metadata: 메타데이터 블록
+        chunks: List of chunks
+        metadata: Metadata block
 
     Returns:
-        메타데이터가 추가된 청크 리스트
+        Chunks with metadata prepended
     """
     if not metadata:
         return chunks
@@ -56,13 +68,13 @@ def prepend_metadata_to_chunks(chunks: List[str], metadata: Optional[str]) -> Li
 
 def extract_sheet_sections(text: str) -> List[Tuple[str, str]]:
     """
-    Excel 시트 섹션을 추출합니다.
+    Extract Excel sheet sections.
 
     Args:
-        text: 전체 텍스트
+        text: Full text
 
     Returns:
-        [(sheet_name, sheet_content), ...] 리스트
+        [(sheet_name, sheet_content), ...] list
     """
     # Sheet marker pattern - only standard format from PageTagProcessor
     sheet_pattern = r'\[Sheet:\s*([^\]]+)\]'
@@ -82,7 +94,7 @@ def extract_sheet_sections(text: str) -> List[Tuple[str, str]]:
 
         content = text[start:end].strip()
         if content:
-            # 시트 마커를 콘텐츠에 포함
+            # Include sheet marker in content
             sheet_marker = marker_template.format(name=sheet_name)
             full_content = f"{sheet_marker}\n{content}"
             sheets.append((sheet_name, full_content))
@@ -90,54 +102,64 @@ def extract_sheet_sections(text: str) -> List[Tuple[str, str]]:
     return sheets
 
 
-def extract_content_segments(content: str) -> List[Tuple[str, str]]:
+def extract_content_segments(
+    content: str,
+    image_pattern: Optional[str] = None,
+    chart_pattern: Optional[str] = None
+) -> List[Tuple[str, str]]:
     """
-    콘텐츠에서 다양한 타입의 세그먼트를 추출합니다.
+    Extract various types of segments from content.
 
-    세그먼트 타입:
-    - table: HTML 테이블 또는 Markdown 테이블 (테이블 마커 포함)
-    - textbox: [textbox]...[/textbox] 블록
-    - chart: [chart]...[/chart] 블록
-    - image: [image:...] 태그
-    - text: 일반 텍스트
+    Segment Types:
+    - table: HTML table or Markdown table (including table markers)
+    - textbox: [textbox]...[/textbox] block
+    - chart: [chart]...[/chart] block
+    - image: [image:...] tag
+    - text: Plain text
 
     Args:
-        content: 파싱할 콘텐츠
+        content: Content to parse
+        image_pattern: Custom image tag pattern (if None, uses default IMAGE_TAG_PATTERN)
+        chart_pattern: Custom chart block pattern (if None, uses default CHART_BLOCK_PATTERN)
 
     Returns:
-        [(segment_type, segment_content), ...] 리스트
+        [(segment_type, segment_content), ...] list
     """
     segments: List[Tuple[str, str]] = []
 
-    # 각 특수 블록 패턴 정의
-    # [테이블 N] 마커와 함께 테이블을 하나의 블록으로 인식
+    # Use custom patterns or defaults
+    img_pat = image_pattern if image_pattern is not None else IMAGE_TAG_PATTERN
+    chart_pat = chart_pattern if chart_pattern is not None else CHART_BLOCK_PATTERN
+
+    # Define special block patterns
+    # Recognize [Table N] marker together with table as a single block
     patterns = [
-        # [테이블 N] + HTML 테이블
-        ('table', r'(?:\[테이블\s*\d+\]\s*)?<table\s+border=["\']1["\']>.*?</table>'),
-        # [테이블 N] + Markdown 테이블 (| 로 시작하는 여러 줄, 마지막 행 줄바꿈 없어도 매칭)
-        ('table', r'\[테이블\s*\d+\]\s*\n(?:\|[^\n]*\|(?:\s*\n|$))+'),
-        # 단독 Markdown 테이블 (| 로 시작하고 --- 구분선이 있는 형태, 마지막 행 줄바꿈 없어도 매칭)
+        # [Table N] + HTML table
+        ('table', r'(?:\[Table\s*\d+\]\s*)?<table\s+border=["\']1["\']>.*?</table>'),
+        # [Table N] + Markdown table (multiple lines starting with |, last row matches even without newline)
+        ('table', r'\[Table\s*\d+\]\s*\n(?:\|[^\n]*\|(?:\s*\n|$))+'),
+        # Standalone Markdown table (starts with | and has --- separator, last row matches even without newline)
         ('table', r'(?:^|\n)(\|[^\n]*\|\s*\n\|[\s\-:]*\|[^\n]*(?:\n\|[^\n]*\|)*)'),
-        ('textbox', r'\[textbox\].*?\[/textbox\]'),
-        ('chart', r'\[chart\].*?\[/chart\]'),
-        ('image', r'\[(?i:image)\s*:\s*[^\]]+\]'),
+        ('textbox', TEXTBOX_BLOCK_PATTERN),
+        ('chart', chart_pat),
+        ('image', img_pat),
     ]
 
-    # 모든 특수 블록 위치 찾기
+    # Find all special block positions
     all_matches: List[Tuple[int, int, str, str]] = []  # (start, end, type, content)
 
     for segment_type, pattern in patterns:
         for match in re.finditer(pattern, content, re.DOTALL | re.IGNORECASE | re.MULTILINE):
             matched_content = match.group(0).strip()
-            # 빈 매치 무시
+            # Ignore empty matches
             if not matched_content:
                 continue
             all_matches.append((match.start(), match.end(), segment_type, matched_content))
 
-    # 시작 위치로 정렬
+    # Sort by start position
     all_matches.sort(key=lambda x: x[0])
 
-    # 겹치는 매치 제거 (더 긴 매치 우선)
+    # Remove overlapping matches (longer match wins)
     filtered_matches: List[Tuple[int, int, str, str]] = []
     last_end = 0
     for start, end, segment_type, segment_content in all_matches:
@@ -145,25 +167,25 @@ def extract_content_segments(content: str) -> List[Tuple[str, str]]:
             filtered_matches.append((start, end, segment_type, segment_content))
             last_end = end
 
-    # 세그먼트 구성 (특수 블록 + 그 사이의 일반 텍스트)
+    # Build segments (special blocks + plain text between them)
     current_pos = 0
     for start, end, segment_type, segment_content in filtered_matches:
-        # 특수 블록 전의 일반 텍스트
+        # Plain text before special block
         if start > current_pos:
             text_between = content[current_pos:start].strip()
-            # [테이블 N] 마커만 있는 텍스트는 다음 테이블과 합치기 위해 건너뜀
-            if text_between and not re.match(r'^\[테이블\s*\d+\]\s*$', text_between):
+            # Skip text that only contains [Table N] marker (will be combined with next table)
+            if text_between and not re.match(r'^\[Table\s*\d+\]\s*$', text_between):
                 segments.append(('text', text_between))
 
-        # 특수 블록
+        # Special block
         segments.append((segment_type, segment_content))
         current_pos = end
 
-    # 마지막 특수 블록 후의 일반 텍스트
+    # Plain text after last special block
     if current_pos < len(content):
         remaining_text = content[current_pos:].strip()
-        # [테이블 N] 마커만 있는 텍스트는 무시
-        if remaining_text and not re.match(r'^\[테이블\s*\d+\]\s*$', remaining_text):
+        # Ignore text that only contains [Table N] marker
+        if remaining_text and not re.match(r'^\[Table\s*\d+\]\s*$', remaining_text):
             segments.append(('text', remaining_text))
 
     return segments
@@ -176,30 +198,36 @@ def chunk_multi_sheet_content(
     chunk_size: int,
     chunk_overlap: int,
     chunk_plain_text_func,
-    chunk_large_table_func
+    chunk_large_table_func,
+    image_pattern: Optional[str] = None,
+    chart_pattern: Optional[str] = None,
+    metadata_pattern: Optional[str] = None
 ) -> List[str]:
     """
-    다중 시트 콘텐츠를 청킹합니다.
+    Chunk multi-sheet content.
 
-    각 시트를 독립적으로 처리하고, 필요시 분할합니다.
-    모든 청크에 메타데이터와 시트 정보를 포함합니다.
-    테이블뿐 아니라 테이블 전후의 추가 콘텐츠(textbox, chart, image 등)도 처리합니다.
+    Each sheet is processed independently and split if necessary.
+    All chunks include metadata and sheet information.
+    Handles not only tables but also additional content before/after tables (textbox, chart, image, etc.).
 
     Args:
-        sheets: [(sheet_name, sheet_content), ...] 리스트
-        metadata_block: 메타데이터 블록
-        analysis_block: 분석 블록
-        chunk_size: 청크 크기
-        chunk_overlap: 청크 겹침
-        chunk_plain_text_func: 일반 텍스트 청킹 함수
-        chunk_large_table_func: 대용량 테이블 청킹 함수
+        sheets: [(sheet_name, sheet_content), ...] list
+        metadata_block: Metadata block
+        analysis_block: Analysis block
+        chunk_size: Chunk size
+        chunk_overlap: Chunk overlap
+        chunk_plain_text_func: Plain text chunking function
+        chunk_large_table_func: Large table chunking function
+        image_pattern: Custom image tag pattern (if None, uses default)
+        chart_pattern: Custom chart block pattern (if None, uses default)
+        metadata_pattern: Custom metadata block pattern (if None, uses default)
 
     Returns:
-        청크 리스트
+        List of chunks
     """
     all_chunks: List[str] = []
 
-    # 공통 메타데이터 구성 (모든 청크에 포함)
+    # Build common metadata (included in all chunks)
     common_metadata_parts = []
     if metadata_block:
         common_metadata_parts.append(metadata_block)
@@ -212,27 +240,31 @@ def chunk_multi_sheet_content(
         sheet_marker_match = re.match(r'(\[Sheet:\s*[^\]]+\])', sheet_content)
         sheet_marker = sheet_marker_match.group(1) if sheet_marker_match else f"[Sheet: {sheet_name}]"
 
-        # 이 시트에 대한 컨텍스트 구성 (메타데이터 + 시트 정보)
+        # Build context for this sheet (metadata + sheet info)
         context_parts = []
         if common_metadata:
             context_parts.append(common_metadata)
         context_parts.append(sheet_marker)
         context_prefix = "\n\n".join(context_parts) if context_parts else ""
 
-        # 시트 콘텐츠에서 시트 마커 제거
+        # Remove sheet marker from content
         content_after_marker = sheet_content
         if sheet_marker_match:
             content_after_marker = sheet_content[sheet_marker_match.end():].strip()
 
-        # === 시트 콘텐츠를 세그먼트로 분리 ===
-        # 세그먼트: 테이블, textbox, chart, image 등의 블록과 일반 텍스트
-        segments = extract_content_segments(content_after_marker)
+        # === Split sheet content into segments ===
+        # Segments: tables, textbox, chart, image blocks and plain text
+        segments = extract_content_segments(
+            content_after_marker,
+            image_pattern=image_pattern,
+            chart_pattern=chart_pattern
+        )
 
         if not segments:
-            # 빈 시트는 건너뛰기
+            # Skip empty sheets
             continue
 
-        # 각 세그먼트 처리
+        # Process each segment
         for segment_type, segment_content in segments:
             if not segment_content.strip():
                 continue
@@ -240,30 +272,30 @@ def chunk_multi_sheet_content(
             segment_size = len(segment_content)
 
             if segment_type == 'table':
-                # 테이블 처리
+                # Table processing - NO overlap for tables
                 if segment_size + len(context_prefix) <= chunk_size:
                     all_chunks.append(f"{context_prefix}\n{segment_content}")
                 else:
-                    # 대용량 테이블: 분할
+                    # Large table: split with NO overlap (0 is passed, not chunk_overlap)
                     table_chunks = chunk_large_table_func(
-                        segment_content, chunk_size, chunk_overlap,
+                        segment_content, chunk_size, 0,  # NO overlap for tables
                         context_prefix=context_prefix
                     )
                     all_chunks.extend(table_chunks)
 
             elif segment_type in ('textbox', 'chart', 'image'):
-                # 보호 블록: 분할하지 않고 하나의 청크로
+                # Protected blocks: never split, keep as single chunk
                 if len(context_prefix) + segment_size > chunk_size:
-                    # 청크 크기 초과해도 분할하지 않음 (보호 블록)
+                    # Exceeds chunk size but keep intact (protected block)
                     logger.warning(f"{segment_type} block exceeds chunk_size, but keeping it intact")
                 all_chunks.append(f"{context_prefix}\n{segment_content}")
 
             else:
-                # 일반 텍스트
+                # Plain text
                 if len(context_prefix) + segment_size <= chunk_size:
                     all_chunks.append(f"{context_prefix}\n{segment_content}")
                 else:
-                    # 긴 일반 텍스트는 분할
+                    # Split long plain text
                     text_chunks = chunk_plain_text_func(segment_content, chunk_size, chunk_overlap)
                     for chunk in text_chunks:
                         all_chunks.append(f"{context_prefix}\n{chunk}")
@@ -280,25 +312,33 @@ def chunk_single_table_content(
     chunk_size: int,
     chunk_overlap: int,
     chunk_plain_text_func,
-    chunk_large_table_func
+    chunk_large_table_func,
+    image_pattern: Optional[str] = None,
+    chart_pattern: Optional[str] = None,
+    metadata_pattern: Optional[str] = None
 ) -> List[str]:
     """
-    단일 테이블 콘텐츠를 청킹합니다.
-    모든 청크에 메타데이터를 포함합니다.
+    Chunk single table content.
+    Include metadata in all chunks.
+
+    NOTE: Table chunks have NO overlap to prevent data duplication.
 
     Args:
-        text: 테이블 포함 텍스트
-        metadata_block: 메타데이터 블록
-        analysis_block: 분석 블록
-        chunk_size: 청크 크기
-        chunk_overlap: 청크 겹침
-        chunk_plain_text_func: 일반 텍스트 청킹 함수
-        chunk_large_table_func: 대용량 테이블 청킹 함수
+        text: Text containing table
+        metadata_block: Metadata block
+        analysis_block: Analysis block
+        chunk_size: Chunk size
+        chunk_overlap: Chunk overlap (NOT applied to tables)
+        chunk_plain_text_func: Plain text chunking function
+        chunk_large_table_func: Large table chunking function
+        image_pattern: Custom image tag pattern (if None, uses default)
+        chart_pattern: Custom chart block pattern (if None, uses default)
+        metadata_pattern: Custom metadata block pattern (if None, uses default)
 
     Returns:
-        청크 리스트
+        List of chunks
     """
-    # 컨텍스트 구성 (모든 청크에 포함)
+    # Build context (included in all chunks)
     context_parts = []
     if metadata_block:
         context_parts.append(metadata_block)
@@ -306,36 +346,57 @@ def chunk_single_table_content(
         context_parts.append(analysis_block)
     context_prefix = "\n\n".join(context_parts) if context_parts else ""
 
-    # 테이블 추출
-    table_matches = list(re.finditer(HTML_TABLE_PATTERN, text, re.DOTALL | re.IGNORECASE))
+    # Extract tables (HTML or Markdown)
+    html_table_matches = list(re.finditer(HTML_TABLE_PATTERN, text, re.DOTALL | re.IGNORECASE))
+    markdown_table_matches = list(re.finditer(MARKDOWN_TABLE_PATTERN, text, re.MULTILINE))
+    
+    # Combine all table matches with type info
+    all_table_matches: List[Tuple[int, int, str, str]] = []  # (start, end, type, content)
+    
+    for match in html_table_matches:
+        all_table_matches.append((match.start(), match.end(), 'html', match.group(0)))
+    
+    for match in markdown_table_matches:
+        table_start = match.start()
+        if match.group(0).startswith('\n'):
+            table_start += 1
+        all_table_matches.append((table_start, match.end(), 'markdown', match.group(0).strip()))
+    
+    # Sort by start position and remove overlaps
+    all_table_matches.sort(key=lambda x: x[0])
+    filtered_matches: List[Tuple[int, int, str, str]] = []
+    last_end = 0
+    for start, end, ttype, content in all_table_matches:
+        if start >= last_end:
+            filtered_matches.append((start, end, ttype, content))
+            last_end = end
 
-    if not table_matches:
-        # 테이블이 없으면 일반 청킹
+    if not filtered_matches:
+        # No tables found - use plain text chunking
         full_text = text
         if context_prefix:
             full_text = f"{context_prefix}\n\n{full_text}"
         return chunk_plain_text_func(full_text, chunk_size, chunk_overlap)
 
-    # 결과 청크들
+    # Result chunks
     all_chunks: List[str] = []
 
-    # 각 테이블 처리
-    for match in table_matches:
-        table_html = match.group(0)
-        table_size = len(table_html)
+    # Process each table
+    for start, end, table_type, table_content in filtered_matches:
+        table_size = len(table_content)
 
-        logger.debug(f"Processing table: {table_size} chars")
+        logger.debug(f"Processing {table_type} table: {table_size} chars")
 
         if table_size + len(context_prefix) <= chunk_size:
-            # 작은 테이블: 컨텍스트와 함께
+            # Small table: include with context
             if context_prefix:
-                all_chunks.append(f"{context_prefix}\n\n{table_html}")
+                all_chunks.append(f"{context_prefix}\n\n{table_content}")
             else:
-                all_chunks.append(table_html)
+                all_chunks.append(table_content)
         else:
-            # 대용량 테이블: 분할 (컨텍스트를 모든 청크에 포함)
+            # Large table: split with NO overlap (context included in all chunks)
             table_chunks = chunk_large_table_func(
-                table_html, chunk_size, chunk_overlap,
+                table_content, chunk_size, 0,  # NO overlap for tables
                 context_prefix=context_prefix
             )
             all_chunks.extend(table_chunks)

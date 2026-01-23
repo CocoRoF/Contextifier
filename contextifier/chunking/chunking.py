@@ -3,17 +3,25 @@
 Document Chunking Module - Advanced Text Chunking System
 
 Main Features:
-- HTML table-preserving chunking
-- Intelligent splitting for large table data (CSV/Excel)
-- Table structure restoration (header preservation)
+- HTML table-preserving chunking with row-level splitting
+- Markdown table-preserving chunking with row-level splitting
+- Intelligent splitting for large table data (CSV/TSV/Excel)
+- Table structure restoration (header preservation for both HTML and Markdown)
 - Page-based chunking
 - Language-specific code file chunking
 
 Key Improvements (Table Chunking Enhancement):
-- Split large tables by rows to fit chunk_size
+- Split large tables (HTML and Markdown) by rows to fit chunk_size
 - Automatically restore table headers in each chunk
 - Ensure table structure integrity
 - Add chunk indexing metadata
+- NO OVERLAP for table chunks (intentional to prevent data duplication)
+
+Critical Rules for Table-Based Files (CSV, TSV, XLSX, XLS):
+- Always use force_chunking=True
+- Always split by rows (never cut in the middle of a row)
+- Never apply overlap between table chunks
+- Restore headers in each chunk for context
 
 Refactoring:
 - Core logic is separated into chunking_helper submodules
@@ -29,9 +37,12 @@ from contextifier.chunking.constants import (
     TABLE_SIZE_THRESHOLD_MULTIPLIER,
     TABLE_BASED_FILE_TYPES,
     HTML_TABLE_PATTERN,
+    MARKDOWN_TABLE_PATTERN,
 )
 from contextifier.chunking.table_chunker import (
     chunk_large_table as _chunk_large_table,
+    chunk_large_markdown_table as _chunk_large_markdown_table,
+    is_markdown_table as _is_markdown_table,
 )
 
 from contextifier.chunking.protected_regions import (
@@ -132,6 +143,52 @@ def _get_image_tag_pattern(image_processor: Optional[Any] = None) -> str:
         return IMAGE_TAG_PATTERN
 
 
+def _get_chart_block_pattern(chart_processor: Optional[Any] = None) -> str:
+    """
+    Get chart block regex pattern from ChartProcessor or use default.
+    
+    Args:
+        chart_processor: ChartProcessor instance (optional)
+        
+    Returns:
+        Regex pattern for chart blocks
+    """
+    if chart_processor is not None:
+        try:
+            # Build pattern from processor's config
+            prefix = re.escape(chart_processor.config.tag_prefix)
+            suffix = re.escape(chart_processor.config.tag_suffix)
+            return f'{prefix}.*?{suffix}'
+        except Exception:
+            pass
+    # Default pattern: [chart]...[/chart]
+    from contextifier.chunking.constants import CHART_BLOCK_PATTERN
+    return CHART_BLOCK_PATTERN
+
+
+def _get_metadata_block_pattern(metadata_formatter: Optional[Any] = None) -> str:
+    """
+    Get metadata block regex pattern from MetadataFormatter or use default.
+    
+    Args:
+        metadata_formatter: MetadataFormatter instance (optional)
+        
+    Returns:
+        Regex pattern for metadata blocks
+    """
+    if metadata_formatter is not None:
+        try:
+            # Build pattern from formatter's config
+            prefix = re.escape(metadata_formatter.metadata_tag_prefix)
+            suffix = re.escape(metadata_formatter.metadata_tag_suffix)
+            return f'{prefix}.*?{suffix}'
+        except Exception:
+            pass
+    # Default pattern: <Document-Metadata>...</Document-Metadata>
+    from contextifier.chunking.constants import METADATA_BLOCK_PATTERN
+    return METADATA_BLOCK_PATTERN
+
+
 # ============================================================================
 # Public API - Single entry point for external use
 # ============================================================================
@@ -146,6 +203,8 @@ def create_chunks(
     chunking_strategy: str = "recursive",
     page_tag_processor: Optional[Any] = None,
     image_processor: Optional[Any] = None,
+    chart_processor: Optional[Any] = None,
+    metadata_formatter: Optional[Any] = None,
     stride: Optional[int] = None,
     parent_chunk_size: Optional[int] = None,
     child_chunk_size: Optional[int] = None,
@@ -158,7 +217,7 @@ def create_chunks(
         text: Original text
         file_extension: File extension
         chunk_size: Maximum chunk size
-        chunk_overlap: Overlap size between chunks
+        chunk_overlap: Overlap size between chunks (NOT applied to protected regions)
         force_chunking: Force chunking (disable table protection)
         include_position_metadata: Whether to include position metadata
             - True: Include metadata like page_number, line_start, line_end (List[Dict])
@@ -167,9 +226,19 @@ def create_chunks(
         page_tag_processor: PageTagProcessor instance for custom tag patterns
             - If None, uses default patterns [Page Number: n], [Slide Number: n], [Sheet: name]
             - If provided, uses the processor's configured patterns
+            - Page/Slide/Sheet tags are protected and NEVER overlap
         image_processor: ImageProcessor instance for custom image tag patterns
             - If None, uses default pattern [Image:...]
-            - If provided, uses the processor's configured patterns for protected regions
+            - If provided, uses the processor's configured patterns
+            - Image tags are protected and NEVER overlap
+        chart_processor: ChartProcessor instance for custom chart tag patterns
+            - If None, uses default pattern [chart]...[/chart]
+            - If provided, uses the processor's configured patterns
+            - Chart blocks are protected and NEVER overlap
+        metadata_formatter: MetadataFormatter instance for custom metadata tag patterns
+            - If None, uses default pattern <Document-Metadata>...</Document-Metadata>
+            - If provided, uses the formatter's configured patterns
+            - Metadata blocks are protected and NEVER overlap
         stride: Stride for sliding window strategy - future implementation
         parent_chunk_size: Parent chunk size for hierarchical strategy - future implementation
         child_chunk_size: Child chunk size for hierarchical strategy - future implementation
@@ -179,6 +248,13 @@ def create_chunks(
             List of chunks with metadata [{"text", "page_number", "line_start", ...}, ...]
         When include_position_metadata=False:
             List of chunk texts ["chunk1", "chunk2", ...]
+            
+    Protected Regions (NEVER split or overlap):
+        - Image tags: [Image:...] or custom pattern
+        - Page/Slide/Sheet tags: [Page Number: n], [Slide Number: n], [Sheet: name] or custom
+        - Chart blocks: [chart]...[/chart] or custom
+        - Metadata blocks: <Document-Metadata>...</Document-Metadata> or custom
+        - Tables: Split by rows, each chunk has NO overlap
     """
     # TODO: Implement various chunking strategies based on chunking_strategy
     if chunking_strategy != "recursive":
@@ -193,7 +269,9 @@ def create_chunks(
         file_extension=file_extension,
         force_chunking=force_chunking,
         page_tag_processor=page_tag_processor,
-        image_processor=image_processor
+        image_processor=image_processor,
+        chart_processor=chart_processor,
+        metadata_formatter=metadata_formatter
     )
 
     # Return chunks without metadata
@@ -245,20 +323,31 @@ def create_chunks(
 def _split_table_based_content(
     text: str,
     chunk_size: int,
-    chunk_overlap: int
+    chunk_overlap: int,
+    page_tag_processor: Optional[Any] = None,
+    image_processor: Optional[Any] = None,
+    chart_processor: Optional[Any] = None,
+    metadata_formatter: Optional[Any] = None
 ) -> List[str]:
     """
-    Chunk table-based content (CSV/Excel).
+    Chunk table-based content (CSV/TSV/Excel).
 
-    Split large tables to fit chunk_size and restore table structure
-    in each chunk.
+    Split large tables (HTML or Markdown) to fit chunk_size and restore 
+    table structure in each chunk.
 
     For multi-sheet Excel files, process each sheet separately.
+
+    CRITICAL: Table chunks have NO overlap to prevent data duplication.
+    This is intentional for search/retrieval quality.
 
     Args:
         text: Full text (metadata + table)
         chunk_size: Maximum chunk size
-        chunk_overlap: Overlap size between chunks
+        chunk_overlap: Not used for tables (kept for API compatibility)
+        page_tag_processor: PageTagProcessor for page/sheet tag patterns
+        image_processor: ImageProcessor for image tag patterns
+        chart_processor: ChartProcessor for chart block patterns
+        metadata_formatter: MetadataFormatter for metadata block patterns
 
     Returns:
         List of chunks
@@ -266,8 +355,11 @@ def _split_table_based_content(
     if not text or not text.strip():
         return [""]
 
-    # Extract metadata
-    metadata_block, text_without_metadata = _extract_document_metadata(text)
+    # Get metadata pattern from processor
+    metadata_pattern = _get_metadata_block_pattern(metadata_formatter)
+
+    # Extract metadata using custom pattern
+    metadata_block, text_without_metadata = _extract_document_metadata(text, metadata_pattern)
 
     # Extract data analysis block
     analysis_pattern = r'(\[Data Analysis\].*?\[/Data Analysis\]|\[데이터 분석\].*?\[/데이터 분석\])\s*'
@@ -286,18 +378,52 @@ def _split_table_based_content(
     # Check for multi-sheet (Excel)
     sheets = _extract_sheet_sections(text_without_analysis)
 
+    # Get patterns from processors for protected region detection
+    image_pattern = _get_image_tag_pattern(image_processor)
+    chart_pattern = _get_chart_block_pattern(chart_processor)
+    metadata_pattern = _get_metadata_block_pattern(metadata_formatter)
+
     if sheets:
         logger.info(f"Multi-sheet Excel detected: {len(sheets)} sheets")
+        # Pass 0 for overlap since tables should not have overlap
         return chunk_multi_sheet_content(
-            sheets, metadata_block, analysis_block, chunk_size, chunk_overlap,
-            _chunk_plain_text, _chunk_large_table
+            sheets, metadata_block, analysis_block, chunk_size, 0,
+            _chunk_plain_text, _chunk_table_unified,
+            image_pattern=image_pattern,
+            chart_pattern=chart_pattern,
+            metadata_pattern=metadata_pattern
         )
 
     # Single table/sheet processing
+    # Pass 0 for overlap since tables should not have overlap
     return chunk_single_table_content(
-        text_without_analysis, metadata_block, analysis_block, chunk_size, chunk_overlap,
-        _chunk_plain_text, _chunk_large_table
+        text_without_analysis, metadata_block, analysis_block, chunk_size, 0,
+        _chunk_plain_text, _chunk_table_unified,
+        image_pattern=image_pattern,
+        chart_pattern=chart_pattern,
+        metadata_pattern=metadata_pattern
     )
+
+
+def _chunk_table_unified(table_text: str, chunk_size: int, chunk_overlap: int, context_prefix: str = "") -> List[str]:
+    """
+    Unified table chunking function that handles both HTML and Markdown tables.
+    
+    Detects table type and applies appropriate chunking with NO overlap.
+    
+    Args:
+        table_text: Table content (HTML or Markdown)
+        chunk_size: Maximum chunk size
+        chunk_overlap: Ignored (tables have no overlap)
+        context_prefix: Context to prepend to each chunk
+        
+    Returns:
+        List of table chunks
+    """
+    if _is_markdown_table(table_text):
+        return _chunk_large_markdown_table(table_text, chunk_size, 0, context_prefix)
+    else:
+        return _chunk_large_table(table_text, chunk_size, 0, context_prefix)
 
 
 def _split_text(
@@ -307,28 +433,38 @@ def _split_text(
     file_extension: Optional[str] = None,
     force_chunking: Optional[bool] = False,
     page_tag_processor: Optional[Any] = None,
-    image_processor: Optional[Any] = None
+    image_processor: Optional[Any] = None,
+    chart_processor: Optional[Any] = None,
+    metadata_formatter: Optional[Any] = None
 ) -> List[str]:
     """
     Split text into chunks. (Internal use)
 
-    Preserves HTML tables and considers page boundaries for chunking.
+    Preserves HTML and Markdown tables with proper row-level chunking.
+    Considers page boundaries for chunking.
+    Protects all tag regions (image, page, slide, chart, metadata) with NO overlap.
 
     Core Strategy:
-    1. Apply table-based chunking if file_extension is CSV/Excel
+    1. Apply table-based chunking if file_extension is CSV/TSV/Excel (NO overlap for tables)
     2. Apply page-based chunking first if page markers exist
     3. Merge pages based on chunk_size (allow up to 1.5x)
-    4. Never cut in the middle of a table
-    5. Apply overlap normally
+    4. Never cut in the middle of a table or protected tag
+    5. Apply overlap ONLY for plain text (NOT for protected regions)
+
+    Protected Regions (NEVER split or overlap):
+    - Image tags, Page/Slide/Sheet tags, Chart blocks, Metadata blocks
+    - Tables (split by rows with NO overlap)
 
     Args:
         text: Original text
         chunk_size: Maximum chunk size
-        chunk_overlap: Overlap size between chunks
+        chunk_overlap: Overlap size between chunks (NOT applied to protected regions)
         file_extension: File extension (csv, xlsx, pdf, etc.) - used for table-based processing
         force_chunking: Force chunking (disable table protection except for table-based files)
         page_tag_processor: PageTagProcessor instance for custom tag patterns
         image_processor: ImageProcessor instance for custom image tag patterns
+        chart_processor: ChartProcessor instance for custom chart tag patterns
+        metadata_formatter: MetadataFormatter instance for custom metadata tag patterns
 
     Returns:
         List of chunks
@@ -345,21 +481,22 @@ def _split_text(
     disable_table_protection = is_table_based or force_chunking
 
     if is_table_based:
-        # Check for large tables
-        table_matches = list(re.finditer(HTML_TABLE_PATTERN, text, re.DOTALL | re.IGNORECASE))
-
-        # Need to split if table is larger than chunk_size
-        has_large_table = any(
-            (m.end() - m.start()) > chunk_size * TABLE_SIZE_THRESHOLD_MULTIPLIER
-            for m in table_matches
+        # For table-based files (CSV/Excel), always use table-based chunking
+        # This handles both HTML tables and Markdown tables properly
+        logger.info(f"Table-based file detected ({file_extension}), using table-based chunking")
+        return _split_table_based_content(
+            text, chunk_size, chunk_overlap,
+            page_tag_processor=page_tag_processor,
+            image_processor=image_processor,
+            chart_processor=chart_processor,
+            metadata_formatter=metadata_formatter
         )
 
-        if has_large_table:
-            logger.info(f"Large table detected in {file_extension} file, using table-based chunking")
-            return _split_table_based_content(text, chunk_size, chunk_overlap)
+    # Get tag patterns from processors or use defaults (needed for metadata extraction)
+    metadata_pattern = _get_metadata_block_pattern(metadata_formatter)
 
-    # Extract metadata
-    metadata_block, text_without_metadata = _extract_document_metadata(text)
+    # Extract metadata using custom pattern
+    metadata_block, text_without_metadata = _extract_document_metadata(text, metadata_pattern)
     text = text_without_metadata
 
     # === Check for page markers ===
@@ -367,24 +504,32 @@ def _split_text(
     page_marker_patterns = _get_page_marker_patterns(page_tag_processor)
     has_page_markers = any(re.search(pattern, text) for pattern in page_marker_patterns)
 
-    # Get image tag pattern from ImageProcessor or use default
+    # Get remaining tag patterns from processors or use defaults
     image_pattern = _get_image_tag_pattern(image_processor)
+    chart_pattern = _get_chart_block_pattern(chart_processor)
 
     if has_page_markers:
         # Page-based chunking
         logger.debug("Page markers found, using page-based chunking")
-        chunks = _chunk_by_pages(text, chunk_size, chunk_overlap, is_table_based, force_chunking, page_tag_processor, image_pattern)
+        chunks = _chunk_by_pages(
+            text, chunk_size, chunk_overlap, is_table_based, force_chunking,
+            page_tag_processor, image_pattern, chart_pattern, metadata_pattern
+        )
     else:
-        # Find protected regions (HTML tables, chart blocks, Markdown tables)
-        # Disable table protection on force_chunking (charts are always protected)
-        protected_regions = _find_protected_regions(text, is_table_based, force_chunking, image_pattern)
+        # Find protected regions (HTML tables, chart blocks, Markdown tables, all tags)
+        # Disable table protection on force_chunking (other regions are always protected)
+        protected_regions = _find_protected_regions(
+            text, is_table_based, force_chunking, image_pattern,
+            chart_pattern, page_tag_processor, metadata_pattern
+        )
         protected_positions = _get_protected_region_positions(protected_regions)
 
         if protected_positions:
             region_types = set(r[2] for r in protected_regions)
             logger.info(f"Found {len(protected_positions)} protected regions in document: {region_types}")
             chunks = _split_with_protected_regions(
-                text, protected_positions, chunk_size, chunk_overlap, force_chunking
+                text, protected_positions, chunk_size, chunk_overlap, force_chunking,
+                image_pattern, chart_pattern, page_tag_processor, metadata_pattern
             )
         else:
             # No protected regions: apply row-level chunking if force_chunking
@@ -435,15 +580,18 @@ def _chunk_with_row_protection(
 ) -> List[str]:
     """
     Chunk while protecting row boundaries when table protection is disabled.
+    
+    Both HTML and Markdown tables are split by rows with NO overlap.
     Wrapper function for chunk_with_row_protection.
     """
     # Wrapper function to pass force_chunking
     def split_with_protected_regions_wrapper(text, regions, chunk_size, chunk_overlap):
         return _split_with_protected_regions(text, regions, chunk_size, chunk_overlap, force_chunking)
 
+    # Use unified table chunker that handles both HTML and Markdown
     return chunk_with_row_protection(
         text, chunk_size, chunk_overlap,
-        split_with_protected_regions_wrapper, _chunk_large_table
+        split_with_protected_regions_wrapper, _chunk_table_unified
     )
 
 
