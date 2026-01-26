@@ -1066,18 +1066,31 @@ class DocumentProcessor:
         except ImportError as e:
             self._logger.warning(f"CSV handler not available: {e}")
 
-        # HWP handler
+        # HWP 5.0 handler (primary handler for .hwp files)
+        # HWP5Handler handles HWP 5.0 OLE format and delegates to HWPHandler for legacy formats
         try:
-            from contextifier.core.processor.hwp_handler import HWPHandler
-            hwp_handler = HWPHandler(
+            from contextifier.core.processor.hwp5_handler import HWP5Handler
+            hwp5_handler = HWP5Handler(
                 config=self._config,
                 image_processor=self._image_processor,
                 page_tag_processor=self._page_tag_processor,
                 chart_processor=self._chart_processor
             )
-            self._handler_registry['hwp'] = hwp_handler.extract_text
+            self._handler_registry['hwp'] = hwp5_handler.extract_text
         except ImportError as e:
-            self._logger.warning(f"HWP handler not available: {e}")
+            self._logger.warning(f"HWP5 handler not available: {e}")
+            # Fallback to legacy handler
+            try:
+                from contextifier.core.processor.hwp_handler import HWPHandler
+                hwp_handler = HWPHandler(
+                    config=self._config,
+                    image_processor=self._image_processor,
+                    page_tag_processor=self._page_tag_processor,
+                    chart_processor=self._chart_processor
+                )
+                self._handler_registry['hwp'] = hwp_handler.extract_text
+            except ImportError as e2:
+                self._logger.warning(f"HWP handler not available: {e2}")
 
         # HWPX handler
         try:

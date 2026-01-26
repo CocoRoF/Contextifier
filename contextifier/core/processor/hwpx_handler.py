@@ -10,6 +10,7 @@ from typing import Dict, Any, Set, TYPE_CHECKING
 
 from contextifier.core.processor.base_handler import BaseHandler
 from contextifier.core.functions.chart_extractor import BaseChartExtractor
+from contextifier.core.functions.table_extractor import BaseTableExtractor
 from contextifier.core.processor.hwpx_helper import (
     parse_bin_item_map,
     parse_hwpx_section,
@@ -17,6 +18,8 @@ from contextifier.core.processor.hwpx_helper import (
 from contextifier.core.processor.hwpx_helper.hwpx_chart_extractor import HWPXChartExtractor
 from contextifier.core.processor.hwpx_helper.hwpx_metadata import HWPXMetadataExtractor
 from contextifier.core.processor.hwpx_helper.hwpx_image_processor import HWPXImageProcessor
+from contextifier.core.processor.hwpx_helper.hwpx_table_extractor import HWPXTableExtractor
+from contextifier.core.processor.hwpx_helper.hwpx_table_processor import HWPXTableProcessor
 
 if TYPE_CHECKING:
     from contextifier.core.document_processor import CurrentFile
@@ -27,6 +30,42 @@ logger = logging.getLogger("document-processor")
 
 class HWPXHandler(BaseHandler):
     """HWPX (ZIP/XML based Korean document) Processing Handler Class"""
+
+    def __init__(self, *args, **kwargs):
+        """Initialize HWPX handler."""
+        super().__init__(*args, **kwargs)
+        self._table_extractor = None
+        self._table_processor = None
+
+    # ========================================================================
+    # Table Extractor and Processor Properties
+    # ========================================================================
+
+    @property
+    def table_extractor(self) -> BaseTableExtractor:
+        """Get or create HWPX table extractor.
+        
+        Returns:
+            HWPXTableExtractor instance
+        """
+        if self._table_extractor is None:
+            self._table_extractor = HWPXTableExtractor()
+        return self._table_extractor
+
+    @property
+    def table_processor(self) -> HWPXTableProcessor:
+        """Get or create HWPX table processor.
+        
+        Returns:
+            HWPXTableProcessor instance
+        """
+        if self._table_processor is None:
+            self._table_processor = HWPXTableProcessor()
+        return self._table_processor
+
+    # ========================================================================
+    # Factory Methods
+    # ========================================================================
 
     def _create_file_converter(self):
         """Create HWPX-specific file converter."""

@@ -9,7 +9,8 @@ csv_handler.py에서 사용하는 기능적 구성요소들을 모듈화하여 �
 - csv_metadata: 메타데이터 추출 및 포맷팅
 - csv_encoding: 인코딩 감지 및 파일 읽기
 - csv_parser: CSV 파싱, 구분자/헤더 감지
-- csv_table: 테이블 변환 (Markdown/HTML)
+- csv_table_extractor: CSV 테이블 추출 (BaseTableExtractor 인터페이스)
+- csv_table_processor: CSV 테이블 변환 (HTML/Markdown/Text)
 """
 
 # Constants
@@ -48,10 +49,22 @@ from contextifier.core.processor.csv_helper.csv_parser import (
     is_numeric,
 )
 
-# Table
-from contextifier.core.processor.csv_helper.csv_table import (
+# Table Extractor (new structure)
+from contextifier.core.processor.csv_helper.csv_table_extractor import (
+    CSVTableExtractor,
+    CSVTableExtractorConfig,
+    CSVTableRegionInfo,
+    CSVCellMergeInfo,
+    # Backward compatible functions
     has_merged_cells,
     analyze_merge_info,
+)
+
+# Table Processor (new structure)
+from contextifier.core.processor.csv_helper.csv_table_processor import (
+    CSVTableProcessor,
+    CSVTableProcessorConfig,
+    # Backward compatible functions
     convert_rows_to_table,
     convert_rows_to_markdown,
     convert_rows_to_html,
@@ -71,7 +84,6 @@ __all__ = [
     # Image Processor
     "CSVImageProcessor",
     # Encoding
-    # Encoding
     "detect_bom",
     "read_file_with_encoding",
     # Parser
@@ -80,7 +92,15 @@ __all__ = [
     "parse_csv_simple",
     "detect_header",
     "is_numeric",
-    # Table
+    # Table Extractor (new)
+    "CSVTableExtractor",
+    "CSVTableExtractorConfig",
+    "CSVTableRegionInfo",
+    "CSVCellMergeInfo",
+    # Table Processor (new)
+    "CSVTableProcessor",
+    "CSVTableProcessorConfig",
+    # Backward compatible functions
     "has_merged_cells",
     "analyze_merge_info",
     "convert_rows_to_table",

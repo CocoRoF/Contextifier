@@ -12,7 +12,8 @@ HWP 5.0 OLE 파일 처리에 필요한 유틸리티 모듈을 제공합니다.
 - hwp_image.py: 이미지 처리
 - hwp_chart.py: 차트 처리
 - hwp_docinfo.py: DocInfo 파싱
-- hwp_table.py: 테이블 파싱
+- hwp_table_extractor.py: 테이블 추출 (BaseTableExtractor)
+- hwp_table_processor.py: 테이블 포맷팅
 - hwp_recovery.py: 손상 파일 복구
 """
 
@@ -61,11 +62,22 @@ from contextifier.core.processor.hwp_helper.hwp_docinfo import (
     scan_bindata_folder,
 )
 
-# Table
-from contextifier.core.processor.hwp_helper.hwp_table import (
-    parse_table,
-    build_table_grid,
-    render_table_html,
+# Table Extractor and Processor (for HWP 2.0/3.0 legacy format)
+from contextifier.core.processor.hwp_helper.hwp_table_extractor import (
+    HWPLegacyTableExtractor,
+    HWPLegacyTableExtractorConfig,
+    HWPLegacySection,
+    HWPLegacyTableRegionInfo,
+    # Aliases
+    HWPTableExtractor,
+    HWPTableExtractorConfig,
+)
+from contextifier.core.processor.hwp_helper.hwp_table_processor import (
+    HWPLegacyTableProcessor,
+    HWPLegacyTableProcessorConfig,
+    # Aliases  
+    HWPTableProcessor,
+    HWPTableProcessorConfig,
 )
 
 # Recovery
@@ -74,6 +86,16 @@ from contextifier.core.processor.hwp_helper.hwp_recovery import (
     find_zlib_streams,
     recover_images_from_raw,
     check_file_signature,
+)
+
+# Legacy Format Parser (HWP 2.0/3.0)
+from contextifier.core.processor.hwp_helper.hwp_legacy_parser import (
+    HWP2Parser,
+    HWP2Config,
+    HWP2ParseResult,
+    parse_hwp_legacy,
+    is_hwp_legacy_format,
+    get_hwp_legacy_version,
 )
 
 
@@ -108,13 +130,28 @@ __all__ = [
     # DocInfo
     'parse_doc_info',
     'scan_bindata_folder',
-    # Table
-    'parse_table',
-    'build_table_grid',
-    'render_table_html',
+    # Table Extractor and Processor
+    'HWPLegacyTableExtractor',
+    'HWPLegacyTableExtractorConfig',
+    'HWPLegacySection',
+    'HWPLegacyTableRegionInfo',
+    'HWPLegacyTableProcessor',
+    'HWPLegacyTableProcessorConfig',
+    # Aliases
+    'HWPTableExtractor',
+    'HWPTableExtractorConfig',
+    'HWPTableProcessor',
+    'HWPTableProcessorConfig',
     # Recovery
     'extract_text_from_stream_raw',
     'find_zlib_streams',
     'recover_images_from_raw',
     'check_file_signature',
+    # Legacy Format Parser
+    'HWP2Parser',
+    'HWP2Config',
+    'HWP2ParseResult',
+    'parse_hwp_legacy',
+    'is_hwp_legacy_format',
+    'get_hwp_legacy_version',
 ]

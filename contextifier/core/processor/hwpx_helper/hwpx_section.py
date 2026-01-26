@@ -10,7 +10,7 @@ import zipfile
 from typing import Dict, Set, Optional
 
 from contextifier.core.processor.hwpx_helper.hwpx_constants import HWPX_NAMESPACES
-from contextifier.core.processor.hwpx_helper.hwpx_table import parse_hwpx_table
+from contextifier.core.processor.hwpx_helper.hwpx_table_extractor import parse_hwpx_table
 
 from contextifier.core.functions.img_processor import ImageProcessor
 

@@ -102,12 +102,14 @@ class TableRegion:
         row_count: Estimated number of rows
         col_count: Estimated number of columns
         confidence: Confidence score (0.0 - 1.0)
+        metadata: Additional metadata (optional)
     """
     start_offset: int = 0
     end_offset: int = 0
     row_count: int = 0
     col_count: int = 0
     confidence: float = 0.0
+    metadata: dict = field(default_factory=dict)
     
     def is_confident(self, threshold: float = 0.5) -> bool:
         """Check if this region detection is confident enough."""

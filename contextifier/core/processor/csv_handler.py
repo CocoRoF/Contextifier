@@ -10,6 +10,7 @@ from typing import Any, Dict, Optional, Tuple, TYPE_CHECKING
 
 from contextifier.core.processor.base_handler import BaseHandler
 from contextifier.core.functions.chart_extractor import BaseChartExtractor, NullChartExtractor
+from contextifier.core.functions.table_extractor import BaseTableExtractor
 from contextifier.core.processor.csv_helper import (
     detect_bom,
     detect_delimiter,
@@ -19,6 +20,8 @@ from contextifier.core.processor.csv_helper import (
 )
 from contextifier.core.processor.csv_helper.csv_metadata import CSVMetadataExtractor, CSVSourceInfo
 from contextifier.core.processor.csv_helper.csv_image_processor import CSVImageProcessor
+from contextifier.core.processor.csv_helper.csv_table_extractor import CSVTableExtractor
+from contextifier.core.processor.csv_helper.csv_table_processor import CSVTableProcessor
 from contextifier.core.functions.img_processor import ImageProcessor
 
 if TYPE_CHECKING:
@@ -32,6 +35,42 @@ ENCODING_CANDIDATES = ['utf-8', 'utf-8-sig', 'cp949', 'euc-kr', 'iso-8859-1', 'l
 
 class CSVHandler(BaseHandler):
     """CSV/TSV File Processing Handler Class"""
+
+    def __init__(self, *args, **kwargs):
+        """Initialize CSV handler."""
+        super().__init__(*args, **kwargs)
+        self._table_extractor = None
+        self._table_processor = None
+
+    # ========================================================================
+    # Table Extractor and Processor Properties
+    # ========================================================================
+
+    @property
+    def table_extractor(self) -> BaseTableExtractor:
+        """Get or create CSV table extractor.
+        
+        Returns:
+            CSVTableExtractor instance
+        """
+        if self._table_extractor is None:
+            self._table_extractor = CSVTableExtractor()
+        return self._table_extractor
+
+    @property
+    def table_processor(self) -> CSVTableProcessor:
+        """Get or create CSV table processor.
+        
+        Returns:
+            CSVTableProcessor instance
+        """
+        if self._table_processor is None:
+            self._table_processor = CSVTableProcessor()
+        return self._table_processor
+
+    # ========================================================================
+    # Factory Methods
+    # ========================================================================
 
     def _create_file_converter(self):
         """Create CSV-specific file converter."""
