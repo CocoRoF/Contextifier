@@ -221,8 +221,11 @@ class ChunkResult:
                 content_parts.append(separator)
                 content_parts.append("")
         
-        # Write file
-        file_path.write_text("\n".join(content_parts), encoding="utf-8")
+        # Write file (handle surrogate characters)
+        content = "\n".join(content_parts)
+        # Remove surrogate characters that can't be encoded in UTF-8
+        content = content.encode('utf-8', errors='surrogatepass').decode('utf-8', errors='replace')
+        file_path.write_text(content, encoding="utf-8")
         
         logger.info(f"Saved {total_chunks} chunks to {file_path}")
         return str(file_path)
