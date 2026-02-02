@@ -45,11 +45,13 @@ if TYPE_CHECKING:
 from contextifier.core.processor.docx_helper import (
     # Constants
     ElementType,
-    # Table
-    process_table_element,
     # Paragraph
     process_paragraph_element,
 )
+# Table Extractor & Processor (new interface)
+from contextifier.core.processor.docx_helper.docx_table_extractor import DOCXTableExtractor
+from contextifier.core.processor.docx_helper.docx_table_processor import DOCXTableProcessor
+
 from contextifier.core.processor.docx_helper.docx_metadata import DOCXMetadataExtractor
 from contextifier.core.processor.docx_helper.docx_image_processor import DOCXImageProcessor
 
@@ -103,6 +105,28 @@ class DOCXHandler(BaseHandler):
             tag_suffix=self._image_processor.config.tag_suffix,
             storage_backend=self._image_processor.storage_backend,
         )
+
+    def _create_table_extractor(self) -> DOCXTableExtractor:
+        """Create DOCX-specific table extractor."""
+        return DOCXTableExtractor()
+
+    def _create_table_processor(self) -> DOCXTableProcessor:
+        """Create DOCX-specific table processor."""
+        return DOCXTableProcessor()
+
+    @property
+    def table_extractor(self) -> DOCXTableExtractor:
+        """Get table extractor (lazy initialization)."""
+        if not hasattr(self, '_table_extractor') or self._table_extractor is None:
+            self._table_extractor = self._create_table_extractor()
+        return self._table_extractor
+
+    @property
+    def table_processor(self) -> DOCXTableProcessor:
+        """Get table processor (lazy initialization)."""
+        if not hasattr(self, '_table_processor') or self._table_processor is None:
+            self._table_processor = self._create_table_processor()
+        return self._table_processor
 
     def extract_text(
         self,
@@ -280,10 +304,13 @@ class DOCXHandler(BaseHandler):
                     total_charts += chart_count
 
                 elif local_tag == 'tbl':
-                    table_html = process_table_element(body_elem, doc)
-                    if table_html:
-                        total_tables += 1
-                        result_parts.append("\n" + table_html + "\n\n")
+                    # Table processing using APPROACH 2(extract_table)
+                    table_data = self.table_extractor.extract_table(body_elem, doc)
+                    if table_data:
+                        table_html = self.table_processor.format_table_as_html(table_data)
+                        if table_html:
+                            total_tables += 1
+                            result_parts.append("\n" + table_html + "\n\n")
 
                 elif local_tag == 'sectPr':
                     continue

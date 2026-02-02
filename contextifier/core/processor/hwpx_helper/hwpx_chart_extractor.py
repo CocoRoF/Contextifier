@@ -131,6 +131,75 @@ class HWPXChartExtractor(BaseChartExtractor):
             logger.error(f"Error extracting charts from HWPX: {e}")
         
         return charts
+
+    def extract_all_with_refs(
+        self,
+        file_source: Union[str, bytes, BinaryIO]
+    ) -> Dict[str, ChartData]:
+        """
+        Extract all charts from an HWPX file with their chartIDRefs.
+        
+        This method returns a dictionary mapping chartIDRef (e.g., "Chart/chart1.xml")
+        to ChartData, allowing for inline chart processing in document order.
+        
+        Args:
+            file_source: File path, bytes, or file-like object
+            
+        Returns:
+            Dictionary mapping chartIDRef -> ChartData
+        """
+        chart_map: Dict[str, ChartData] = {}
+        processed_hashes = set()
+        
+        try:
+            # Prepare file-like object
+            if isinstance(file_source, str):
+                with open(file_source, 'rb') as f:
+                    file_obj = io.BytesIO(f.read())
+            elif isinstance(file_source, bytes):
+                file_obj = io.BytesIO(file_source)
+            else:
+                file_source.seek(0)
+                file_obj = file_source
+            
+            with zipfile.ZipFile(file_obj, 'r') as zf:
+                namelist = zf.namelist()
+                
+                # Extract OOXML charts with their references
+                chart_files = [
+                    f for f in namelist
+                    if (f.startswith('Chart/') and f.endswith('.xml'))
+                    or (f.startswith('Contents/Charts/') and f.endswith('.xml'))
+                    or (f.startswith('Charts/') and f.endswith('.xml'))
+                ]
+                
+                for chart_file in sorted(chart_files):
+                    try:
+                        with zf.open(chart_file) as f:
+                            chart_xml = f.read()
+                        
+                        chart_data = self._parse_chart_xml(chart_xml)
+                        
+                        if chart_data.has_data():
+                            # Duplicate check
+                            chart_hash = f"{chart_data.title}|{chart_data.series}"
+                            if chart_hash in processed_hashes:
+                                continue
+                            processed_hashes.add(chart_hash)
+                            
+                            # Map by chartIDRef (e.g., "Chart/chart1.xml")
+                            chart_map[chart_file] = chart_data
+                            logger.debug(f"Mapped chart: {chart_file}")
+                            
+                    except Exception as e:
+                        logger.debug(f"Error reading chart file {chart_file}: {e}")
+            
+            logger.info(f"Extracted {len(chart_map)} charts with refs from HWPX file")
+            
+        except Exception as e:
+            logger.error(f"Error extracting charts from HWPX: {e}")
+        
+        return chart_map
     
     def _parse_chart_xml(self, chart_xml: bytes) -> ChartData:
         """Parse OOXML chart XML."""
@@ -279,7 +348,7 @@ class HWPXChartExtractor(BaseChartExtractor):
                 
                 if chart_data.has_data():
                     # Duplicate check
-                    chart_hash = str(chart_data.series)
+                    chart_hash = f"{chart_data.title}|{chart_data.series}"
                     if chart_hash in processed_hashes:
                         continue
                     processed_hashes.add(chart_hash)
@@ -329,7 +398,8 @@ class HWPXChartExtractor(BaseChartExtractor):
                 chart_data = self._extract_from_ole(data)
                 
                 if chart_data.has_data():
-                    chart_hash = str(chart_data.series)
+                    # Duplicate check
+                    chart_hash = f"{chart_data.title}|{chart_data.series}"
                     if chart_hash in processed_hashes:
                         continue
                     processed_hashes.add(chart_hash)

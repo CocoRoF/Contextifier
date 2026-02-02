@@ -5,28 +5,120 @@ Table Extractor - Abstract Interface for Table Extraction
 Provides abstract base classes and data structures for table extraction.
 Format-specific implementations should be placed in respective helper modules.
 
-Module Components:
+================================================================================
+TABLE EXTRACTION ARCHITECTURE
+================================================================================
+
+This module defines the common interface for all format-specific table extractors.
+There are TWO main extraction approaches supported:
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ APPROACH 1: Batch Processing (전체 문서 일괄 처리)                           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ Method: extract_tables(content) -> List[TableData]                          │
+│                                                                             │
+│ Description:                                                                │
+│   - Extracts ALL tables from the entire document at once                    │
+│   - Uses 2-Pass approach internally:                                        │
+│     Pass 1: detect_table_regions() - Find table locations                   │
+│     Pass 2: extract_table_from_region() - Extract from each region          │
+│                                                                             │
+│ Use Cases:                                                                  │
+│   - PDF: Tables detected via layout analysis, extracted in batch            │
+│   - Excel: All sheets processed together                                    │
+│   - Scanned documents: OCR-based table detection                            │
+│                                                                             │
+│ Implemented By:                                                             │
+│   - PDFTableExtractor (planned)                                             │
+│   - ExcelTableExtractor (planned)                                           │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ APPROACH 2: Streaming/Element Processing (요소 단위 실시간 처리)              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ Method: extract_table(element, context) -> Optional[TableData]              │
+│                                                                             │
+│ Description:                                                                │
+│   - Extracts a SINGLE table from an element/node                            │
+│   - Called in real-time as document is traversed                            │
+│   - More memory efficient for large documents                               │
+│   - Preserves document order naturally                                      │
+│                                                                             │
+│ Use Cases:                                                                  │
+│   - DOCX: Tables are explicit <w:tbl> elements                              │
+│   - PPTX: Tables are shape elements in slides                               │
+│   - HTML: Tables are <table> elements                                       │
+│                                                                             │
+│ Implemented By:                                                             │
+│   - DOCXTableExtractor (contextifier.core.processor.docx_helper)            │
+│   - PPTXTableExtractor (planned)                                            │
+│   - HTMLTableExtractor (planned)                                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+IMPLEMENTATION STATUS BY FORMAT
+================================================================================
+
+| Format | Extractor Class      | Approach  | Status      | Location                    |
+|--------|---------------------|-----------|-------------|------------------------------|
+| DOCX   | DOCXTableExtractor  | Streaming | ✅ Complete | docx_helper/docx_table_extractor.py |
+| DOC    | DOCTableExtractor   | Batch     | ❌ Planned  | doc_helper/                  |
+| PDF    | PDFTableExtractor   | Batch     | ❌ Planned  | pdf_helper/                  |
+| XLSX   | ExcelTableExtractor | Batch     | ❌ Planned  | excel_helper/                |
+| PPTX   | PPTXTableExtractor  | Streaming | ❌ Planned  | pptx_helper/                 |
+| HTML   | HTMLTableExtractor  | Streaming | ❌ Planned  | html_helper/                 |
+| HWP    | HWPTableExtractor   | Batch     | ❌ Planned  | hwp_helper/                  |
+
+================================================================================
+MODULE COMPONENTS
+================================================================================
+
 - TableCell: Data class for table cell information
-- TableData: Data class for complete table information
-- TableRegion: Data class for detected table regions
+- TableData: Data class for complete table information  
+- TableRegion: Data class for detected table regions (Batch approach)
+- TableExtractorConfig: Configuration for extraction behavior
 - BaseTableExtractor: Abstract base class for format-specific extractors
 - NullTableExtractor: No-op extractor for unsupported formats
 
-Usage Example:
-    from contextifier.core.functions.table_extractor import (
-        BaseTableExtractor,
-        TableData,
-        TableRegion,
-    )
+================================================================================
+USAGE EXAMPLES
+================================================================================
 
-    class DOCTableExtractor(BaseTableExtractor):
+Example 1: Batch Processing (PDF, Excel)
+    
+    from contextifier.core.functions.table_extractor import BaseTableExtractor
+    
+    class PDFTableExtractor(BaseTableExtractor):
         def detect_table_regions(self, content):
-            # DOC-specific implementation
-            pass
+            # Scan PDF for table-like regions
+            return [TableRegion(...), ...]
         
         def extract_table_from_region(self, content, region):
-            # DOC-specific implementation
-            pass
+            # Extract table from specific region
+            return TableData(...)
+        
+        # Use inherited extract_tables() for batch processing
+    
+    extractor = PDFTableExtractor()
+    tables = extractor.extract_tables(pdf_content)  # Returns List[TableData]
+
+Example 2: Streaming Processing (DOCX, PPTX)
+    
+    from contextifier.core.functions.table_extractor import BaseTableExtractor
+    
+    class DOCXTableExtractor(BaseTableExtractor):
+        def extract_table(self, element, context=None):
+            # Extract single table from <w:tbl> element
+            return TableData(...)  # or None if invalid
+    
+    extractor = DOCXTableExtractor()
+    
+    # Called during document traversal:
+    for elem in doc.body:
+        if is_table(elem):
+            table = extractor.extract_table(elem, doc)  # Returns Optional[TableData]
+            if table:
+                process(table)
 """
 import logging
 from abc import ABC, abstractmethod
@@ -138,15 +230,42 @@ class BaseTableExtractor(ABC):
     Each document format (DOC, DOCX, XLSX, etc.) should implement
     a subclass of BaseTableExtractor with format-specific logic.
     
-    The extraction process follows a 2-Pass approach:
-    1. detect_table_regions(): Identify where tables are in the document
-    2. extract_table_from_region(): Extract actual table data from regions
+    ============================================================================
+    SUPPORTED EXTRACTION APPROACHES
+    ============================================================================
     
-    Implementation Guidelines:
-        - Implement detect_table_regions() to find potential table locations
-        - Implement extract_table_from_region() to parse table content
-        - Override supports_format() to declare supported formats
-        - Use config for validation parameters
+    APPROACH 1: Batch Processing (전체 문서 일괄 처리)
+    ------------------------------------------------
+    Uses 2-Pass detection and extraction:
+    - detect_table_regions(): Find all table locations in document
+    - extract_table_from_region(): Extract table from each location
+    - extract_tables(): Combines both passes (main entry point)
+    
+    Suitable for: PDF, DOC, Excel, HWP (where tables need detection)
+    
+    APPROACH 2: Streaming Processing (요소 단위 실시간 처리)
+    -------------------------------------------------------
+    Uses direct element extraction:
+    - extract_table(): Extract single table from element/node
+    
+    Suitable for: DOCX, PPTX, HTML (where tables are explicit elements)
+    
+    ============================================================================
+    IMPLEMENTATION GUIDE
+    ============================================================================
+    
+    For Batch Processing (PDF, Excel, etc.):
+        - Override detect_table_regions() - REQUIRED
+        - Override extract_table_from_region() - REQUIRED
+        - Use extract_tables() as main entry point
+    
+    For Streaming Processing (DOCX, PPTX, etc.):
+        - Override extract_table() - REQUIRED
+        - detect_table_regions() can return empty list
+        - extract_table_from_region() can return None
+        - Call extract_table() directly during document traversal
+    
+    ============================================================================
     """
     
     def __init__(self, config: Optional[TableExtractorConfig] = None):
@@ -158,21 +277,35 @@ class BaseTableExtractor(ABC):
         self.config = config or TableExtractorConfig()
         self.logger = logging.getLogger("document-processor")
     
-    @abstractmethod
+    # ==========================================================================
+    # APPROACH 1: Batch Processing Methods (PDF, DOC, Excel, HWP)
+    # ==========================================================================
+    
     def detect_table_regions(self, content: Any) -> List[TableRegion]:
         """Detect table regions in the document content.
         
-        Pass 1 of 2-Pass approach: Scan document to find potential table locations.
+        [BATCH PROCESSING - Pass 1]
+        Scan document to find potential table locations.
+        
+        Override this method for formats that require table detection:
+        - PDF: Layout analysis to find table-like structures
+        - DOC: Binary format parsing for table markers
+        - Excel: Sheet enumeration
         
         Args:
             content: Document content (bytes, str, or format-specific object)
             
         Returns:
             List of TableRegion objects representing detected table locations
+            
+        Note:
+            For streaming formats (DOCX, PPTX), this can return empty list
+            as tables are processed via extract_table() instead.
         """
-        pass
+        # Default implementation returns empty list
+        # Override for batch processing formats
+        return []
     
-    @abstractmethod
     def extract_table_from_region(
         self, 
         content: Any, 
@@ -180,7 +313,13 @@ class BaseTableExtractor(ABC):
     ) -> Optional[TableData]:
         """Extract table data from a detected region.
         
-        Pass 2 of 2-Pass approach: Extract actual table content from region.
+        [BATCH PROCESSING - Pass 2]
+        Extract actual table content from a specific region.
+        
+        Override this method for formats that use region-based extraction:
+        - PDF: Extract from page coordinates
+        - DOC: Extract from byte offsets
+        - Excel: Extract from sheet/cell ranges
         
         Args:
             content: Document content (bytes, str, or format-specific object)
@@ -188,15 +327,24 @@ class BaseTableExtractor(ABC):
             
         Returns:
             TableData object or None if extraction fails
+            
+        Note:
+            For streaming formats (DOCX, PPTX), this can return None
+            as tables are processed via extract_table() instead.
         """
-        pass
+        # Default implementation returns None
+        # Override for batch processing formats
+        return None
     
     def extract_tables(self, content: Any) -> List[TableData]:
-        """Extract all tables from document content.
+        """Extract all tables from document content using batch processing.
         
-        Main entry point that combines both passes:
+        [BATCH PROCESSING - Main Entry Point]
+        Combines both passes for complete extraction:
         1. Detect all table regions
         2. Extract tables from each region
+        
+        Used by: PDF, DOC, Excel, HWP extractors
         
         Args:
             content: Document content
@@ -219,6 +367,59 @@ class BaseTableExtractor(ABC):
         
         self.logger.debug(f"Extracted {len(tables)} valid tables")
         return tables
+    
+    # ==========================================================================
+    # APPROACH 2: Streaming Processing Methods (DOCX, PPTX, HTML)
+    # ==========================================================================
+    
+    def extract_table(
+        self, 
+        element: Any, 
+        context: Any = None
+    ) -> Optional[TableData]:
+        """Extract a single table from an element/node.
+        
+        [STREAMING PROCESSING - Main Entry Point]
+        Extract table data from a specific element during document traversal.
+        Called in real-time as the document is being processed.
+        
+        Override this method for formats with explicit table elements:
+        - DOCX: <w:tbl> XML element → TableData
+        - PPTX: Table shape element → TableData  
+        - HTML: <table> DOM element → TableData
+        
+        Used by:
+        - DOCXTableExtractor: Extracts from <w:tbl> elements
+        - PPTXTableExtractor: Extracts from slide table shapes (planned)
+        - HTMLTableExtractor: Extracts from <table> elements (planned)
+        
+        Args:
+            element: Table element/node (format-specific)
+                - DOCX: lxml Element (<w:tbl>)
+                - PPTX: Shape object
+                - HTML: DOM Element
+            context: Optional context object for additional information
+                - DOCX: Document object
+                - PPTX: Slide object
+                - HTML: Parent document
+            
+        Returns:
+            TableData object or None if extraction fails/invalid
+            
+        Example (DOCX):
+            for elem in doc.body:
+                if elem.tag.endswith('tbl'):
+                    table_data = extractor.extract_table(elem, doc)
+                    if table_data:
+                        html = processor.format_table_as_html(table_data)
+        """
+        # Default implementation returns None
+        # Override for streaming processing formats
+        return None
+    
+    # ==========================================================================
+    # Common Methods
+    # ==========================================================================
     
     def supports_format(self, format_type: str) -> bool:
         """Check if this extractor supports the given format.
@@ -254,6 +455,14 @@ class NullTableExtractor(BaseTableExtractor):
     def extract_tables(self, content: Any) -> List[TableData]:
         """Return empty list (no tables)."""
         return []
+    
+    def extract_table(
+        self, 
+        element: Any, 
+        context: Any = None
+    ) -> Optional[TableData]:
+        """Return None (no table extraction)."""
+        return None
 
 
 # Default configuration

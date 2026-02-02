@@ -85,15 +85,20 @@ class HWPXHandler(BaseHandler):
             # Get file stream
             file_stream = self.get_file_stream(current_file)
 
-            # Pre-extract all charts using ChartExtractor
-            chart_data_list = self.chart_extractor.extract_all_from_file(file_stream)
-            chart_idx = [0]  # Mutable container for closure
+            # Pre-extract all charts using ChartExtractor with refs
+            # This creates a mapping from chartIDRef -> ChartData
+            chart_map = self.chart_extractor.extract_all_with_refs(file_stream)
+            processed_chart_refs = set()
 
-            def get_next_chart() -> str:
-                """Callback to get the next pre-extracted chart content."""
-                if chart_idx[0] < len(chart_data_list):
-                    chart_data = chart_data_list[chart_idx[0]]
-                    chart_idx[0] += 1
+            def chart_callback(chart_id_ref: str) -> str:
+                """Callback to get chart content by chartIDRef."""
+                # chartIDRef is like "Chart/chart1.xml"
+                if chart_id_ref in processed_chart_refs:
+                    return ""  # Already processed
+                
+                chart_data = chart_map.get(chart_id_ref)
+                if chart_data:
+                    processed_chart_refs.add(chart_id_ref)
                     return self._format_chart_data(chart_data)
                 return ""
 
@@ -124,7 +129,14 @@ class HWPXHandler(BaseHandler):
                 for sec_file in section_files:
                     with zf.open(sec_file) as f:
                         xml_content = f.read()
-                        section_text = parse_hwpx_section(xml_content, zf, bin_item_map, processed_images, image_processor=self.format_image_processor)
+                        section_text = parse_hwpx_section(
+                            xml_content, 
+                            zf, 
+                            bin_item_map, 
+                            processed_images, 
+                            image_processor=self.format_image_processor,
+                            chart_callback=chart_callback
+                        )
                         text_content.append(section_text)
 
                 # Use format_image_processor directly
@@ -137,11 +149,6 @@ class HWPXHandler(BaseHandler):
                             text_content.append("\n\n=== Extracted Images (Not Inline) ===\n")
                             text_content.append(image_text)
 
-                # Add pre-extracted charts
-                while chart_idx[0] < len(chart_data_list):
-                    chart_text = get_next_chart()
-                    if chart_text:
-                        text_content.append(chart_text)
             finally:
                 # Close ZipFile using file_converter
                 self.file_converter.close(zf)

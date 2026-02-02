@@ -9,7 +9,8 @@ Module structure:
 - docx_metadata: Metadata extraction (DOCXMetadataExtractor)
 - docx_chart_extractor: Chart extraction (DOCXChartExtractor)
 - docx_image_processor: Image/drawing processing (DOCXImageProcessor)
-- docx_table: Table HTML conversion (rowspan/colspan support)
+- docx_table_extractor: Table extraction (DOCXTableExtractor) - BaseTableExtractor interface
+- docx_table_processor: Table formatting (DOCXTableProcessor) - TableProcessor interface
 - docx_paragraph: Paragraph processing and page breaks
 """
 
@@ -36,14 +37,18 @@ from contextifier.core.processor.docx_helper.docx_image_processor import (
     DOCXImageProcessor,
 )
 
-# Table
-from contextifier.core.processor.docx_helper.docx_table import (
-    TableCellInfo,
-    process_table_element,
-    calculate_all_rowspans,
-    estimate_column_count,
-    extract_cell_text,
-    extract_table_as_text,
+# Table Extractor (BaseTableExtractor interface)
+from contextifier.core.processor.docx_helper.docx_table_extractor import (
+    DOCXTableExtractor,
+    create_docx_table_extractor,
+)
+
+# Table Processor (TableProcessor interface)
+from contextifier.core.processor.docx_helper.docx_table_processor import (
+    DOCXTableProcessor,
+    DOCXTableProcessorConfig,
+    create_docx_table_processor,
+    format_table_as_html,
 )
 
 # Paragraph
@@ -65,13 +70,14 @@ __all__ = [
     'DOCXChartExtractor',
     # Image Processor
     'DOCXImageProcessor',
-    # Table
-    'TableCellInfo',
-    'process_table_element',
-    'calculate_all_rowspans',
-    'estimate_column_count',
-    'extract_cell_text',
-    'extract_table_as_text',
+    # Table Extractor (BaseTableExtractor interface)
+    'DOCXTableExtractor',
+    'create_docx_table_extractor',
+    # Table Processor (TableProcessor interface)
+    'DOCXTableProcessor',
+    'DOCXTableProcessorConfig',
+    'create_docx_table_processor',
+    'format_table_as_html',
     # Paragraph
     'process_paragraph_element',
     'has_page_break_element',

@@ -14,7 +14,7 @@ HWPX_NAMESPACES = {
 
 # OPF 네임스페이스 (content.hpf 파싱용)
 OPF_NAMESPACES = {
-    'opf': 'http://www.idpf.org/2007/opf',
+    'opf': 'http://www.idpf.org/2007/opf/',
 }
 
 # 지원하는 이미지 확장자
