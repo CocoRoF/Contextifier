@@ -9,21 +9,38 @@ Replaces and unifies:
 
 Design:
 - ChartService receives ChartData and produces formatted text blocks
-- Uses TagService for chart tag wrapping
+- Uses TagService for chart tag wrapping (consistent tag format)
 - Supports HTML table and text-based chart rendering
+
+Separation of concerns:
+    - ChartService:  format ChartData → tagged text block
+    - TagService:    provides chart open/close tags
+    - ContentExtractor: extracts ChartData from format-specific source
+
+OOXML Chart Type Display Names:
+    The _CHART_TYPE_MAP provides human-readable names for OOXML chart type
+    identifiers (e.g., "barChart" → "Bar Chart"). This is used by all
+    OOXML-based formats (DOCX, PPTX, XLSX) which share the same DrawingML
+    chart specification. Non-OOXML chart sources pass through their type
+    strings unchanged via get_chart_type_name().
 """
 
 from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from contextifier_new.config import ProcessingConfig, ChartConfig
 from contextifier_new.types import ChartData, ChartSeries
 
+if TYPE_CHECKING:
+    from contextifier_new.services.tag_service import TagService
 
-# OOXML chart type name mapping
+
+# ── OOXML DrawingML chart type → display name mapping ─────────────────────
+# Shared across all OOXML formats (DOCX, PPTX, XLSX).
+# For non-OOXML charts, the raw type string is used as-is.
 _CHART_TYPE_MAP: Dict[str, str] = {
     "barChart": "Bar Chart",
     "bar3DChart": "3D Bar Chart",
@@ -47,6 +64,9 @@ class ChartService:
     """
     Formats ChartData instances into tagged text blocks.
 
+    Uses TagService for chart tag wrapping to ensure consistent
+    tag format with the rest of the system.
+
     Example output (HTML table mode):
         [chart]
         Chart Type: Bar Chart
@@ -59,10 +79,25 @@ class ChartService:
         [/chart]
     """
 
-    def __init__(self, config: ProcessingConfig) -> None:
+    def __init__(
+        self,
+        config: ProcessingConfig,
+        *,
+        tag_service: Optional["TagService"] = None,
+    ) -> None:
+        """
+        Initialize ChartService.
+
+        Args:
+            config: Processing config containing ChartConfig and TagConfig.
+            tag_service: TagService for chart tag wrapping.
+                         If None, tags are built directly from config
+                         (backward-compatible fallback).
+        """
         self._config = config
         self._chart_config: ChartConfig = config.charts
         self._tag_config = config.tags
+        self._tag_service = tag_service
         self._logger = logging.getLogger("contextifier.services.chart")
 
     def format_chart(self, chart_data: ChartData) -> str:
@@ -103,11 +138,9 @@ class ChartService:
             return ""
 
         content = "\n".join(parts)
-        return (
-            f"{self._tag_config.chart_prefix}\n"
-            f"{content}\n"
-            f"{self._tag_config.chart_suffix}"
-        )
+        open_tag = self._get_chart_open_tag()
+        close_tag = self._get_chart_close_tag()
+        return f"{open_tag}\n{content}\n{close_tag}"
 
     def format_chart_fallback(
         self,
@@ -127,11 +160,9 @@ class ChartService:
             parts.append("(Chart data could not be extracted)")
 
         content = "\n".join(parts)
-        return (
-            f"{self._tag_config.chart_prefix}\n"
-            f"{content}\n"
-            f"{self._tag_config.chart_suffix}"
-        )
+        open_tag = self._get_chart_open_tag()
+        close_tag = self._get_chart_close_tag()
+        return f"{open_tag}\n{content}\n{close_tag}"
 
     def get_chart_type_name(self, ooxml_type: str) -> str:
         """Convert OOXML chart type to display name."""
@@ -153,6 +184,20 @@ class ChartService:
             (m.start(), m.end(), m.group(1))
             for m in self.get_chart_pattern().finditer(text)
         ]
+
+    # ── Private helpers ──────────────────────────────────────────────────
+
+    def _get_chart_open_tag(self) -> str:
+        """Get chart open tag via TagService or fallback to config."""
+        if self._tag_service is not None:
+            return self._tag_service.create_chart_open_tag()
+        return self._tag_config.chart_prefix
+
+    def _get_chart_close_tag(self) -> str:
+        """Get chart close tag via TagService or fallback to config."""
+        if self._tag_service is not None:
+            return self._tag_service.create_chart_close_tag()
+        return self._tag_config.chart_suffix
 
     # ── Private formatting ────────────────────────────────────────────────
 

@@ -452,20 +452,41 @@ class DocumentProcessor:
     # ═══════════════════════════════════════════════════════════════════════
 
     def _create_services(self) -> Dict[str, Any]:
-        """Create and return all shared services."""
+        """
+        Create and return all shared services.
+
+        Service dependency graph:
+            TagService (standalone — no dependencies)
+            ├── ImageService (depends on TagService + StorageBackend)
+            ├── ChartService (depends on TagService)
+            MetadataService (standalone)
+            TableService (standalone)
+
+        TagService is created first because ImageService and ChartService
+        delegate tag creation to it for format consistency.
+        """
+        # TagService: standalone, no dependencies
         tag_service = TagService(self._config)
 
+        # StorageBackend for images
         storage_backend = LocalStorageBackend(
-            base_directory=self._config.image.directory,
+            base_path=self._config.images.directory_path,
         )
 
+        # ImageService: depends on TagService for tag creation
         image_service = ImageService(
             config=self._config,
             storage_backend=storage_backend,
             tag_service=tag_service,
         )
 
-        chart_service = ChartService(self._config)
+        # ChartService: depends on TagService for chart tag wrapping
+        chart_service = ChartService(
+            self._config,
+            tag_service=tag_service,
+        )
+
+        # TableService, MetadataService: standalone
         table_service = TableService(self._config)
         metadata_service = MetadataService(self._config)
 
@@ -492,6 +513,7 @@ class DocumentProcessor:
             file_path=file_path,
             file_name=os.path.basename(file_path),
             file_extension=extension,
+            file_category=get_category(extension).value,
             file_data=file_data,
             file_stream=io.BytesIO(file_data),
             file_size=len(file_data),

@@ -22,6 +22,18 @@ Contract:
 - postprocess() is the ONLY abstract method
 - DefaultPostprocessor provides the standard implementation
   that most handlers should use
+
+Service dependencies:
+- MetadataService: for formatting metadata block (injected, optional)
+- TagService: for potential tag-based operations (injected, optional)
+- ProcessingConfig: for format-specific postprocessing options
+
+Constructor signature MUST match what handlers pass:
+    DefaultPostprocessor(
+        config,
+        metadata_service=...,
+        tag_service=...,
+    )
 """
 
 from __future__ import annotations
@@ -35,19 +47,37 @@ from contextifier_new.types import DocumentMetadata, ExtractionResult
 from contextifier_new.errors import PostprocessingError
 
 if TYPE_CHECKING:
+    from contextifier_new.config import ProcessingConfig
     from contextifier_new.services.metadata_service import MetadataService
+    from contextifier_new.services.tag_service import TagService
 
 
 class BasePostprocessor(ABC):
     """
     Abstract base for all postprocessors.
+
+    Constructor accepts config + services to match handler factory pattern.
+    Subclasses that don't need all dependencies can ignore them.
     """
 
     def __init__(
         self,
+        config: Optional["ProcessingConfig"] = None,
+        *,
         metadata_service: Optional["MetadataService"] = None,
+        tag_service: Optional["TagService"] = None,
     ) -> None:
+        """
+        Initialize postprocessor.
+
+        Args:
+            config: Processing configuration (positional).
+            metadata_service: For formatting metadata blocks.
+            tag_service: For tag-based operations.
+        """
+        self._config = config
         self._metadata_service = metadata_service
+        self._tag_service = tag_service
         self._logger = logging.getLogger(
             f"contextifier.postprocessor.{self.__class__.__name__}"
         )

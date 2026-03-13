@@ -1,6 +1,6 @@
 # contextifier_new/services/image_service.py
 """
-ImageService — Image Processing, Storage & Tag Generation
+ImageService — Image Saving, Deduplication & Tag Generation
 
 Replaces and unifies the old ImageProcessor (concrete class),
 format-specific image processors (DOCXImageProcessor, PDFImageProcessor, etc.),
@@ -8,16 +8,23 @@ and the image-to-tag logic from ImageProcessor.save_image().
 
 Design changes from old code:
 1. Image SAVING (storage) is delegated to StorageBackend
-2. Image TAGGING uses TagService for tag format
+2. Image TAGGING uses TagService for consistent tag format
 3. Duplicate detection via content hashing
 4. Format-specific image extraction logic stays in ContentExtractor,
    NOT in the service (separation of concerns)
 5. The service is format-agnostic — it handles raw bytes
 
+Separation of concerns:
+    - ImageService handles:  save, deduplicate, generate filename, build tag
+    - ContentExtractor handles: find/extract image bytes from format-specific source
+    - StorageBackend handles: persist bytes to filesystem/cloud
+    - TagService handles: tag format (prefix/suffix/pattern)
+
 The format-specific image extraction (e.g., extracting images from
 PDF pages, DOCX relationships, PPTX slides) is done by each
 format's ContentExtractor. The ContentExtractor calls:
-    image_service.save_and_tag(image_data) → str (tag)
+    path = image_service.save(image_data)       → str (saved path)
+    tag  = image_service.save_and_tag(image_data) → str (complete tag)
 """
 
 from __future__ import annotations
@@ -26,7 +33,7 @@ import hashlib
 import logging
 import uuid
 from datetime import datetime
-from typing import List, Optional, Set
+from typing import TYPE_CHECKING, List, Optional, Set
 
 from contextifier_new.config import ProcessingConfig, ImageConfig
 from contextifier_new.types import NamingStrategy
@@ -35,10 +42,16 @@ from contextifier_new.errors import ImageServiceError
 from contextifier_new.services.storage.base import BaseStorageBackend
 from contextifier_new.services.storage.local import LocalStorageBackend
 
+if TYPE_CHECKING:
+    from contextifier_new.services.tag_service import TagService
+
 
 class ImageService:
     """
     Shared service for saving images and generating image tags.
+
+    Uses TagService for tag format consistency — the tag format
+    is defined in ONE place (TagConfig) and applied uniformly.
 
     Thread-safe for concurrent handler use within one processor.
     """
@@ -46,24 +59,38 @@ class ImageService:
     def __init__(
         self,
         config: ProcessingConfig,
+        *,
         storage_backend: Optional[BaseStorageBackend] = None,
+        tag_service: Optional["TagService"] = None,
     ) -> None:
+        """
+        Initialize ImageService.
+
+        Args:
+            config: Processing config containing ImageConfig and TagConfig.
+            storage_backend: Storage backend for persisting images.
+                             Defaults to LocalStorageBackend.
+            tag_service: TagService for creating image tags.
+                         If None, tags are built directly from config
+                         (backward-compatible fallback).
+        """
         self._config = config
         self._image_config: ImageConfig = config.images
         self._tag_config = config.tags
+        self._tag_service = tag_service
         self._storage = storage_backend or LocalStorageBackend(
             base_path=self._image_config.directory_path
         )
         self._logger = logging.getLogger("contextifier.services.image")
 
-        # Deduplication state
+        # Deduplication state (per-session)
         self._processed_hashes: Set[str] = set()
         self._processed_paths: List[str] = []
         self._counter: int = 0
 
     # ── Public API ────────────────────────────────────────────────────────
 
-    def save_and_tag(
+    def save(
         self,
         image_data: bytes,
         *,
@@ -71,22 +98,21 @@ class ImageService:
         skip_duplicate: Optional[bool] = None,
     ) -> Optional[str]:
         """
-        Save image data and return the image tag string.
+        Save image data and return the saved file path.
 
-        This is the primary method for handlers. It:
-        1. Checks for duplicates (if enabled)
-        2. Generates a filename
-        3. Saves via storage backend
-        4. Returns the formatted tag
+        This is the low-level method. Use save_and_tag() when you
+        also need the formatted image tag.
 
         Args:
             image_data: Raw image bytes.
-            custom_name: Optional custom filename (overrides naming strategy).
+            custom_name: Override filename (instead of naming strategy).
             skip_duplicate: Override duplicate skipping. None = use config.
 
         Returns:
-            Image tag string (e.g., "[Image:path/to/img.png]"),
-            or None if duplicate was skipped.
+            Saved file path, or None if duplicate was skipped.
+
+        Raises:
+            ImageServiceError: If saving fails.
         """
         if not image_data:
             return None
@@ -120,10 +146,40 @@ class ImageService:
             )
 
         self._processed_paths.append(file_path)
+        return file_path
 
-        # Build and return tag
-        tag = f"{self._tag_config.image_prefix}{file_path}{self._tag_config.image_suffix}"
-        return tag
+    def save_and_tag(
+        self,
+        image_data: bytes,
+        *,
+        custom_name: Optional[str] = None,
+        skip_duplicate: Optional[bool] = None,
+    ) -> Optional[str]:
+        """
+        Save image data and return the formatted image tag string.
+
+        This is the primary method for ContentExtractors. It:
+        1. Saves the image (with dedup check)
+        2. Generates the tag using TagService (or fallback)
+
+        Args:
+            image_data: Raw image bytes.
+            custom_name: Optional custom filename.
+            skip_duplicate: Override duplicate skipping. None = use config.
+
+        Returns:
+            Image tag string (e.g., "[Image:path/to/img.png]"),
+            or None if duplicate was skipped.
+        """
+        file_path = self.save(
+            image_data,
+            custom_name=custom_name,
+            skip_duplicate=skip_duplicate,
+        )
+        if file_path is None:
+            return None
+
+        return self._build_tag(file_path)
 
     def get_processed_count(self) -> int:
         """Number of images processed in this session."""
@@ -134,19 +190,24 @@ class ImageService:
         return list(self._processed_paths)
 
     def clear_state(self) -> None:
-        """Reset deduplication state and counters."""
+        """Reset deduplication state and counters for a new session."""
         self._processed_hashes.clear()
         self._processed_paths.clear()
         self._counter = 0
 
-    def get_image_tag_pattern(self) -> str:
-        """Get regex pattern string for matching image tags."""
-        import re
-        prefix = re.escape(self._tag_config.image_prefix)
-        suffix = re.escape(self._tag_config.image_suffix)
-        return rf"{prefix}([^{re.escape(self._tag_config.image_suffix[0])}]+){suffix}"
-
     # ── Private ───────────────────────────────────────────────────────────
+
+    def _build_tag(self, file_path: str) -> str:
+        """
+        Build image tag for a saved file path.
+
+        Delegates to TagService if available; otherwise falls back to
+        direct prefix/suffix construction from config.
+        """
+        if self._tag_service is not None:
+            return self._tag_service.create_image_tag(file_path)
+        # Fallback: build directly from config (backward compat)
+        return f"{self._tag_config.image_prefix}{file_path}{self._tag_config.image_suffix}"
 
     def _generate_filename(self, image_data: bytes) -> str:
         """Generate a filename using the configured naming strategy."""
