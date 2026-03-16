@@ -2,34 +2,50 @@
 """
 PDFHandler — Unified handler for PDF documents.
 
-Pipeline:
-    Convert:  Raw bytes → PyMuPDF Document (fitz)
-    Preprocess: Clean/normalize pages, detect scanned pages
-    Metadata: Author, title, creation date, page count
-    Content:  Text per page, images, tables (via pdfplumber), charts
-    Postprocess: Assemble with page tags and metadata block
+This is the **only** handler registered for the ``.pdf`` extension.
+It reads the ``mode`` option from ``config.get_format_option("pdf", "mode")``
+and delegates to one of two content-extractor implementations:
 
-Old issues resolved:
-- Skipping file_converter.convert() — now always goes through converter
-- Chart formatting duplicated — now uses ChartService
+    ``"plus"``  (default) → ``PdfPlusContentExtractor``
+    ``"default"``         → ``PdfDefaultContentExtractor``
+
+Converter, preprocessor, metadata extractor, and postprocessor are
+shared between both modes.
+
+Usage::
+
+    # default (plus) mode
+    handler = PDFHandler(config)
+    result  = handler.process(file_context)
+
+    # explicit default mode
+    handler = PDFHandler(config.with_format_option("pdf", mode="default"))
+    result  = handler.process(file_context)
 """
 
 from __future__ import annotations
 
+import logging
 from typing import FrozenSet
 
 from contextifier_new.handlers.base import BaseHandler
-from contextifier_new.pipeline.converter import BaseConverter, NullConverter
-from contextifier_new.pipeline.preprocessor import BasePreprocessor, NullPreprocessor
-from contextifier_new.pipeline.metadata_extractor import (
-    BaseMetadataExtractor,
-    NullMetadataExtractor,
-)
-from contextifier_new.pipeline.content_extractor import (
-    BaseContentExtractor,
-    NullContentExtractor,
-)
+from contextifier_new.pipeline.converter import BaseConverter
+from contextifier_new.pipeline.preprocessor import BasePreprocessor
+from contextifier_new.pipeline.metadata_extractor import BaseMetadataExtractor
+from contextifier_new.pipeline.content_extractor import BaseContentExtractor
 from contextifier_new.pipeline.postprocessor import BasePostprocessor, DefaultPostprocessor
+
+from contextifier_new.handlers.pdf._constants import (
+    PDF_FORMAT_OPTION_KEY,
+    PDF_MODE_DEFAULT,
+    PDF_MODE_OPTION,
+    PDF_MODE_PLUS,
+)
+from contextifier_new.handlers.pdf.converter import PdfConverter
+from contextifier_new.handlers.pdf.preprocessor import PdfPreprocessor
+from contextifier_new.handlers.pdf.metadata_extractor import PdfMetadataExtractor
+
+logger = logging.getLogger(__name__)
 
 
 class PDFHandler(BaseHandler):
@@ -43,21 +59,42 @@ class PDFHandler(BaseHandler):
     def handler_name(self) -> str:
         return "PDF Handler"
 
+    # ── pipeline factories ───────────────────────────────────────────────
+
     def create_converter(self) -> BaseConverter:
-        # TODO: Implement PDFConverter (bytes → fitz.Document)
-        return NullConverter()
+        return PdfConverter()
 
     def create_preprocessor(self) -> BasePreprocessor:
-        # TODO: Implement PDFPreprocessor (clean pages, detect scanned)
-        return NullPreprocessor()
+        return PdfPreprocessor()
 
     def create_metadata_extractor(self) -> BaseMetadataExtractor:
-        # TODO: Implement PDFMetadataExtractor
-        return NullMetadataExtractor()
+        return PdfMetadataExtractor()
 
     def create_content_extractor(self) -> BaseContentExtractor:
-        # TODO: Implement PDFContentExtractor
-        return NullContentExtractor()
+        mode = self._config.get_format_option(
+            PDF_FORMAT_OPTION_KEY, PDF_MODE_OPTION, PDF_MODE_PLUS,
+        )
+        logger.debug("[PDFHandler] PDF mode = %s", mode)
+
+        if mode == PDF_MODE_DEFAULT:
+            from contextifier_new.handlers.pdf_default import (
+                PdfDefaultContentExtractor,
+            )
+            return PdfDefaultContentExtractor(
+                image_service=self._image_service,
+                tag_service=self._tag_service,
+                table_service=self._table_service,
+            )
+
+        # default → plus mode
+        from contextifier_new.handlers.pdf_plus import (
+            PdfPlusContentExtractor,
+        )
+        return PdfPlusContentExtractor(
+            image_service=self._image_service,
+            tag_service=self._tag_service,
+            table_service=self._table_service,
+        )
 
     def create_postprocessor(self) -> BasePostprocessor:
         return DefaultPostprocessor(
@@ -65,6 +102,5 @@ class PDFHandler(BaseHandler):
             metadata_service=self._metadata_service,
             tag_service=self._tag_service,
         )
-
 
 __all__ = ["PDFHandler"]
