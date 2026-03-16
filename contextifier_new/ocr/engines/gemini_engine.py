@@ -3,16 +3,49 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Dict, List, Optional
 
 from contextifier_new.ocr.base import BaseOCREngine
 
+logger = logging.getLogger("contextifier.ocr.gemini")
+
+DEFAULT_GEMINI_MODEL = "gemini-2.0-flash"
+
 
 class GeminiOCREngine(BaseOCREngine):
-    """OCR engine using Google Gemini Vision API."""
+    """OCR engine using Google Gemini Vision API.
+
+    Two ways to create:
+        engine = GeminiOCREngine(llm_client)
+        engine = GeminiOCREngine.from_api_key("...")
+    """
 
     def __init__(self, llm_client: Any, *, prompt: Optional[str] = None) -> None:
         super().__init__(llm_client, prompt=prompt)
+
+    @classmethod
+    def from_api_key(
+        cls,
+        api_key: str,
+        *,
+        model: str = DEFAULT_GEMINI_MODEL,
+        prompt: Optional[str] = None,
+        temperature: float = 0.0,
+        max_tokens: Optional[int] = None,
+    ) -> "GeminiOCREngine":
+        """Create engine from a Google API key."""
+        from langchain_google_genai import ChatGoogleGenerativeAI
+
+        kwargs: Dict[str, Any] = {
+            "model": model,
+            "google_api_key": api_key,
+            "temperature": temperature,
+        }
+        if max_tokens is not None:
+            kwargs["max_output_tokens"] = max_tokens
+
+        return cls(ChatGoogleGenerativeAI(**kwargs), prompt=prompt)
 
     @property
     def provider(self) -> str:
