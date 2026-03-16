@@ -13,7 +13,10 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import FrozenSet, List
+from typing import TYPE_CHECKING, FrozenSet, List
+
+if TYPE_CHECKING:
+    from contextifier_new.config import ProcessingConfig
 
 
 # ============================================================================
@@ -45,36 +48,22 @@ CODE_LANGUAGE_MAP: dict[str, str] = {
 # ============================================================================
 # Protected Region Patterns (blocks that must NEVER be split)
 # ============================================================================
+#
+# Tag-dependent patterns (page, slide, sheet, image, chart, metadata) are
+# built at runtime from ProcessingConfig via build_protected_patterns().
+# This ensures they stay in sync when users customize tag formats.
+#
+# Only format-structural patterns that don't depend on TagConfig are
+# defined as module-level constants.
+# ============================================================================
 
-# HTML table (with any attributes)
+# HTML table (with any attributes) — config-independent
 HTML_TABLE_PATTERN = re.compile(r"<table[^>]*>.*?</table>", re.DOTALL | re.IGNORECASE)
 
-# Chart block — [chart]...[/chart]
-CHART_BLOCK_PATTERN = re.compile(r"\[chart\].*?\[/chart\]", re.DOTALL | re.IGNORECASE)
-
-# Textbox block — [textbox]...[/textbox]
+# Textbox block — [textbox]...[/textbox] — config-independent (no TagConfig entry)
 TEXTBOX_BLOCK_PATTERN = re.compile(r"\[textbox\].*?\[/textbox\]", re.DOTALL | re.IGNORECASE)
 
-# Image tag — [image:path] or [Image: {path}]
-IMAGE_TAG_PATTERN = re.compile(r"\[(?i:image)\s*:\s*\{?[^\]\}]+\}?\]")
-
-# Page/Slide/Sheet tag patterns
-PAGE_TAG_PATTERN = re.compile(r"\[Page Number:\s*\d+(?:\s*\(OCR(?:\+Ref)?\))?\]")
-SLIDE_TAG_PATTERN = re.compile(r"\[Slide Number:\s*\d+(?:\s*\(OCR(?:\+Ref)?\))?\]")
-SHEET_TAG_PATTERN = re.compile(r"\[Sheet:\s*[^\]]+\]")
-
-# Document metadata block — <Document-Metadata>...</Document-Metadata>
-METADATA_BLOCK_PATTERN = re.compile(
-    r"<Document-Metadata>.*?</Document-Metadata>", re.DOTALL
-)
-
-# Data analysis block — [Data Analysis]...[/Data Analysis] or Korean variant
-DATA_ANALYSIS_PATTERN = re.compile(
-    r"\[(?:Data Analysis|데이터 분석)\].*?\[/(?:Data Analysis|데이터 분석)\]",
-    re.DOTALL,
-)
-
-# Markdown tables
+# Markdown tables — config-independent
 MARKDOWN_TABLE_PATTERN = re.compile(
     r"(?:^|\n)(\|[^\n]+\|\n\|[-:|\s]+\|\n(?:\|[^\n]+\|(?:\n|$))+)"
 )
@@ -82,18 +71,77 @@ MARKDOWN_TABLE_ROW_PATTERN = re.compile(r"\|[^\n]+\|")
 MARKDOWN_TABLE_SEPARATOR_PATTERN = re.compile(r"^\|[\s\-:]+\|[\s\-:|]*$", re.MULTILINE)
 MARKDOWN_TABLE_HEADER_PATTERN = re.compile(r"^(\|[^\n]+\|\n)(\|[-:|\s]+\|)")
 
-# Aggregated: all protected patterns (order = priority)
-ALL_PROTECTED_PATTERNS: list[re.Pattern[str]] = [
-    CHART_BLOCK_PATTERN,
-    TEXTBOX_BLOCK_PATTERN,
-    HTML_TABLE_PATTERN,
-    METADATA_BLOCK_PATTERN,
-    DATA_ANALYSIS_PATTERN,
-    IMAGE_TAG_PATTERN,
-    PAGE_TAG_PATTERN,
-    SLIDE_TAG_PATTERN,
-    SHEET_TAG_PATTERN,
-]
+
+# ============================================================================
+# Pattern Builder Functions — Config-Driven
+# ============================================================================
+
+def _build_block_pattern(
+    open_tag: str, close_tag: str, flags: int = re.DOTALL,
+) -> re.Pattern[str]:
+    """Build regex for block-level tags like [chart]...[/chart]."""
+    return re.compile(
+        rf"{re.escape(open_tag)}.*?{re.escape(close_tag)}", flags,
+    )
+
+
+def _build_inline_pattern(prefix: str, suffix: str) -> re.Pattern[str]:
+    """Build regex for inline tags like [Image:path] or [Sheet: name]."""
+    return re.compile(rf"{re.escape(prefix)}.+?{re.escape(suffix)}")
+
+
+def _build_number_tag_pattern(prefix: str, suffix: str) -> re.Pattern[str]:
+    """Build regex for number-based tags with optional OCR annotation."""
+    return re.compile(
+        rf"{re.escape(prefix)}\d+(?:\s*\(OCR(?:\+Ref)?\))?{re.escape(suffix)}"
+    )
+
+
+def build_protected_patterns(config: "ProcessingConfig") -> list[re.Pattern[str]]:
+    """
+    Build all protected region patterns from ProcessingConfig.
+
+    Tag-dependent patterns are derived from ``config.tags`` so they stay
+    in sync when tag formats are customized.  Config-independent patterns
+    (HTML tables, textboxes) are included as module-level constants.
+
+    Args:
+        config: Processing configuration with tag settings.
+
+    Returns:
+        List of compiled regex patterns in priority order.
+    """
+    tags = config.tags
+    return [
+        # Block-level protected regions
+        _build_block_pattern(tags.chart_prefix, tags.chart_suffix, re.DOTALL | re.IGNORECASE),
+        TEXTBOX_BLOCK_PATTERN,
+        HTML_TABLE_PATTERN,
+        _build_block_pattern(tags.metadata_prefix, tags.metadata_suffix, re.DOTALL),
+        # Inline protected tags
+        _build_inline_pattern(tags.image_prefix, tags.image_suffix),
+        _build_number_tag_pattern(tags.page_prefix, tags.page_suffix),
+        _build_number_tag_pattern(tags.slide_prefix, tags.slide_suffix),
+        _build_inline_pattern(tags.sheet_prefix, tags.sheet_suffix),
+    ]
+
+
+def build_image_capture_pattern(config: "ProcessingConfig") -> re.Pattern[str]:
+    """
+    Build regex for image tags with a capture group for the path.
+
+    Used by chunking strategies that need to identify image tag content.
+
+    Args:
+        config: Processing configuration with tag settings.
+
+    Returns:
+        Compiled regex with one capture group for the image path.
+    """
+    tags = config.tags
+    return re.compile(
+        rf"{re.escape(tags.image_prefix)}\s*(.+?)\s*{re.escape(tags.image_suffix)}"
+    )
 
 
 # ============================================================================
@@ -150,21 +198,16 @@ class ParsedMarkdownTable:
 
 
 __all__ = [
-    # Patterns
+    # Config-independent patterns
     "HTML_TABLE_PATTERN",
-    "CHART_BLOCK_PATTERN",
     "TEXTBOX_BLOCK_PATTERN",
-    "IMAGE_TAG_PATTERN",
-    "PAGE_TAG_PATTERN",
-    "SLIDE_TAG_PATTERN",
-    "SHEET_TAG_PATTERN",
-    "METADATA_BLOCK_PATTERN",
-    "DATA_ANALYSIS_PATTERN",
     "MARKDOWN_TABLE_PATTERN",
     "MARKDOWN_TABLE_ROW_PATTERN",
     "MARKDOWN_TABLE_SEPARATOR_PATTERN",
     "MARKDOWN_TABLE_HEADER_PATTERN",
-    "ALL_PROTECTED_PATTERNS",
+    # Config-driven pattern builders
+    "build_protected_patterns",
+    "build_image_capture_pattern",
     # Thresholds
     "TABLE_WRAPPER_OVERHEAD",
     "ROW_OVERHEAD",

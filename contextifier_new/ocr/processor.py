@@ -26,9 +26,6 @@ from contextifier_new.ocr.base import BaseOCREngine
 
 logger = logging.getLogger("contextifier.ocr")
 
-# Default image tag pattern: [Image:{path}] or [image:{path}]
-DEFAULT_IMAGE_TAG_PATTERN: Pattern[str] = re.compile(r"\[[Ii]mage:([^\]]+)\]")
-
 
 # ── Progress Protocol ─────────────────────────────────────────────────────
 
@@ -81,7 +78,14 @@ class OCRProcessor:
         """
         self._engine = engine
         self._config = config
-        self._pattern = image_pattern or DEFAULT_IMAGE_TAG_PATTERN
+        if image_pattern is not None:
+            self._pattern = image_pattern
+        else:
+            # Build from config.tags to stay in sync with TagConfig
+            tags = config.tags
+            self._pattern = re.compile(
+                rf"{re.escape(tags.image_prefix)}\s*(.+?)\s*{re.escape(tags.image_suffix)}"
+            )
 
     @property
     def engine(self) -> BaseOCREngine:

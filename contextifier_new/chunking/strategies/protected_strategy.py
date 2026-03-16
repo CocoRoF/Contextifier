@@ -23,12 +23,11 @@ class ProtectedChunkingStrategy(BaseChunkingStrategy):
 
     Protected region types:
     - HTML tables (<table>...</table>)
-    - Chart blocks ([chart]...[/chart])
+    - Chart blocks (config-driven, default: [chart]...[/chart])
     - Textbox blocks ([textbox]...[/textbox])
-    - Image tags ([Image:...])
+    - Image tags (config-driven, default: [Image:...])
     - Markdown tables (pipe-delimited)
-    - Metadata blocks (<Document-Metadata>...</Document-Metadata>)
-    - Data analysis blocks ([Data Analysis]...[/Data Analysis])
+    - Metadata blocks (config-driven, default: <Document-Metadata>...</Document-Metadata>)
 
     Algorithm:
     1. Detect all protected regions and their boundaries
@@ -47,8 +46,14 @@ class ProtectedChunkingStrategy(BaseChunkingStrategy):
         **context: Any,
     ) -> bool:
         """Handle if text contains protected regions."""
-        # Check for common protected markers
-        protected_markers = ["<table", "[chart]", "[textbox]", "[Image:", "<Document-Metadata>"]
+        tags = config.tags
+        protected_markers = [
+            "<table",
+            tags.chart_prefix,
+            "[textbox]",
+            tags.image_prefix,
+            tags.metadata_prefix,
+        ]
         return any(marker in text for marker in protected_markers)
 
     def chunk(

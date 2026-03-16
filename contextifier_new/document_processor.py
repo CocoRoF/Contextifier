@@ -253,6 +253,9 @@ class DocumentProcessor:
 
         self._logger.info(f"Extracting text: {file_path_str} (ext={ext})")
 
+        # Reset per-file image deduplication state
+        self._services["image_service"].clear_state()
+
         # Get handler and extract
         handler = self._registry.get_handler(ext)
         text = handler.extract_text(
@@ -305,6 +308,9 @@ class DocumentProcessor:
 
         ext = self._resolve_extension(file_path_str, file_extension)
         file_context = self._create_file_context(file_path_str, ext)
+
+        # Reset per-file image deduplication state
+        self._services["image_service"].clear_state()
 
         handler = self._registry.get_handler(ext)
         result = handler.process(
