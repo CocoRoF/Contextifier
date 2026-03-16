@@ -2,20 +2,21 @@
 """
 TSVHandler — Handler for TSV (Tab-Separated Values) files (.tsv ONLY).
 
-TSV uses tab as the delimiter, which is fundamentally different from CSV
-in terms of parsing, quoting rules, and encoding heuristics.
+TSV uses a fixed tab delimiter. All pipeline components are shared
+with CSVHandler — the only difference is the forced ``\\t`` delimiter
+passed to CsvPreprocessor, which skips auto-detection.
 
-Pipeline:
-    Convert:  Raw bytes → decoded text (encoding detection)
-    Preprocess: Validate tab delimiter, clean data, handle quoting
-    Metadata: Row count, column count, column names, encoding, delimiter
-    Content:  Data as HTML table, optional data analysis summary
-    Postprocess: Assemble with sheet tag and metadata block
+Pipeline (same 5-stage model as CSV):
+    Stage 1 (Convert):     Raw bytes → decoded text (BOM + encoding detection)
+    Stage 2 (Preprocess):  Fixed tab delimiter, parse, header detection
+    Stage 3 (Metadata):    Row/col count, columns, encoding, delimiter info
+    Stage 4 (Content):     Parsed rows → TableData → formatted table string
+    Stage 5 (Postprocess): Metadata block + tag assembly
 
-Key differences from CSVHandler:
-- Tab delimiter (no ambiguity with commas in data)
-- Different quoting conventions
-- Often used in bioinformatics/data interchange contexts
+Why a separate handler instead of a flag on CSVHandler:
+- One-extension-per-handler rule for proper registry behaviour
+- TSV data rarely has the quoting ambiguity issues that CSV has
+- Different default encoding assumptions possible via format_options["tsv"]
 """
 
 from __future__ import annotations
@@ -23,21 +24,32 @@ from __future__ import annotations
 from typing import FrozenSet
 
 from contextifier_new.handlers.base import BaseHandler
-from contextifier_new.pipeline.converter import BaseConverter, NullConverter
-from contextifier_new.pipeline.preprocessor import BasePreprocessor, NullPreprocessor
-from contextifier_new.pipeline.metadata_extractor import (
-    BaseMetadataExtractor,
-    NullMetadataExtractor,
-)
-from contextifier_new.pipeline.content_extractor import (
-    BaseContentExtractor,
-    NullContentExtractor,
-)
+from contextifier_new.pipeline.converter import BaseConverter
+from contextifier_new.pipeline.preprocessor import BasePreprocessor
+from contextifier_new.pipeline.metadata_extractor import BaseMetadataExtractor
+from contextifier_new.pipeline.content_extractor import BaseContentExtractor
 from contextifier_new.pipeline.postprocessor import BasePostprocessor, DefaultPostprocessor
+
+# Reuse CSV pipeline components — TSV differs only in delimiter
+from contextifier_new.handlers.csv.converter import CsvConverter
+from contextifier_new.handlers.csv.preprocessor import CsvPreprocessor
+from contextifier_new.handlers.csv.metadata_extractor import CsvMetadataExtractor
+from contextifier_new.handlers.csv.content_extractor import CsvContentExtractor
 
 
 class TSVHandler(BaseHandler):
-    """Handler for TSV files (.tsv only)."""
+    """
+    Handler for TSV files (.tsv only).
+
+    Uses the same pipeline as CSVHandler but forces tab as the
+    delimiter, bypassing auto-detection.
+
+    Encoding customization via ``config.format_options``:
+
+        config = ProcessingConfig(
+            format_options={"tsv": {"encodings": ["shift_jis", "utf-8"]}}
+        )
+    """
 
     @property
     def supported_extensions(self) -> FrozenSet[str]:
@@ -48,22 +60,29 @@ class TSVHandler(BaseHandler):
         return "TSV Handler"
 
     def create_converter(self) -> BaseConverter:
-        # TODO: Implement TSVConverter (bytes → decoded string, tab delimiter)
-        return NullConverter()
+        """BOM-aware converter with configurable encoding list."""
+        tsv_opts = self._config.format_options.get("tsv", {})
+        encodings = tsv_opts.get("encodings", None)
+        return CsvConverter(encodings=encodings)
 
     def create_preprocessor(self) -> BasePreprocessor:
-        # TODO: Implement TSVPreprocessor (tab-delimited parsing)
-        return NullPreprocessor()
+        """
+        Preprocessor with forced tab delimiter.
+
+        Skips csv.Sniffer detection — always uses ``\\t``.
+        """
+        return CsvPreprocessor(default_delimiter="\t")
 
     def create_metadata_extractor(self) -> BaseMetadataExtractor:
-        # TODO: Implement TSVMetadataExtractor
-        return NullMetadataExtractor()
+        """Extracts TSV structural info into DocumentMetadata.custom."""
+        return CsvMetadataExtractor()
 
     def create_content_extractor(self) -> BaseContentExtractor:
-        # TODO: Implement TSVContentExtractor (data → HTML table)
-        return NullContentExtractor()
+        """Formats parsed rows as a table via TableService."""
+        return CsvContentExtractor(table_service=self._table_service)
 
     def create_postprocessor(self) -> BasePostprocessor:
+        """Standard postprocessor for metadata block assembly."""
         return DefaultPostprocessor(
             self._config,
             metadata_service=self._metadata_service,

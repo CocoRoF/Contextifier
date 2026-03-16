@@ -3,16 +3,27 @@
 TextHandler — Unified handler for plain text files.
 
 Pipeline:
-    Convert:  Raw bytes → decoded string (encoding detection)
-    Preprocess: Normalize line endings, strip BOM, detect code language
-    Metadata: File size, line count, encoding, detected language
-    Content:  Full text content (no tables/images/charts)
-    Postprocess: Assemble with metadata block
+    Stage 1 (Convert):     Raw bytes → decoded string (encoding detection)
+    Stage 2 (Preprocess):  BOM strip, line ending normalization → PreprocessedData
+    Stage 3 (Metadata):    No embedded metadata → empty DocumentMetadata
+    Stage 4 (Content):     Code/text mode cleaning → ExtractionResult
+    Stage 5 (Postprocess): Standard whitespace normalization → final string
 
-Old issues resolved:
+Supported file categories:
+    text (.txt, .md, .rst), code (.py, .js, .java, .cpp, ...),
+    config (.json, .yaml, .xml, .ini, ...), script (.sh, .bat, .ps1),
+    log (.log), web (.html, .htm, .css, ...)
+
+Code mode detection:
+    Auto-detected from file_category (code/config/script/web → code mode).
+    Can be overridden explicitly via ``is_code=True`` kwarg.
+
+v1.0 Issues resolved:
 - TextHandler skipped convert() entirely — now uses TextConverter
+- TextFileConverter was created but never called — decode was inline
 - extract_metadata flag was ignored — now respected via pipeline
-- Extra language parameter on extract_text() — now in config.format_options
+- Text cleaning was inline in handler, not in a pipeline stage
+- is_code was a handler parameter, now auto-detected from file_category
 """
 
 from __future__ import annotations
@@ -20,34 +31,54 @@ from __future__ import annotations
 from typing import FrozenSet
 
 from contextifier_new.handlers.base import BaseHandler
-from contextifier_new.pipeline.converter import BaseConverter, NullConverter
-from contextifier_new.pipeline.preprocessor import BasePreprocessor, NullPreprocessor
+from contextifier_new.pipeline.converter import BaseConverter
+from contextifier_new.pipeline.preprocessor import BasePreprocessor
 from contextifier_new.pipeline.metadata_extractor import (
     BaseMetadataExtractor,
     NullMetadataExtractor,
 )
-from contextifier_new.pipeline.content_extractor import (
-    BaseContentExtractor,
-    NullContentExtractor,
-)
+from contextifier_new.pipeline.content_extractor import BaseContentExtractor
 from contextifier_new.pipeline.postprocessor import BasePostprocessor, DefaultPostprocessor
 
+from contextifier_new.handlers.text.converter import TextConverter
+from contextifier_new.handlers.text.preprocessor import TextPreprocessor
+from contextifier_new.handlers.text.content_extractor import TextContentExtractor
 
-# All text-based extensions supported
+
+# All text-based extensions supported by this handler.
+# Covers: plain text, markup, source code, config, scripts, stylesheets.
 _TEXT_EXTENSIONS = frozenset({
-    "txt", "md", "markdown", "rst", "log", "cfg", "ini", "conf",
-    "yaml", "yml", "toml", "json", "xml", "svg",
+    # Plain text & markup
+    "txt", "md", "markdown", "rst", "log",
+    # Config & data formats
+    "cfg", "ini", "conf", "yaml", "yml", "toml", "json", "xml", "svg",
+    "properties", "env",
+    # Source code
     "py", "js", "ts", "jsx", "tsx", "java", "cpp", "c", "h", "hpp",
-    "cs", "go", "rs", "php", "rb", "swift", "kt", "scala",
-    "sh", "bash", "zsh", "bat", "ps1", "cmd",
-    "sql", "r", "m", "lua", "pl", "pm",
-    "html", "htm", "css", "scss", "less", "sass",
-    "gitignore", "dockerignore", "env", "editorconfig",
+    "cs", "go", "rs", "php", "rb", "swift", "kt", "scala", "dart",
+    "r", "m", "lua", "pl", "pm",
+    # Scripts
+    "sh", "bash", "zsh", "bat", "ps1", "cmd", "fish",
+    # SQL
+    "sql",
+    # Web
+    "html", "htm", "xhtml", "css", "scss", "less", "sass",
+    # Vue / Svelte (single-file components)
+    "vue", "svelte",
+    # Dotfiles
+    "gitignore", "dockerignore", "editorconfig",
 })
 
 
 class TextHandler(BaseHandler):
-    """Handler for plain text and source code files."""
+    """
+    Handler for plain text and source code files.
+
+    This is a CATEGORY handler — it supports many extensions that
+    all share the same "read bytes, decode, clean" processing model.
+    Unlike document format handlers (PDF, DOCX) that each get one
+    extension, the TextHandler covers all text-based formats.
+    """
 
     @property
     def supported_extensions(self) -> FrozenSet[str]:
@@ -58,22 +89,41 @@ class TextHandler(BaseHandler):
         return "Text Handler"
 
     def create_converter(self) -> BaseConverter:
-        # TODO: Implement TextConverter (bytes → decoded string with encoding detection)
-        return NullConverter()
+        """
+        Create TextConverter for encoding detection and decoding.
+
+        Encoding list can be customized via config.format_options:
+            config = ProcessingConfig(
+                format_options={"text": {"encodings": ["shift_jis", "utf-8"]}}
+            )
+        """
+        text_opts = self._config.format_options.get("text", {})
+        encodings = text_opts.get("encodings", None)
+        return TextConverter(encodings=encodings)
 
     def create_preprocessor(self) -> BasePreprocessor:
-        # TODO: Implement TextPreprocessor (BOM strip, line ending normalization)
-        return NullPreprocessor()
+        """Create TextPreprocessor for BOM strip and line ending normalization."""
+        return TextPreprocessor()
 
     def create_metadata_extractor(self) -> BaseMetadataExtractor:
-        # TODO: Implement TextMetadataExtractor (file size, line count, encoding)
+        """
+        Text files have no embedded metadata.
+
+        Returns NullMetadataExtractor which produces empty DocumentMetadata.
+        """
         return NullMetadataExtractor()
 
     def create_content_extractor(self) -> BaseContentExtractor:
-        # TODO: Implement TextContentExtractor (pass-through text, code wrapping)
-        return NullContentExtractor()
+        """
+        Create TextContentExtractor for code/text mode cleaning.
+
+        Code mode is auto-detected from file_category or can be
+        overridden via ``is_code=True`` kwarg at extraction time.
+        """
+        return TextContentExtractor()
 
     def create_postprocessor(self) -> BasePostprocessor:
+        """Create standard postprocessor for metadata block and whitespace cleanup."""
         return DefaultPostprocessor(
             self._config,
             metadata_service=self._metadata_service,
