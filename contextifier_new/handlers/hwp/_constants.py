@@ -1,0 +1,138 @@
+# contextifier_new/handlers/hwp/_constants.py
+"""
+HWP 5.0 binary-format constants.
+
+Tag IDs, magic bytes, control characters, and structural constants
+used throughout the HWP handler pipeline.
+"""
+
+from __future__ import annotations
+
+# ── Magic signatures ──────────────────────────────────────────────────────
+
+OLE2_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
+ZIP_MAGIC = b"PK\x03\x04"
+
+
+# ── HWP Record tag IDs ───────────────────────────────────────────────────
+# Record tags are defined as HWPTAG_BEGIN + offset.
+# HWPTAG_BEGIN = 0x10 (16 decimal).
+
+HWPTAG_BEGIN = 0x10
+
+HWPTAG_DOCUMENT_PROPERTIES = HWPTAG_BEGIN + 0   # 16
+HWPTAG_ID_MAPPINGS = HWPTAG_BEGIN + 1           # 17
+HWPTAG_BIN_DATA = HWPTAG_BEGIN + 2              # 18
+HWPTAG_FACE_NAME = HWPTAG_BEGIN + 3             # 19
+HWPTAG_BORDER_FILL = HWPTAG_BEGIN + 4           # 20
+HWPTAG_CHAR_SHAPE = HWPTAG_BEGIN + 5            # 21
+HWPTAG_TAB_DEF = HWPTAG_BEGIN + 6               # 22
+HWPTAG_NUMBERING = HWPTAG_BEGIN + 7             # 23
+HWPTAG_BULLET = HWPTAG_BEGIN + 8                # 24
+HWPTAG_PARA_SHAPE = HWPTAG_BEGIN + 9            # 25
+HWPTAG_STYLE = HWPTAG_BEGIN + 10                # 26
+HWPTAG_DOC_DATA = HWPTAG_BEGIN + 11             # 27
+HWPTAG_DISTRIBUTE_DOC_DATA = HWPTAG_BEGIN + 12  # 28
+
+HWPTAG_COMPATIBLE_DOCUMENT = HWPTAG_BEGIN + 38  # 54
+
+# Body text record tags
+HWPTAG_PARA_HEADER = HWPTAG_BEGIN + 50          # 66
+HWPTAG_PARA_TEXT = HWPTAG_BEGIN + 51            # 67
+HWPTAG_PARA_CHAR_SHAPE = HWPTAG_BEGIN + 52      # 68
+HWPTAG_PARA_LINE_SEG = HWPTAG_BEGIN + 53        # 69
+HWPTAG_PARA_RANGE_TAG = HWPTAG_BEGIN + 54       # 70
+HWPTAG_CTRL_HEADER = HWPTAG_BEGIN + 55          # 71
+HWPTAG_LIST_HEADER = HWPTAG_BEGIN + 56          # 72
+HWPTAG_PAGE_DEF = HWPTAG_BEGIN + 57             # 73
+HWPTAG_FOOTNOTE_SHAPE = HWPTAG_BEGIN + 58       # 74
+HWPTAG_PAGE_BORDER_FILL = HWPTAG_BEGIN + 59     # 75
+HWPTAG_SHAPE_COMPONENT = HWPTAG_BEGIN + 60      # 76
+HWPTAG_TABLE = HWPTAG_BEGIN + 61                # 77
+HWPTAG_SHAPE_COMPONENT_LINE = HWPTAG_BEGIN + 62  # 78
+HWPTAG_SHAPE_COMPONENT_RECTANGLE = HWPTAG_BEGIN + 63  # 79
+HWPTAG_SHAPE_COMPONENT_ELLIPSE = HWPTAG_BEGIN + 64  # 80
+HWPTAG_SHAPE_COMPONENT_ARC = HWPTAG_BEGIN + 65  # 81
+HWPTAG_SHAPE_COMPONENT_POLYGON = HWPTAG_BEGIN + 66  # 82
+HWPTAG_SHAPE_COMPONENT_CURVE = HWPTAG_BEGIN + 67  # 83
+HWPTAG_SHAPE_COMPONENT_OLE = HWPTAG_BEGIN + 68  # 84
+HWPTAG_SHAPE_COMPONENT_PICTURE = HWPTAG_BEGIN + 69  # 85
+HWPTAG_SHAPE_COMPONENT_CONTAINER = HWPTAG_BEGIN + 70  # 86
+HWPTAG_CTRL_DATA = HWPTAG_BEGIN + 71            # 87
+HWPTAG_EQEDIT = HWPTAG_BEGIN + 72               # 88
+
+HWPTAG_MEMO_SHAPE = HWPTAG_BEGIN + 76           # 92
+HWPTAG_MEMO_LIST = HWPTAG_BEGIN + 77            # 93
+
+# ── Special control characters found in PARA_TEXT ─────────────────────────
+
+CTRL_CHAR_SECTION_COLUMN_DEF = 0x02
+CTRL_CHAR_FIELD_BEGIN = 0x03
+CTRL_CHAR_HYPHEN = 0x04
+CTRL_CHAR_FIELD_END = 0x04  # overlaps
+CTRL_CHAR_TITLE_MARK = 0x05
+CTRL_CHAR_TAB = 0x09
+CTRL_CHAR_LINE_BREAK = 0x0A
+CTRL_CHAR_DRAWING_TABLE_OBJECT = 0x0B
+CTRL_CHAR_PARA_BREAK = 0x0D
+CTRL_CHAR_BOOKMARK = 0x0E
+CTRL_CHAR_HIDDEN_COMMENT = 0x0F
+CTRL_CHAR_HEADER_FOOTER = 0x10
+CTRL_CHAR_FOOTNOTE_ENDNOTE = 0x11
+CTRL_CHAR_AUTO_NUMBERING = 0x12
+CTRL_CHAR_PAGE_CTRL = 0x15
+CTRL_CHAR_PAGE_NUMBER_CTRL = 0x18
+CTRL_CHAR_PAGE_COUNT_CTRL = 0x19
+CTRL_CHAR_NONBREAK_SPACE = 0xA0
+
+# Extended control character byte-width (each extended char = 8 code units = 16 bytes)
+EXTENDED_CHAR_UNITS = 8
+
+# ── BinData storage types ─────────────────────────────────────────────────
+
+BINDATA_LINK = 0
+BINDATA_EMBEDDING = 1
+BINDATA_STORAGE = 2
+
+# ── OLE stream names ─────────────────────────────────────────────────────
+
+STREAM_FILE_HEADER = "FileHeader"
+STREAM_DOC_INFO = "DocInfo"
+STREAM_BODY_TEXT = "BodyText"
+STREAM_BIN_DATA = "BinData"
+STREAM_HWP_SUMMARY = "\x05HwpSummaryInformation"
+
+# ── FileHeader constants ──────────────────────────────────────────────────
+
+FILE_HEADER_FLAGS_OFFSET = 36
+COMPRESS_FLAG = 0x01
+
+
+__all__ = [
+    "OLE2_MAGIC",
+    "ZIP_MAGIC",
+    "HWPTAG_BEGIN",
+    "HWPTAG_BIN_DATA",
+    "HWPTAG_PARA_HEADER",
+    "HWPTAG_PARA_TEXT",
+    "HWPTAG_CTRL_HEADER",
+    "HWPTAG_LIST_HEADER",
+    "HWPTAG_TABLE",
+    "HWPTAG_SHAPE_COMPONENT",
+    "HWPTAG_SHAPE_COMPONENT_PICTURE",
+    "CTRL_CHAR_DRAWING_TABLE_OBJECT",
+    "CTRL_CHAR_TAB",
+    "CTRL_CHAR_LINE_BREAK",
+    "CTRL_CHAR_PARA_BREAK",
+    "EXTENDED_CHAR_UNITS",
+    "BINDATA_LINK",
+    "BINDATA_EMBEDDING",
+    "BINDATA_STORAGE",
+    "STREAM_FILE_HEADER",
+    "STREAM_DOC_INFO",
+    "STREAM_BODY_TEXT",
+    "STREAM_BIN_DATA",
+    "STREAM_HWP_SUMMARY",
+    "FILE_HEADER_FLAGS_OFFSET",
+    "COMPRESS_FLAG",
+]

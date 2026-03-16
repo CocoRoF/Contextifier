@@ -7,17 +7,12 @@ directly with python-pptx. This is fundamentally different from legacy
 .ppt (OLE2/CFBF binary) which requires LibreOffice conversion.
 
 Pipeline:
-    Convert:  Raw bytes → python-pptx Presentation object
-    Preprocess: Normalize slides, detect embedded content
-    Metadata: Author, title, creation date, slide count (from OOXML core props)
-    Content:  Slide text, tables, images, charts (OOXML chart parts), shapes
+    Convert:  Raw bytes → python-pptx Presentation (ZIP + OOXML validation)
+    Preprocess: Wrap Presentation, compute slide stats, pre-extract charts
+    Metadata: core_properties → DocumentMetadata (title, author, dates, slide count)
+    Content:  Slide iteration, shape dispatch (table/picture/chart/text/group),
+              position-based sorting, slide notes
     Postprocess: Assemble with slide tags and metadata block
-
-Key differences from PPTHandler:
-- Direct python-pptx parsing (no LibreOffice dependency)
-- Native OOXML chart extraction from chart parts
-- Full image extraction from slide relationships
-- Richer metadata from OOXML core/app properties
 """
 
 from __future__ import annotations
@@ -25,17 +20,16 @@ from __future__ import annotations
 from typing import FrozenSet
 
 from contextifier_new.handlers.base import BaseHandler
-from contextifier_new.pipeline.converter import BaseConverter, NullConverter
-from contextifier_new.pipeline.preprocessor import BasePreprocessor, NullPreprocessor
-from contextifier_new.pipeline.metadata_extractor import (
-    BaseMetadataExtractor,
-    NullMetadataExtractor,
-)
-from contextifier_new.pipeline.content_extractor import (
-    BaseContentExtractor,
-    NullContentExtractor,
-)
+from contextifier_new.pipeline.converter import BaseConverter
+from contextifier_new.pipeline.preprocessor import BasePreprocessor
+from contextifier_new.pipeline.metadata_extractor import BaseMetadataExtractor
+from contextifier_new.pipeline.content_extractor import BaseContentExtractor
 from contextifier_new.pipeline.postprocessor import BasePostprocessor, DefaultPostprocessor
+
+from contextifier_new.handlers.pptx.converter import PptxConverter
+from contextifier_new.handlers.pptx.preprocessor import PptxPreprocessor
+from contextifier_new.handlers.pptx.metadata_extractor import PptxMetadataExtractor
+from contextifier_new.handlers.pptx.content_extractor import PptxContentExtractor
 
 
 class PPTXHandler(BaseHandler):
@@ -50,20 +44,21 @@ class PPTXHandler(BaseHandler):
         return "PPTX Handler"
 
     def create_converter(self) -> BaseConverter:
-        # TODO: Implement PPTXConverter (bytes → python-pptx Presentation directly)
-        return NullConverter()
+        return PptxConverter()
 
     def create_preprocessor(self) -> BasePreprocessor:
-        # TODO: Implement PPTXPreprocessor
-        return NullPreprocessor()
+        return PptxPreprocessor()
 
     def create_metadata_extractor(self) -> BaseMetadataExtractor:
-        # TODO: Implement PPTXMetadataExtractor (OOXML core properties)
-        return NullMetadataExtractor()
+        return PptxMetadataExtractor()
 
     def create_content_extractor(self) -> BaseContentExtractor:
-        # TODO: Implement PPTXContentExtractor (slides, shapes, tables, images, OOXML charts)
-        return NullContentExtractor()
+        return PptxContentExtractor(
+            image_service=self._image_service,
+            tag_service=self._tag_service,
+            chart_service=self._chart_service,
+            table_service=self._table_service,
+        )
 
     def create_postprocessor(self) -> BasePostprocessor:
         return DefaultPostprocessor(

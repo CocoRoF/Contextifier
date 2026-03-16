@@ -7,40 +7,29 @@ This is fundamentally different from legacy .xls (BIFF binary) which
 requires xlrd or LibreOffice conversion.
 
 Pipeline:
-    Convert:  Raw bytes → openpyxl Workbook
-    Preprocess: Detect sheets, data regions, merged cells, hidden sheets
-    Metadata: Author, title, creation date, sheet names, dimensions (OOXML props)
-    Content:  Sheet data as HTML tables, embedded images, OOXML charts
+    Convert:  Raw bytes → openpyxl Workbook (data_only=True)
+    Preprocess: Wrap Workbook, pre-extract charts/images/textboxes from ZIP
+    Metadata: OOXML core properties → DocumentMetadata
+    Content:  Per-sheet layout detection → table conversion (MD/HTML),
+              chart extraction, image extraction, textbox extraction
     Postprocess: Assemble with sheet tags and metadata block
-
-Key differences from XLSHandler:
-- Direct openpyxl parsing (no conversion needed)
-- Native OOXML chart extraction from chart part relationships
-- Full image extraction from drawing relationships
-- Richer metadata from OOXML core/app properties
-- Supports larger worksheets (no 65536 row limit)
-
-Old issues resolved:
-- Dual metadata extractors (xls vs xlsx) eliminated — one handler per format
-- Chart formatting via ChartService (not duplicated)
 """
 
 from __future__ import annotations
 
-from typing import FrozenSet
+from typing import Any, FrozenSet
 
 from contextifier_new.handlers.base import BaseHandler
-from contextifier_new.pipeline.converter import BaseConverter, NullConverter
-from contextifier_new.pipeline.preprocessor import BasePreprocessor, NullPreprocessor
-from contextifier_new.pipeline.metadata_extractor import (
-    BaseMetadataExtractor,
-    NullMetadataExtractor,
-)
-from contextifier_new.pipeline.content_extractor import (
-    BaseContentExtractor,
-    NullContentExtractor,
-)
+from contextifier_new.pipeline.converter import BaseConverter
+from contextifier_new.pipeline.preprocessor import BasePreprocessor
+from contextifier_new.pipeline.metadata_extractor import BaseMetadataExtractor
+from contextifier_new.pipeline.content_extractor import BaseContentExtractor
 from contextifier_new.pipeline.postprocessor import BasePostprocessor, DefaultPostprocessor
+
+from contextifier_new.handlers.xlsx.converter import XlsxConverter
+from contextifier_new.handlers.xlsx.preprocessor import XlsxPreprocessor
+from contextifier_new.handlers.xlsx.metadata_extractor import XlsxMetadataExtractor
+from contextifier_new.handlers.xlsx.content_extractor import XlsxContentExtractor
 
 
 class XLSXHandler(BaseHandler):
@@ -55,20 +44,21 @@ class XLSXHandler(BaseHandler):
         return "XLSX Handler"
 
     def create_converter(self) -> BaseConverter:
-        # TODO: Implement XLSXConverter (bytes → openpyxl Workbook)
-        return NullConverter()
+        return XlsxConverter()
 
     def create_preprocessor(self) -> BasePreprocessor:
-        # TODO: Implement XLSXPreprocessor (detect data regions, merged cells)
-        return NullPreprocessor()
+        return XlsxPreprocessor()
 
     def create_metadata_extractor(self) -> BaseMetadataExtractor:
-        # TODO: Implement XLSXMetadataExtractor (OOXML properties)
-        return NullMetadataExtractor()
+        return XlsxMetadataExtractor()
 
     def create_content_extractor(self) -> BaseContentExtractor:
-        # TODO: Implement XLSXContentExtractor (sheets → HTML tables, OOXML charts, images)
-        return NullContentExtractor()
+        return XlsxContentExtractor(
+            image_service=self._image_service,
+            tag_service=self._tag_service,
+            chart_service=self._chart_service,
+            table_service=self._table_service,
+        )
 
     def create_postprocessor(self) -> BasePostprocessor:
         return DefaultPostprocessor(

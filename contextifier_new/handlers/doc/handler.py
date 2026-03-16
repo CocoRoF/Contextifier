@@ -38,17 +38,16 @@ from typing import Any, FrozenSet, Optional
 
 from contextifier_new.handlers.base import BaseHandler
 from contextifier_new.types import ExtractionResult, FileContext
-from contextifier_new.pipeline.converter import BaseConverter, NullConverter
-from contextifier_new.pipeline.preprocessor import BasePreprocessor, NullPreprocessor
-from contextifier_new.pipeline.metadata_extractor import (
-    BaseMetadataExtractor,
-    NullMetadataExtractor,
-)
-from contextifier_new.pipeline.content_extractor import (
-    BaseContentExtractor,
-    NullContentExtractor,
-)
+from contextifier_new.pipeline.converter import BaseConverter
+from contextifier_new.pipeline.preprocessor import BasePreprocessor
+from contextifier_new.pipeline.metadata_extractor import BaseMetadataExtractor
+from contextifier_new.pipeline.content_extractor import BaseContentExtractor
 from contextifier_new.pipeline.postprocessor import BasePostprocessor, DefaultPostprocessor
+
+from contextifier_new.handlers.doc.converter import DocConverter
+from contextifier_new.handlers.doc.preprocessor import DocPreprocessor
+from contextifier_new.handlers.doc.metadata_extractor import DocMetadataExtractor
+from contextifier_new.handlers.doc.content_extractor import DocContentExtractor
 
 # Magic bytes for format detection
 _ZIP_MAGIC = b"PK"                              # ZIP/OOXML (DOCX)
@@ -127,20 +126,21 @@ class DOCHandler(BaseHandler):
     # ── Pipeline factories ────────────────────────────────────────────────
 
     def create_converter(self) -> BaseConverter:
-        # TODO: Implement DOCConverter (OLE2 bytes → intermediate via antiword/LibreOffice)
-        return NullConverter()
+        return DocConverter()
 
     def create_preprocessor(self) -> BasePreprocessor:
-        # TODO: Implement DOCPreprocessor
-        return NullPreprocessor()
+        return DocPreprocessor()
 
     def create_metadata_extractor(self) -> BaseMetadataExtractor:
-        # TODO: Implement DOCMetadataExtractor (OLE compound document properties)
-        return NullMetadataExtractor()
+        return DocMetadataExtractor()
 
     def create_content_extractor(self) -> BaseContentExtractor:
-        # TODO: Implement DOCContentExtractor
-        return NullContentExtractor()
+        return DocContentExtractor(
+            image_service=self._image_service,
+            tag_service=self._tag_service,
+            chart_service=self._chart_service,
+            table_service=self._table_service,
+        )
 
     def create_postprocessor(self) -> BasePostprocessor:
         return DefaultPostprocessor(

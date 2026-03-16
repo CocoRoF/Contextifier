@@ -3,11 +3,19 @@
 RTFHandler — Unified handler for Rich Text Format documents.
 
 Pipeline:
-    Convert:  Raw bytes → RTF parsed structure (striprtf / LibreOffice)
-    Preprocess: Clean RTF control codes, normalize whitespace
-    Metadata: Basic metadata from RTF info group (author, title)
-    Content:  Plain text extraction, basic table support
-    Postprocess: Assemble with metadata block
+    Stage 1 (Convert):     Validate RTF magic, detect encoding, wrap bytes
+    Stage 2 (Preprocess):  Extract binary images, remove binary data, decode
+    Stage 3 (Metadata):    Parse \\info group (title, author, dates)
+    Stage 4 (Content):     Clean control codes, extract tables + inline text,
+                           save images via ImageService
+    Stage 5 (Postprocess): Assemble with metadata block
+
+RTF is a binary-text hybrid format:
+- Header contains font/color/style tables encoded as ASCII control words
+- Body mixes control words with text content
+- Images are embedded as hex data (\\pict) or raw binary (\\binN)
+- Tables use \\trowd/\\cell/\\row with merge flags
+- Metadata lives in the \\info group
 """
 
 from __future__ import annotations
@@ -15,21 +23,31 @@ from __future__ import annotations
 from typing import FrozenSet
 
 from contextifier_new.handlers.base import BaseHandler
-from contextifier_new.pipeline.converter import BaseConverter, NullConverter
-from contextifier_new.pipeline.preprocessor import BasePreprocessor, NullPreprocessor
-from contextifier_new.pipeline.metadata_extractor import (
-    BaseMetadataExtractor,
-    NullMetadataExtractor,
-)
-from contextifier_new.pipeline.content_extractor import (
-    BaseContentExtractor,
-    NullContentExtractor,
-)
+from contextifier_new.pipeline.converter import BaseConverter
+from contextifier_new.pipeline.preprocessor import BasePreprocessor
+from contextifier_new.pipeline.metadata_extractor import BaseMetadataExtractor
+from contextifier_new.pipeline.content_extractor import BaseContentExtractor
 from contextifier_new.pipeline.postprocessor import BasePostprocessor, DefaultPostprocessor
+
+from contextifier_new.handlers.rtf.converter import RtfConverter
+from contextifier_new.handlers.rtf.preprocessor import RtfPreprocessor
+from contextifier_new.handlers.rtf.metadata_extractor import RtfMetadataExtractor
+from contextifier_new.handlers.rtf.content_extractor import RtfContentExtractor
 
 
 class RTFHandler(BaseHandler):
-    """Handler for RTF files (.rtf)."""
+    """
+    Handler for RTF files (.rtf).
+
+    Processes Rich Text Format documents through a 5-stage pipeline
+    with full support for:
+    - Korean / CJK text (\\ansicpg, hex escapes, multi-byte decoding)
+    - Embedded images (\\pict hex + \\bin binary)
+    - Tables with merge support (\\clmgf/\\clmrg/\\clvmgf/\\clvmrg)
+    - Document metadata (\\info group)
+    - Header/footer/footnote exclusion
+    - striprtf fallback for degraded RTF content
+    """
 
     @property
     def supported_extensions(self) -> FrozenSet[str]:
@@ -40,20 +58,21 @@ class RTFHandler(BaseHandler):
         return "RTF Handler"
 
     def create_converter(self) -> BaseConverter:
-        # TODO: Implement RTFConverter (bytes → parsed RTF / plain text)
-        return NullConverter()
+        return RtfConverter()
 
     def create_preprocessor(self) -> BasePreprocessor:
-        # TODO: Implement RTFPreprocessor (clean control codes)
-        return NullPreprocessor()
+        return RtfPreprocessor()
 
     def create_metadata_extractor(self) -> BaseMetadataExtractor:
-        # TODO: Implement RTFMetadataExtractor
-        return NullMetadataExtractor()
+        return RtfMetadataExtractor()
 
     def create_content_extractor(self) -> BaseContentExtractor:
-        # TODO: Implement RTFContentExtractor
-        return NullContentExtractor()
+        return RtfContentExtractor(
+            image_service=self._image_service,
+            tag_service=self._tag_service,
+            chart_service=self._chart_service,
+            table_service=self._table_service,
+        )
 
     def create_postprocessor(self) -> BasePostprocessor:
         return DefaultPostprocessor(

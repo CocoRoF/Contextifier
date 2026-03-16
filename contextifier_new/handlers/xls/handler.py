@@ -2,45 +2,37 @@
 """
 XLSHandler — Handler for legacy Excel XLS spreadsheets (.xls ONLY).
 
-XLS is a BIFF (Binary Interchange File Format) binary format, fundamentally
-different from XLSX (OOXML). Requires xlrd for reading or LibreOffice for
-conversion to XLSX.
+XLS is a BIFF (Binary Interchange File Format) binary format.
+Requires xlrd for reading and olefile for OLE metadata.
 
 Pipeline:
-    Convert:  Raw bytes → xlrd Workbook (or LibreOffice → XLSX → openpyxl)
-    Preprocess: Detect sheets, data regions, merged cells
-    Metadata: Author, creation date from BIFF compound document properties
-    Content:  Sheet data as HTML tables (limited image/chart support)
+    Convert:  Raw bytes → xlrd Book (via xlrd.open_workbook)
+    Preprocess: Record sheet info
+    Metadata: OLE SummaryInformation + xlrd user_name
+    Content:  Sheet data as Markdown/HTML tables (no chart/image extraction)
     Postprocess: Assemble with sheet tags and metadata block
 
-Key differences from XLSXHandler:
-- BIFF binary format requires xlrd (limited to .xls)
-- 65536 row / 256 column limit
-- Limited or no embedded chart extraction (BIFF charts ≠ OOXML charts)
-- Image extraction more limited than OOXML
-- Metadata from OLE compound document properties (not OOXML core props)
-
-Note: For chart extraction, XLS may internally convert to XLSX via
-LibreOffice, but this is handled within the converter stage — the
-handler interface remains identical to all other handlers.
+Delegation:
+    If the incoming .xls file is actually a ZIP (XLSX), delegate to 'xlsx'.
 """
 
 from __future__ import annotations
 
-from typing import FrozenSet
+from typing import Any, FrozenSet, Optional
 
 from contextifier_new.handlers.base import BaseHandler
-from contextifier_new.pipeline.converter import BaseConverter, NullConverter
-from contextifier_new.pipeline.preprocessor import BasePreprocessor, NullPreprocessor
-from contextifier_new.pipeline.metadata_extractor import (
-    BaseMetadataExtractor,
-    NullMetadataExtractor,
-)
-from contextifier_new.pipeline.content_extractor import (
-    BaseContentExtractor,
-    NullContentExtractor,
-)
+from contextifier_new.pipeline.converter import BaseConverter
+from contextifier_new.pipeline.preprocessor import BasePreprocessor
+from contextifier_new.pipeline.metadata_extractor import BaseMetadataExtractor
+from contextifier_new.pipeline.content_extractor import BaseContentExtractor
 from contextifier_new.pipeline.postprocessor import BasePostprocessor, DefaultPostprocessor
+from contextifier_new.types import ExtractionResult, FileContext
+
+from contextifier_new.handlers.xls._constants import ZIP_MAGIC
+from contextifier_new.handlers.xls.converter import XlsConverter
+from contextifier_new.handlers.xls.preprocessor import XlsPreprocessor
+from contextifier_new.handlers.xls.metadata_extractor import XlsMetadataExtractor
+from contextifier_new.handlers.xls.content_extractor import XlsContentExtractor
 
 
 class XLSHandler(BaseHandler):
@@ -54,21 +46,41 @@ class XLSHandler(BaseHandler):
     def handler_name(self) -> str:
         return "XLS Handler"
 
+    # ── Delegation ───────────────────────────────────────────────────────
+
+    def _check_delegation(
+        self,
+        file_context: FileContext,
+        **kwargs: Any,
+    ) -> Optional[ExtractionResult]:
+        """If the .xls file is actually XLSX (ZIP), delegate."""
+        data: bytes = file_context.get("file_data", b"")
+        if data and len(data) >= 4 and data[:4] == ZIP_MAGIC:
+            self._logger.info("XLS file is actually XLSX (ZIP magic detected)")
+            return self._delegate_to(
+                "xlsx",
+                file_context,
+                include_metadata=kwargs.get("include_metadata", True),
+                **{k: v for k, v in kwargs.items() if k != "include_metadata"},
+            )
+        return None
+
+    # ── Pipeline stages ──────────────────────────────────────────────────
+
     def create_converter(self) -> BaseConverter:
-        # TODO: Implement XLSConverter (bytes → xlrd Workbook, or → XLSX via LibreOffice)
-        return NullConverter()
+        return XlsConverter()
 
     def create_preprocessor(self) -> BasePreprocessor:
-        # TODO: Implement XLSPreprocessor
-        return NullPreprocessor()
+        return XlsPreprocessor()
 
     def create_metadata_extractor(self) -> BaseMetadataExtractor:
-        # TODO: Implement XLSMetadataExtractor (OLE compound document properties)
-        return NullMetadataExtractor()
+        return XlsMetadataExtractor()
 
     def create_content_extractor(self) -> BaseContentExtractor:
-        # TODO: Implement XLSContentExtractor (sheets → HTML tables, limited charts/images)
-        return NullContentExtractor()
+        return XlsContentExtractor(
+            tag_service=self._tag_service,
+            table_service=self._table_service,
+        )
 
     def create_postprocessor(self) -> BasePostprocessor:
         return DefaultPostprocessor(

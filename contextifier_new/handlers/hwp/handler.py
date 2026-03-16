@@ -1,35 +1,38 @@
 # contextifier_new/handlers/hwp/handler.py
 """
-HWPHandler — Unified handler for Hangul Word Processor (HWP) documents.
+HWPHandler — Handler for Hangul Word Processor 5.0 (HWP) documents.
 
 Pipeline:
-    Convert:  Raw bytes → converted intermediate (HWP5 binary → pyhwp/hwp5)
-    Preprocess: Normalize Korean text, clean control characters
-    Metadata: Author, title, creation date, page count
-    Content:  Text, tables, images
+    Convert:  Raw bytes → OLE2 compound file (olefile)
+    Preprocess: Parse DocInfo for BinData mapping, detect compression
+    Metadata: OLE metadata + HwpSummaryInformation stream
+    Content:  Record-tree traversal → text, tables (HTML), images
     Postprocess: Assemble with page tags and metadata block
 
-Old issues resolved:
-- HWP handler delegated to HWPX handler — now self-contained
-- No cross-handler dependency
+Delegation:
+    ZIP-magic files (.hwp that is actually HWPX) → delegate to 'hwpx'
+    HWP 3.0 format → reject with informational message
 """
 
 from __future__ import annotations
 
-from typing import FrozenSet
+from typing import Any, FrozenSet, Optional
 
 from contextifier_new.handlers.base import BaseHandler
-from contextifier_new.pipeline.converter import BaseConverter, NullConverter
-from contextifier_new.pipeline.preprocessor import BasePreprocessor, NullPreprocessor
-from contextifier_new.pipeline.metadata_extractor import (
-    BaseMetadataExtractor,
-    NullMetadataExtractor,
-)
-from contextifier_new.pipeline.content_extractor import (
-    BaseContentExtractor,
-    NullContentExtractor,
-)
+from contextifier_new.types import ExtractionResult, FileContext
+from contextifier_new.pipeline.converter import BaseConverter
+from contextifier_new.pipeline.preprocessor import BasePreprocessor
+from contextifier_new.pipeline.metadata_extractor import BaseMetadataExtractor
+from contextifier_new.pipeline.content_extractor import BaseContentExtractor
 from contextifier_new.pipeline.postprocessor import BasePostprocessor, DefaultPostprocessor
+
+from contextifier_new.handlers.hwp.converter import HwpConverter
+from contextifier_new.handlers.hwp.preprocessor import HwpPreprocessor
+from contextifier_new.handlers.hwp.metadata_extractor import HwpMetadataExtractor
+from contextifier_new.handlers.hwp.content_extractor import HwpContentExtractor
+
+_ZIP_MAGIC = b"PK\x03\x04"
+_OLE2_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
 
 
 class HWPHandler(BaseHandler):
@@ -43,21 +46,41 @@ class HWPHandler(BaseHandler):
     def handler_name(self) -> str:
         return "HWP Handler"
 
+    # ── Delegation ────────────────────────────────────────────────────
+
+    def _check_delegation(
+        self,
+        file_context: FileContext,
+        **kwargs: Any,
+    ) -> Optional[ExtractionResult]:
+        data: bytes = file_context.get("file_data", b"")
+        if not data:
+            return None
+
+        # ZIP magic → HWPX
+        if data[:4] == _ZIP_MAGIC:
+            return self._delegate_to("hwpx", file_context, **kwargs)
+
+        return None
+
+    # ── Pipeline factory methods ──────────────────────────────────────
+
     def create_converter(self) -> BaseConverter:
-        # TODO: Implement HWPConverter (bytes → intermediate via pyhwp or hwp5)
-        return NullConverter()
+        return HwpConverter()
 
     def create_preprocessor(self) -> BasePreprocessor:
-        # TODO: Implement HWPPreprocessor (Korean text normalization)
-        return NullPreprocessor()
+        return HwpPreprocessor()
 
     def create_metadata_extractor(self) -> BaseMetadataExtractor:
-        # TODO: Implement HWPMetadataExtractor
-        return NullMetadataExtractor()
+        return HwpMetadataExtractor()
 
     def create_content_extractor(self) -> BaseContentExtractor:
-        # TODO: Implement HWPContentExtractor
-        return NullContentExtractor()
+        return HwpContentExtractor(
+            image_service=self._image_service,
+            tag_service=self._tag_service,
+            chart_service=self._chart_service,
+            table_service=self._table_service,
+        )
 
     def create_postprocessor(self) -> BasePostprocessor:
         return DefaultPostprocessor(
