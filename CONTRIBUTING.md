@@ -1,10 +1,10 @@
 # Contributing to Contextifier
 
-Contextifier에 기여해 주셔서 감사합니다! 이 문서는 기여 가이드라인을 설명합니다.
+Thank you for your interest in contributing to Contextifier! This document provides guidelines and instructions for contributing.
 
-## 개발 환경 설정
+## Development Setup
 
-### 1. 저장소 클론 및 환경 생성
+### 1. Clone & Create Environment
 
 ```bash
 git clone https://github.com/your-org/contextifier.git
@@ -17,51 +17,51 @@ source .venv/bin/activate    # Linux/Mac
 pip install -e ".[dev]"
 ```
 
-### 2. 프로젝트 구조
+### 2. Project Structure
 
 ```
-contextifier_new/           # v2 메인 패키지
-├── document_processor.py   # Facade (공개 API)
+contextifier_new/           # v2 main package
+├── document_processor.py   # Facade (public API)
 ├── config.py               # ProcessingConfig
-├── types.py                # 공유 타입
-├── errors.py               # 예외 계층
-├── handlers/               # 14개 포맷 핸들러
-├── pipeline/               # 5-Stage ABC
-├── services/               # 공유 서비스
-├── chunking/               # 청킹 서브시스템
-└── ocr/                    # OCR 서브시스템
+├── types.py                # Shared types
+├── errors.py               # Exception hierarchy
+├── handlers/               # 14 format handlers
+├── pipeline/               # 5-Stage ABCs
+├── services/               # Shared services
+├── chunking/               # Chunking subsystem
+└── ocr/                    # OCR subsystem
 ```
 
-## 코딩 컨벤션
+## Coding Conventions
 
-### 일반 규칙
+### General Rules
 
-- **Python 3.12+** 문법 사용
-- Type hints 필수 (모든 public API)
-- docstring 필수 (Google style)
-- `from __future__ import annotations` 모든 모듈 상단에 추가
+- **Python 3.12+** syntax
+- Type hints required on all public APIs
+- Docstrings required (Google style)
+- `from __future__ import annotations` at the top of every module
 
-### 아키텍처 규칙
+### Architecture Rules
 
-1. **모든 핸들러는 5단계 파이프라인을 따라야 합니다:**
+1. **All handlers must follow the 5-stage pipeline:**
    - `Converter` → `Preprocessor` → `MetadataExtractor` → `ContentExtractor` → `Postprocessor`
-   - `BaseHandler.process()`가 순서를 강제하므로, 각 단계만 구현하면 됩니다.
+   - `BaseHandler.process()` enforces execution order — implement each stage only.
 
-2. **서비스를 직접 생성하지 마세요:**
-   - `TagService`, `ImageService` 등은 `DocumentProcessor`가 생성하여 주입합니다.
-   - 핸들러에서는 `self._services["tag_service"]` 등으로 접근합니다.
+2. **Do not create services directly:**
+   - `TagService`, `ImageService`, etc. are created by `DocumentProcessor` and injected.
+   - Handlers access them via `self._services["tag_service"]`, etc.
 
-3. **설정은 `ProcessingConfig`를 통해 전달하세요:**
-   - 하드코딩된 매직 넘버 금지
-   - 새로운 설정이 필요하면 적절한 `*Config` 클래스에 필드를 추가하세요.
+3. **Pass all settings through `ProcessingConfig`:**
+   - No hardcoded magic numbers.
+   - If you need a new setting, add a field to the appropriate `*Config` class.
 
-4. **Facade 패턴 준수:**
-   - 외부 사용자가 접근하는 API는 `DocumentProcessor`뿐입니다.
-   - 내부 모듈을 직접 import하도록 안내하지 마세요 (OCR 엔진 제외).
+4. **Respect the Facade pattern:**
+   - The only user-facing API is `DocumentProcessor`.
+   - Do not instruct users to import internal modules directly (OCR engines excepted).
 
-## 새 핸들러 추가 가이드
+## Adding a New Handler
 
-### 1. 디렉토리 생성
+### 1. Create Directory
 
 ```
 contextifier_new/handlers/myformat/
@@ -73,62 +73,62 @@ contextifier_new/handlers/myformat/
 └── postprocessor.py
 ```
 
-### 2. 각 파이프라인 단계 구현
+### 2. Implement Each Pipeline Stage
 
 ```python
 # converter.py
-from contextifier_new.pipeline.converter import Converter
+from contextifier_new.pipeline.converter import BaseConverter
 
-class MyFormatConverter(Converter):
+class MyFormatConverter(BaseConverter):
     def convert(self, file_context, **kwargs):
         # Binary → Format-specific object
         return parsed_object
 ```
 
-### 3. 핸들러 등록
+### 3. Register the Handler
 
-`contextifier_new/handlers/registry.py`의 `register_defaults()`에 추가:
+Add to `contextifier_new/handlers/registry.py` in `register_defaults()`:
 
 ```python
 from contextifier_new.handlers.myformat import MyFormatHandler
 self.register(MyFormatHandler, extensions=["myf", "myformat"])
 ```
 
-## 커밋 컨벤션
+## Commit Convention
 
 ```
-feat: 새 기능 추가
-fix: 버그 수정
-docs: 문서 변경
-refactor: 리팩토링 (기능 변경 없음)
-test: 테스트 추가/수정
-chore: 빌드/설정 변경
+feat: add new feature
+fix: bug fix
+docs: documentation changes
+refactor: refactoring (no behavior change)
+test: add/modify tests
+chore: build/config changes
 ```
 
-예시:
+Examples:
 ```
 feat(handler): add EPUB handler with full pipeline
 fix(chunking): preserve table structure in protected strategy
 docs: update QUICKSTART with batch processing example
 ```
 
-## Pull Request 가이드
+## Pull Request Guide
 
-1. `main` 브랜치에서 feature 브랜치 생성
-2. 변경사항 구현 및 테스트
-3. PR 설명에 변경 이유와 테스트 결과 포함
-4. 리뷰 후 squash merge
+1. Create a feature branch from `main`
+2. Implement changes and test
+3. Include rationale and test results in PR description
+4. Squash merge after review
 
-## 이슈 보고
+## Reporting Issues
 
-버그를 발견하면 다음 정보를 포함해 주세요:
+When reporting a bug, please include:
 
-- Python 버전
-- OS 및 버전
-- 입력 파일 형식 및 크기
-- 에러 메시지 전문
-- 재현 코드 (가능하다면)
+- Python version
+- OS and version
+- Input file format and size
+- Full error message
+- Reproduction code (if possible)
 
-## 라이선스
+## License
 
-기여하신 코드는 프로젝트의 Apache License 2.0 하에 배포됩니다.
+All contributions are released under the project's Apache License 2.0.

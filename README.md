@@ -1,32 +1,31 @@
 # Contextifier v2
 
-**Contextifier**는 다양한 형식의 문서를 AI가 이해할 수 있는 구조화된 텍스트로 변환하는 Python 문서 처리 라이브러리입니다.
-모든 문서 포맷에 대해 **동일한 5단계 파이프라인**을 적용하여, 일관된 결과를 보장합니다.
+**Contextifier** is a Python document processing library that converts documents of various formats into structured, AI-ready text. It applies a **uniform 5-stage pipeline** to every document format, ensuring consistent and predictable output.
 
-## 주요 기능
+## Key Features
 
-- **광범위한 포맷 지원**: PDF, DOCX, DOC, PPTX, PPT, XLSX, XLS, HWP, HWPX, RTF, CSV, TSV, TXT, MD, HTML, 이미지, 코드 파일 등 80+ 확장자
-- **지능형 텍스트 추출**: 문서 구조(제목, 표, 이미지 위치) 보존 및 메타데이터 자동 추출
-- **테이블 처리**: HTML/Markdown/Text 형식으로 테이블 변환, 병합 셀(`rowspan`/`colspan`) 지원
-- **OCR 통합**: OpenAI, Anthropic, Google Gemini, AWS Bedrock, vLLM 5종 Vision LLM 엔진 지원
-- **스마트 청킹**: 테이블 보존, Protected Region 인식, 페이지 경계 존중 등 4가지 전략 자동 선택
-- **불변 설정 시스템**: frozen dataclass 기반 `ProcessingConfig`로 모든 동작 제어
+- **Broad Format Support**: PDF, DOCX, DOC, PPTX, PPT, XLSX, XLS, HWP, HWPX, RTF, CSV, TSV, TXT, MD, HTML, images, code files, and 80+ extensions
+- **Intelligent Text Extraction**: Preserves document structure (headings, tables, image positions) with automatic metadata extraction
+- **Table Processing**: Converts tables to HTML/Markdown/Text with `rowspan`/`colspan` support for merged cells
+- **OCR Integration**: 5 Vision LLM engines — OpenAI, Anthropic, Google Gemini, AWS Bedrock, vLLM
+- **Smart Chunking**: 4 strategies with automatic selection — table-aware, page-boundary, protected-region, and recursive splitting
+- **Immutable Config System**: Frozen dataclass-based `ProcessingConfig` controls all behavior
 
-## 설치
+## Installation
 
 ```bash
 pip install contextifier
 ```
 
-또는
+or
 
 ```bash
 uv add contextifier
 ```
 
-## 빠른 시작
+## Quick Start
 
-### 1. 기본 텍스트 추출
+### 1. Basic Text Extraction
 
 ```python
 from contextifier_new import DocumentProcessor
@@ -36,7 +35,7 @@ text = processor.extract_text("document.pdf")
 print(text)
 ```
 
-### 2. 추출 + 청킹 한 번에
+### 2. Extract + Chunk in One Step
 
 ```python
 from contextifier_new import DocumentProcessor
@@ -47,11 +46,11 @@ result = processor.extract_chunks("document.pdf")
 for i, chunk in enumerate(result.chunks, 1):
     print(f"Chunk {i}: {chunk[:100]}...")
 
-# Markdown 파일로 저장
+# Save as Markdown files
 result.save_to_md("output/chunks")
 ```
 
-### 3. 설정 커스터마이징
+### 3. Custom Configuration
 
 ```python
 from contextifier_new import DocumentProcessor
@@ -66,7 +65,7 @@ processor = DocumentProcessor(config=config)
 text = processor.extract_text("report.xlsx")
 ```
 
-### 4. OCR 연동
+### 4. OCR Integration
 
 ```python
 from contextifier_new import DocumentProcessor
@@ -78,67 +77,67 @@ processor = DocumentProcessor(ocr_engine=ocr)
 text = processor.extract_text("scanned.pdf", ocr_processing=True)
 ```
 
-## 지원 형식
+## Supported Formats
 
-| 카테고리 | 확장자 | 비고 |
-|----------|--------|------|
-| **문서** | `.pdf`, `.docx`, `.doc`, `.hwp`, `.hwpx`, `.rtf` | HWP 5.0+, HWPX 지원 |
-| **프레젠테이션** | `.pptx`, `.ppt` | 슬라이드/노트/차트 추출 |
-| **스프레드시트** | `.xlsx`, `.xls`, `.csv`, `.tsv` | 다중 시트, 수식, 차트 |
-| **텍스트** | `.txt`, `.md`, `.log`, `.rst` | 자동 인코딩 감지 |
-| **웹** | `.html`, `.htm`, `.xhtml` | 테이블/구조 보존 |
-| **코드** | `.py`, `.js`, `.ts`, `.java`, `.cpp`, `.go`, `.rs` 등 20+ | 언어별 하이라이팅 |
-| **설정** | `.json`, `.yaml`, `.toml`, `.ini`, `.xml`, `.env` | 구조 보존 |
-| **이미지** | `.jpg`, `.png`, `.gif`, `.bmp`, `.webp`, `.tiff` | OCR 엔진 필요 |
+| Category | Extensions | Notes |
+|----------|-----------|-------|
+| **Documents** | `.pdf`, `.docx`, `.doc`, `.hwp`, `.hwpx`, `.rtf` | HWP 5.0+, HWPX supported |
+| **Presentations** | `.pptx`, `.ppt` | Slides, notes, and charts extracted |
+| **Spreadsheets** | `.xlsx`, `.xls`, `.csv`, `.tsv` | Multi-sheet, formulas, charts |
+| **Text** | `.txt`, `.md`, `.log`, `.rst` | Auto encoding detection |
+| **Web** | `.html`, `.htm`, `.xhtml` | Table/structure preservation |
+| **Code** | `.py`, `.js`, `.ts`, `.java`, `.cpp`, `.go`, `.rs`, etc. (20+) | Language-aware highlighting |
+| **Config** | `.json`, `.yaml`, `.toml`, `.ini`, `.xml`, `.env` | Structure preservation |
+| **Images** | `.jpg`, `.png`, `.gif`, `.bmp`, `.webp`, `.tiff` | Requires OCR engine |
 
-## 아키텍처
+## Architecture
 
 ```
 contextifier_new/
-├── document_processor.py     # Facade: 유일한 공개 진입점
-├── config.py                 # 불변 설정 시스템 (ProcessingConfig)
-├── types.py                  # 공유 타입/Enum/TypedDict
-├── errors.py                 # 통합 예외 계층
+├── document_processor.py     # Facade: single public entry point
+├── config.py                 # Immutable config system (ProcessingConfig)
+├── types.py                  # Shared types / Enums / TypedDicts
+├── errors.py                 # Unified exception hierarchy
 │
-├── handlers/                 # 14개 포맷별 핸들러
-│   ├── base.py               #   BaseHandler — 5단계 파이프라인 강제
-│   ├── registry.py           #   HandlerRegistry — 확장자 → 핸들러 매핑
+├── handlers/                 # 14 format-specific handlers
+│   ├── base.py               #   BaseHandler — enforces 5-stage pipeline
+│   ├── registry.py           #   HandlerRegistry — extension → handler mapping
 │   ├── pdf/                  #   PDF (default)
-│   ├── pdf_plus/             #   PDF (advanced: 테이블 감지, 복잡 레이아웃)
-│   ├── docx/ doc/ pptx/ ppt/ #   오피스 문서
-│   ├── xlsx/ xls/ csv/       #   스프레드시트/데이터
-│   ├── hwp/ hwpx/            #   한글 문서
-│   ├── rtf/ text/            #   RTF/텍스트/코드/설정
-│   └── image/                #   이미지 (OCR 연동)
+│   ├── pdf_plus/             #   PDF (advanced: table detection, complex layouts)
+│   ├── docx/ doc/ pptx/ ppt/ #   Office documents
+│   ├── xlsx/ xls/ csv/       #   Spreadsheets / data
+│   ├── hwp/ hwpx/            #   Korean word processor
+│   ├── rtf/ text/            #   RTF / text / code / config
+│   └── image/                #   Image (OCR integration)
 │
-├── pipeline/                 # 5-Stage 파이프라인 ABC
+├── pipeline/                 # 5-Stage pipeline ABCs
 │   ├── converter.py          #   Stage 1: Binary → Format Object
-│   ├── preprocessor.py       #   Stage 2: 전처리
-│   ├── metadata_extractor.py #   Stage 3: 메타데이터 추출
-│   ├── content_extractor.py  #   Stage 4: 텍스트/표/이미지 추출
-│   └── postprocessor.py      #   Stage 5: 최종 조립 및 정리
+│   ├── preprocessor.py       #   Stage 2: Preprocessing
+│   ├── metadata_extractor.py #   Stage 3: Metadata extraction
+│   ├── content_extractor.py  #   Stage 4: Text / table / image / chart extraction
+│   └── postprocessor.py      #   Stage 5: Final assembly & cleanup
 │
-├── services/                 # 공유 서비스 (DI)
-│   ├── tag_service.py        #   페이지/슬라이드/시트 태그 생성
-│   ├── image_service.py      #   이미지 저장/태그/중복 제거
-│   ├── chart_service.py      #   차트 데이터 포맷팅
-│   ├── table_service.py      #   테이블 HTML/MD 변환
-│   ├── metadata_service.py   #   메타데이터 포맷팅
-│   └── storage/              #   스토리지 백엔드 (Local, MinIO, S3, ...)
+├── services/                 # Shared services (DI)
+│   ├── tag_service.py        #   Page / slide / sheet tag generation
+│   ├── image_service.py      #   Image saving / tagging / deduplication
+│   ├── chart_service.py      #   Chart data formatting
+│   ├── table_service.py      #   Table HTML / MD rendering
+│   ├── metadata_service.py   #   Metadata formatting
+│   └── storage/              #   Storage backends (Local, MinIO, S3, ...)
 │
-├── chunking/                 # 청킹 서브시스템
-│   ├── chunker.py            #   TextChunker — 전략 자동 선택/실행
-│   ├── constants.py          #   Protected region 패턴
-│   └── strategies/           #   4가지 청킹 전략
-│       ├── plain_strategy.py     # 재귀 분할 (기본)
-│       ├── table_strategy.py     # 시트/테이블 기반
-│       ├── page_strategy.py      # 페이지 경계 기반
-│       └── protected_strategy.py # Protected region 보존
+├── chunking/                 # Chunking subsystem
+│   ├── chunker.py            #   TextChunker — auto strategy selection
+│   ├── constants.py          #   Protected region patterns
+│   └── strategies/           #   4 chunking strategies
+│       ├── plain_strategy.py     # Recursive splitting (default fallback)
+│       ├── table_strategy.py     # Sheet / table-based splitting
+│       ├── page_strategy.py      # Page-boundary splitting
+│       └── protected_strategy.py # Protected region preservation
 │
-└── ocr/                      # OCR 서브시스템 (선택사항)
+└── ocr/                      # OCR subsystem (optional)
     ├── base.py               #   BaseOCREngine ABC
-    ├── processor.py          #   OCRProcessor — 태그 검출 + 엔진 호출
-    └── engines/              #   5종 엔진 구현
+    ├── processor.py          #   OCRProcessor — tag detection + engine call
+    └── engines/              #   5 engine implementations
         ├── openai_engine.py
         ├── anthropic_engine.py
         ├── gemini_engine.py
@@ -146,26 +145,26 @@ contextifier_new/
         └── vllm_engine.py
 ```
 
-## 시스템 요구사항
+## Requirements
 
 - **Python** 3.12+
-- 필수 의존성은 `pyproject.toml`에 자동 포함
-- **선택 의존성**: LibreOffice (DOC/PPT/RTF 변환), Poppler (PDF 이미지 추출)
+- Required dependencies are included in `pyproject.toml`
+- **Optional**: LibreOffice (DOC/PPT/RTF conversion), Poppler (PDF image extraction)
 
-## 문서
+## Documentation
 
-| 문서 | 내용 |
-|------|------|
-| [QUICKSTART.md](QUICKSTART.md) | 상세 사용 가이드 및 전체 API 레퍼런스 |
-| [Process Logic.md](Process%20Logic.md) | 핸들러별 처리 흐름 다이어그램 |
-| [ARCHITECTURE.md](contextifier_new/ARCHITECTURE.md) | 내부 아키텍처 상세 문서 |
-| [CHANGELOG.md](CHANGELOG.md) | 버전별 변경 사항 |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | 기여 가이드라인 |
+| Document | Contents |
+|----------|----------|
+| [QUICKSTART.md](QUICKSTART.md) | Detailed usage guide & full API reference |
+| [Process Logic.md](Process%20Logic.md) | Handler processing flow diagrams |
+| [ARCHITECTURE.md](contextifier_new/ARCHITECTURE.md) | Internal architecture specification |
+| [CHANGELOG.md](CHANGELOG.md) | Version history |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guidelines |
 
-## 라이선스
+## License
 
-Apache License 2.0 — [LICENSE](LICENSE) 참조
+Apache License 2.0 — see [LICENSE](LICENSE)
 
-## 기여
+## Contributing
 
-기여를 환영합니다! [CONTRIBUTING.md](CONTRIBUTING.md)를 참조하세요.
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md).
