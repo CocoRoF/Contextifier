@@ -1,134 +1,224 @@
-# chunking_helper/constants.py
+# contextifier_new/chunking/constants.py
 """
-Chunking Module Constants - Definition of constants, patterns, and dataclasses for chunking
+Chunking Module Constants
 
-This module defines all constants and data structures used throughout the chunking system.
+Defines regex patterns, dataclasses, and thresholds used across the chunking
+subsystem. All tag patterns are kept consistent with TagService defaults.
+
+Ported and cleaned from contextifier/chunking/constants.py with a cleaner
+structure and explicit type annotations.
 """
-import logging
+
+from __future__ import annotations
+
+import re
 from dataclasses import dataclass
-from typing import List
-from langchain_text_splitters import Language
+from typing import TYPE_CHECKING, FrozenSet, List
 
-logger = logging.getLogger("document-processor")
+if TYPE_CHECKING:
+    from contextifier.config import ProcessingConfig
 
 
 # ============================================================================
 # Code Language Mapping
 # ============================================================================
 
-LANGCHAIN_CODE_LANGUAGE_MAP = {
-    'py': Language.PYTHON, 'js': Language.JS, 'ts': Language.TS,
-    'java': Language.JAVA, 'cpp': Language.CPP, 'c': Language.CPP,
-    'cs': Language.CSHARP, 'go': Language.GO, 'rs': Language.RUST,
-    'php': Language.PHP, 'rb': Language.RUBY, 'swift': Language.SWIFT,
-    'kt': Language.KOTLIN, 'scala': Language.SCALA,
-    'html': Language.HTML, 'jsx': Language.JS, 'tsx': Language.TS,
+# Extension → langchain Language enum name (string-based to avoid hard dep)
+CODE_LANGUAGE_MAP: dict[str, str] = {
+    "py": "PYTHON",
+    "js": "JS",
+    "ts": "TS",
+    "java": "JAVA",
+    "cpp": "CPP",
+    "c": "CPP",
+    "cs": "CSHARP",
+    "go": "GO",
+    "rs": "RUST",
+    "php": "PHP",
+    "rb": "RUBY",
+    "swift": "SWIFT",
+    "kt": "KOTLIN",
+    "scala": "SCALA",
+    "html": "HTML",
+    "jsx": "JS",
+    "tsx": "TS",
 }
 
 
 # ============================================================================
-# Protected Region Patterns (Blocks that should not be split during chunking)
+# Protected Region Patterns (blocks that must NEVER be split)
+# ============================================================================
+#
+# Tag-dependent patterns (page, slide, sheet, image, chart, metadata) are
+# built at runtime from ProcessingConfig via build_protected_patterns().
+# This ensures they stay in sync when users customize tag formats.
+#
+# Only format-structural patterns that don't depend on TagConfig are
+# defined as module-level constants.
 # ============================================================================
 
-# HTML table - Protect all <table> tags (regardless of attributes)
-HTML_TABLE_PATTERN = r'<table[^>]*>.*?</table>'
+# HTML table (with any attributes) — config-independent
+HTML_TABLE_PATTERN = re.compile(r"<table[^>]*>.*?</table>", re.DOTALL | re.IGNORECASE)
 
-# Chart block - Always protected (cannot be chunked under any condition)
-# Default format: [chart]...[/chart] - can be customized via ChartProcessor
-CHART_BLOCK_PATTERN = r'\[chart\].*?\[/chart\]'
+# Textbox block — [textbox]...[/textbox] — config-independent (no TagConfig entry)
+TEXTBOX_BLOCK_PATTERN = re.compile(r"\[textbox\].*?\[/textbox\]", re.DOTALL | re.IGNORECASE)
 
-# Textbox block - Always protected (cannot be chunked under any condition)
-TEXTBOX_BLOCK_PATTERN = r'\[textbox\].*?\[/textbox\]'
-
-# Image tag - Always protected (cannot be chunked under any condition)
-# Format: [image:path], [Image: {path}], [image : path] etc. (case-insensitive, whitespace allowed, {} wrapping allowed)
-IMAGE_TAG_PATTERN = r'\[(?i:image)\s*:\s*\{?[^\]\}]+\}?\]'
-
-# Page/Slide/Sheet tag patterns - Always protected (NEVER overlap)
-# Default formats from PageTagProcessor
-PAGE_TAG_PATTERN = r'\[Page Number:\s*\d+\]'
-SLIDE_TAG_PATTERN = r'\[Slide Number:\s*\d+\]'
-SHEET_TAG_PATTERN = r'\[Sheet:\s*[^\]]+\]'
-
-# OCR variants of page/slide tags
-PAGE_TAG_OCR_PATTERN = r'\[Page Number:\s*\d+\s*\(OCR(?:\+Ref)?\)\]'
-SLIDE_TAG_OCR_PATTERN = r'\[Slide Number:\s*\d+\s*\(OCR(?:\+Ref)?\)\]'
-
-# Document metadata block - Always protected (NEVER overlap)
-# Default format: <Document-Metadata>...</Document-Metadata> - can be customized via MetadataFormatter
-METADATA_BLOCK_PATTERN = r'<Document-Metadata>.*?</Document-Metadata>'
-
-# Data analysis block - Always protected
-DATA_ANALYSIS_PATTERN = r'\[(?:Data Analysis|데이터 분석)\].*?\[/(?:Data Analysis|데이터 분석)\]'
-
-# Markdown table patterns
-# Complete Markdown table pattern (rows starting with |, including header separator |---|---|)
-MARKDOWN_TABLE_PATTERN = r'(?:^|\n)(\|[^\n]+\|\n\|[-:|\s]+\|\n(?:\|[^\n]+\|(?:\n|$))+)'
-
-# Markdown table individual row pattern (for row-level protection)
-MARKDOWN_TABLE_ROW_PATTERN = r'\|[^\n]+\|'
-
-# Markdown table header separator pattern (|---|---| or |:---:|---| etc.)
-MARKDOWN_TABLE_SEPARATOR_PATTERN = r'^\|[\s\-:]+\|[\s\-:|]*$'
-
-# Markdown table header detection (first row followed by separator)
-MARKDOWN_TABLE_HEADER_PATTERN = r'^(\|[^\n]+\|\n)(\|[-:|\s]+\|)'
+# Markdown tables — config-independent
+MARKDOWN_TABLE_PATTERN = re.compile(
+    r"(?:^|\n)(\|[^\n]+\|\n\|[-:|\s]+\|\n(?:\|[^\n]+\|(?:\n|$))+)"
+)
+MARKDOWN_TABLE_ROW_PATTERN = re.compile(r"\|[^\n]+\|")
+MARKDOWN_TABLE_SEPARATOR_PATTERN = re.compile(r"^\|[\s\-:]+\|[\s\-:|]*$", re.MULTILINE)
+MARKDOWN_TABLE_HEADER_PATTERN = re.compile(r"^(\|[^\n]+\|\n)(\|[-:|\s]+\|)")
 
 
 # ============================================================================
-# Table Chunking Related Constants
+# Pattern Builder Functions — Config-Driven
 # ============================================================================
 
-# Table wrapping overhead (table tags, line breaks, etc.)
-TABLE_WRAPPER_OVERHEAD = 30  # <table border='1'>\n</table>
+def _build_block_pattern(
+    open_tag: str, close_tag: str, flags: int = re.DOTALL,
+) -> re.Pattern[str]:
+    """Build regex for block-level tags like [chart]...[/chart]."""
+    return re.compile(
+        rf"{re.escape(open_tag)}.*?{re.escape(close_tag)}", flags,
+    )
 
-# Minimum overhead per row (<tr>\n</tr>)
-ROW_OVERHEAD = 12
 
-# Overhead per cell (<td></td> or <th></th>)
-CELL_OVERHEAD = 10
+def _build_inline_pattern(prefix: str, suffix: str) -> re.Pattern[str]:
+    """Build regex for inline tags like [Image:path] or [Sheet: name]."""
+    return re.compile(rf"{re.escape(prefix)}.+?{re.escape(suffix)}")
 
-# Chunk index metadata overhead
-CHUNK_INDEX_OVERHEAD = 30  # [Table chunk 1/10]\n
 
-# Tables larger than this are subject to splitting
-TABLE_SIZE_THRESHOLD_MULTIPLIER = 1.2  # 1.2x of chunk_size
+def _build_number_tag_pattern(prefix: str, suffix: str) -> re.Pattern[str]:
+    """Build regex for number-based tags with optional OCR annotation."""
+    return re.compile(
+        rf"{re.escape(prefix)}\d+(?:\s*\(OCR(?:\+Ref)?\))?{re.escape(suffix)}"
+    )
 
-# Table-based file types (CSV, TSV, Excel)
-TABLE_BASED_FILE_TYPES = {'csv', 'tsv', 'xlsx', 'xls'}
+
+def build_protected_patterns(config: "ProcessingConfig") -> list[re.Pattern[str]]:
+    """
+    Build all protected region patterns from ProcessingConfig.
+
+    Tag-dependent patterns are derived from ``config.tags`` so they stay
+    in sync when tag formats are customized.  Config-independent patterns
+    (HTML tables, textboxes) are included as module-level constants.
+
+    Args:
+        config: Processing configuration with tag settings.
+
+    Returns:
+        List of compiled regex patterns in priority order.
+    """
+    tags = config.tags
+    return [
+        # Block-level protected regions
+        _build_block_pattern(tags.chart_prefix, tags.chart_suffix, re.DOTALL | re.IGNORECASE),
+        TEXTBOX_BLOCK_PATTERN,
+        HTML_TABLE_PATTERN,
+        _build_block_pattern(tags.metadata_prefix, tags.metadata_suffix, re.DOTALL),
+        # Inline protected tags
+        _build_inline_pattern(tags.image_prefix, tags.image_suffix),
+        _build_number_tag_pattern(tags.page_prefix, tags.page_suffix),
+        _build_number_tag_pattern(tags.slide_prefix, tags.slide_suffix),
+        _build_inline_pattern(tags.sheet_prefix, tags.sheet_suffix),
+    ]
+
+
+def build_image_capture_pattern(config: "ProcessingConfig") -> re.Pattern[str]:
+    """
+    Build regex for image tags with a capture group for the path.
+
+    Used by chunking strategies that need to identify image tag content.
+
+    Args:
+        config: Processing configuration with tag settings.
+
+    Returns:
+        Compiled regex with one capture group for the image path.
+    """
+    tags = config.tags
+    return re.compile(
+        rf"{re.escape(tags.image_prefix)}\s*(.+?)\s*{re.escape(tags.image_suffix)}"
+    )
+
+
+# ============================================================================
+# Table Chunking Thresholds
+# ============================================================================
+
+TABLE_WRAPPER_OVERHEAD: int = 30       # <table border='1'>\n</table>
+ROW_OVERHEAD: int = 12                 # <tr>\n</tr>
+CELL_OVERHEAD: int = 10                # <td></td> or <th></th>
+CHUNK_INDEX_OVERHEAD: int = 30         # [Table chunk 1/10]\n
+TABLE_SIZE_THRESHOLD_MULTIPLIER: float = 1.2  # 1.2× of chunk_size
+
+# Extensions that are inherently table-based
+TABLE_EXTENSIONS: FrozenSet[str] = frozenset({"csv", "tsv", "xlsx", "xls"})
 
 
 # ============================================================================
 # Dataclasses
 # ============================================================================
 
-@dataclass
+@dataclass(frozen=True)
 class TableRow:
-    """Table row data (HTML or Markdown)"""
-    html: str  # Raw content (HTML or Markdown)
+    """A single table row (HTML or Markdown)."""
+
+    html: str
     is_header: bool
     cell_count: int
     char_length: int
 
 
-@dataclass
+@dataclass(frozen=True)
 class ParsedTable:
-    """Parsed table information (HTML)"""
-    header_rows: List[TableRow]  # Header rows
-    data_rows: List[TableRow]    # Data rows
-    total_cols: int              # Total columns
-    original_html: str           # Original HTML
-    header_html: str             # Header HTML (for reuse)
-    header_size: int             # Header size (characters)
+    """Parsed HTML table."""
+
+    header_rows: List[TableRow]
+    data_rows: List[TableRow]
+    total_cols: int
+    original_html: str
+    header_html: str
+    header_size: int
 
 
-@dataclass
+@dataclass(frozen=True)
 class ParsedMarkdownTable:
-    """Parsed Markdown table information"""
-    header_row: str              # Header row (first row with column names)
-    separator_row: str           # Separator row (|---|---|)
-    data_rows: List[str]         # Data rows
-    total_cols: int              # Total columns
-    original_text: str           # Original Markdown text
-    header_text: str             # Header + separator for reuse
-    header_size: int             # Header size (characters)
+    """Parsed Markdown table."""
+
+    header_row: str
+    separator_row: str
+    data_rows: List[str]
+    total_cols: int
+    original_text: str
+    header_text: str
+    header_size: int
+
+
+__all__ = [
+    # Config-independent patterns
+    "HTML_TABLE_PATTERN",
+    "TEXTBOX_BLOCK_PATTERN",
+    "MARKDOWN_TABLE_PATTERN",
+    "MARKDOWN_TABLE_ROW_PATTERN",
+    "MARKDOWN_TABLE_SEPARATOR_PATTERN",
+    "MARKDOWN_TABLE_HEADER_PATTERN",
+    # Config-driven pattern builders
+    "build_protected_patterns",
+    "build_image_capture_pattern",
+    # Thresholds
+    "TABLE_WRAPPER_OVERHEAD",
+    "ROW_OVERHEAD",
+    "CELL_OVERHEAD",
+    "CHUNK_INDEX_OVERHEAD",
+    "TABLE_SIZE_THRESHOLD_MULTIPLIER",
+    "TABLE_EXTENSIONS",
+    # Language mapping
+    "CODE_LANGUAGE_MAP",
+    # Dataclasses
+    "TableRow",
+    "ParsedTable",
+    "ParsedMarkdownTable",
+]

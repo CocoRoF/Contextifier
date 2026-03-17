@@ -1,208 +1,193 @@
-# libs/ocr/base.py
-# Abstract base class for OCR models
+# contextifier_new/ocr/base.py
+"""
+BaseOCREngine — Abstract interface for all OCR engine implementations.
+
+Each engine is responsible ONLY for formatting the LLM message payload
+specific to its provider. The actual orchestration (reading images,
+replacing tags, progress tracking) is handled by OCRProcessor.
+
+Old problems fixed:
+- BaseOCR had convert_image_to_text() AND process_text() — mixing concerns
+- process_text() duplicated between BaseOCR and ocr_processor module
+- Prompt was hardcoded in 2 places
+"""
+
+from __future__ import annotations
+
+import base64
 import logging
-import re
+import os
 from abc import ABC, abstractmethod
-from typing import Any, Optional, Pattern
+from typing import Any, Dict, List, Optional
 
-logger = logging.getLogger("ocr-base")
+logger = logging.getLogger("contextifier.ocr")
 
 
-class BaseOCR(ABC):
+# ── MIME type mapping ─────────────────────────────────────────────────────
+
+_MIME_MAP: Dict[str, str] = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".gif": "image/gif",
+    ".bmp": "image/bmp",
+    ".webp": "image/webp",
+    ".tiff": "image/tiff",
+    ".svg": "image/svg+xml",
+}
+
+
+def get_mime_type(file_path: str) -> str:
+    """Return MIME type for an image file path."""
+    ext = os.path.splitext(file_path)[1].lower()
+    return _MIME_MAP.get(ext, "image/jpeg")
+
+
+def encode_image_base64(file_path: str) -> str:
+    """Read file and return Base64-encoded string."""
+    with open(file_path, "rb") as f:
+        return base64.b64encode(f.read()).decode("utf-8")
+
+
+# ── Default prompts ───────────────────────────────────────────────────────
+
+DEFAULT_OCR_PROMPT: str = (
+    "Extract meaningful information from this image.\n\n"
+    "**If the image contains a TABLE:**\n"
+    "- Convert to HTML table format (<table>, <tr>, <td>, <th>)\n"
+    "- Use 'rowspan' and 'colspan' attributes for merged cells\n"
+    "- Preserve all cell content exactly as shown\n\n"
+    "**If the image contains TEXT (non-table):**\n"
+    "- Extract all text exactly as shown\n"
+    "- Keep layout, hierarchy, and structure\n\n"
+    "**If the image contains DATA (charts, graphs, diagrams):**\n"
+    "- Extract the data and its meaning\n"
+    "- Describe trends, relationships, or key insights\n\n"
+    "**If the image is decorative or has no semantic meaning:**\n"
+    "- Simply state what it is in one short sentence\n\n"
+    "**Rules:**\n"
+    "- Output in Korean (except HTML tags)\n"
+    "- Tables MUST use HTML format with proper rowspan/colspan\n"
+    "- Be concise - only include what is semantically meaningful\n"
+    "- No filler words or unnecessary descriptions"
+)
+
+SIMPLE_OCR_PROMPT: str = "Describe the contents of this image."
+
+
+# ── Abstract Base ─────────────────────────────────────────────────────────
+
+class BaseOCREngine(ABC):
     """
-    Abstract base class for OCR processing.
+    Abstract base class for OCR engine implementations.
 
-    All OCR model implementations must inherit from this class.
+    Subclasses MUST implement:
+        - provider (property) — engine name string
+        - build_message_content() — format LLM message payload
+
+    The engine does NOT own the LLM client lifecycle; it receives
+    the client at construction time.
     """
 
-    # Default prompt (can be overridden in subclasses)
-    DEFAULT_PROMPT = (
-        "Extract meaningful information from this image.\n\n"
-        "**If the image contains a TABLE:**\n"
-        "- Convert to HTML table format (<table>, <tr>, <td>, <th>)\n"
-        "- Use 'rowspan' and 'colspan' attributes for merged cells\n"
-        "- Preserve all cell content exactly as shown\n"
-        "- Example:\n"
-        "  <table>\n"
-        "    <tr><th colspan=\"2\">Header</th></tr>\n"
-        "    <tr><td rowspan=\"2\">Merged</td><td>A</td></tr>\n"
-        "    <tr><td>B</td></tr>\n"
-        "  </table>\n\n"
-        "**If the image contains TEXT (non-table):**\n"
-        "- Extract all text exactly as shown\n"
-        "- Keep layout, hierarchy, and structure\n\n"
-        "**If the image contains DATA (charts, graphs, diagrams):**\n"
-        "- Extract the data and its meaning\n"
-        "- Describe trends, relationships, or key insights\n\n"
-        "**If the image is decorative or has no semantic meaning:**\n"
-        "- Simply state what it is in one short sentence\n"
-        "- Example: 'A decorative geometric shape' or 'Company logo'\n"
-        "- Do NOT over-analyze decorative elements\n\n"
-        "**Rules:**\n"
-        "- Output in Korean (except HTML tags)\n"
-        "- Tables MUST use HTML format with proper rowspan/colspan\n"
-        "- Be concise - only include what is semantically meaningful\n"
-        "- No filler words or unnecessary descriptions"
-    )
-
-    # Simple prompt (used for vllm, etc.)
-    SIMPLE_PROMPT = "Describe the contents of this image."
-
-    def __init__(self, llm_client: Any, prompt: Optional[str] = None):
+    def __init__(
+        self,
+        llm_client: Any,
+        *,
+        prompt: Optional[str] = None,
+    ) -> None:
         """
-        Initialize OCR model.
-
         Args:
-            llm_client: LangChain LLM client (must support Vision models)
-            prompt: Custom prompt (uses default prompt if None)
+            llm_client: LangChain-compatible LLM client with vision support.
+            prompt: Custom OCR prompt. Defaults to DEFAULT_OCR_PROMPT.
         """
-        self.llm_client = llm_client
-        self.prompt = prompt if prompt is not None else self.DEFAULT_PROMPT
-        self._image_pattern: Optional[Pattern[str]] = None
+        self._llm_client = llm_client
+        self._prompt = prompt or DEFAULT_OCR_PROMPT
+
+    # ── Abstract interface ────────────────────────────────────────────────
 
     @property
     @abstractmethod
     def provider(self) -> str:
-        """Return OCR provider name (e.g., 'openai', 'anthropic')"""
-        pass
+        """Return engine provider name (e.g., 'openai', 'anthropic')."""
+        ...
 
     @abstractmethod
-    def build_message_content(self, b64_image: str, mime_type: str) -> list:
+    def build_message_content(
+        self,
+        b64_image: str,
+        mime_type: str,
+        prompt: str,
+    ) -> List[Dict[str, Any]]:
         """
-        Build message content for LLM.
+        Build the message content payload for the LLM.
+
+        Each provider formats the image+prompt differently. This method
+        returns the ``content`` list suitable for a LangChain HumanMessage.
 
         Args:
-            b64_image: Base64 encoded image
-            mime_type: Image MIME type
+            b64_image: Base64-encoded image data.
+            mime_type: Image MIME type (e.g., 'image/png').
+            prompt: The OCR prompt text to use.
 
         Returns:
-            Content list for LangChain HumanMessage
+            Content list for LangChain HumanMessage.
         """
-        pass
+        ...
+
+    # ── Concrete interface ────────────────────────────────────────────────
+
+    @property
+    def prompt(self) -> str:
+        """Current OCR prompt."""
+        return self._prompt
+
+    @prompt.setter
+    def prompt(self, value: str) -> None:
+        self._prompt = value
+
+    @property
+    def llm_client(self) -> Any:
+        """LLM client instance."""
+        return self._llm_client
 
     def convert_image_to_text(self, image_path: str) -> Optional[str]:
         """
-        Convert image to text.
+        Convert a single image file to text using the LLM.
 
         Args:
-            image_path: Local image file path
+            image_path: Absolute path to the image file.
 
         Returns:
-            Extracted text from image or None (on failure)
+            Extracted text wrapped in [Figure:...] format, or error string.
         """
-        from contextifier.ocr.ocr_processor import (
-            _b64_from_file,
-            _get_mime_type,
-        )
-        from langchain_core.messages import HumanMessage
-
         try:
-            b64_image = _b64_from_file(image_path)
-            mime_type = _get_mime_type(image_path)
+            b64 = encode_image_base64(image_path)
+            mime = get_mime_type(image_path)
 
-            content = self.build_message_content(b64_image, mime_type)
+            content = self.build_message_content(b64, mime, self._prompt)
+
+            # Import lazily to avoid hard dependency
+            from langchain_core.messages import HumanMessage
+
             message = HumanMessage(content=content)
-
-            response = self.llm_client.invoke([message])
+            response = self._llm_client.invoke([message])
             result = response.content.strip()
 
-            # Wrap result in [Figure:...] format
-            result = f"[Figure:{result}]"
-
-            logger.info(f"[{self.provider.upper()}] Image to text conversion completed")
-            return result
+            logger.info(f"[{self.provider.upper()}] OCR completed: {os.path.basename(image_path)}")
+            return f"[Figure:{result}]"
 
         except Exception as e:
-            logger.error(f"[{self.provider.upper()}] Image to text conversion failed: {e}")
-            return f"[Image conversion error: {str(e)}]"
-
-    def set_image_pattern(self, pattern: Optional[Pattern[str]] = None) -> None:
-        """
-        Set custom image pattern for tag detection.
-
-        Args:
-            pattern: Compiled regex pattern with capture group for image path.
-                     If None, uses default [Image:{path}] pattern.
-
-        Examples:
-            >>> import re
-            >>> ocr.set_image_pattern(re.compile(r"<img src='([^']+)'/>"))
-        """
-        self._image_pattern = pattern
-
-    def set_image_pattern_from_string(self, pattern_string: str) -> None:
-        """
-        Set custom image pattern from pattern string.
-
-        Args:
-            pattern_string: Regex pattern string with capture group for image path.
-
-        Examples:
-            >>> ocr.set_image_pattern_from_string(r"<img src='([^']+)'/>")
-        """
-        self._image_pattern = re.compile(pattern_string)
-
-    def process_text(self, text: str, image_pattern: Optional[Pattern[str]] = None) -> str:
-        """
-        Detect image tags in text and replace with OCR results.
-
-        Args:
-            text: Text containing image tags
-            image_pattern: Custom regex pattern for image tags.
-                           If None, uses instance pattern or default [Image:{path}] pattern.
-
-        Returns:
-            Text with image tags replaced by OCR results
-        """
-        from contextifier.ocr.ocr_processor import (
-            extract_image_tags,
-            load_image_from_path,
-            DEFAULT_IMAGE_TAG_PATTERN,
-        )
-
-        if not self.llm_client:
-            logger.warning(f"[{self.provider.upper()}] Skipping OCR processing: no LLM client")
-            return text
-
-        # Determine which pattern to use: parameter > instance > default
-        pattern = image_pattern or self._image_pattern or DEFAULT_IMAGE_TAG_PATTERN
-
-        image_paths = extract_image_tags(text, pattern)
-
-        if not image_paths:
-            logger.debug(f"[{self.provider.upper()}] No image tags found in text")
-            return text
-
-        logger.info(f"[{self.provider.upper()}] Detected {len(image_paths)} image tags")
-
-        result_text = text
-
-        for img_path in image_paths:
-            # Build replacement pattern using the same pattern structure
-            # Escape the path and create a pattern that matches the full tag
-            escaped_path = re.escape(img_path)
-            # Get the pattern string and replace capture group with escaped path
-            pattern_str = pattern.pattern
-            # Replace the capture group (.*), ([^...]+), etc. with the escaped path
-            tag_pattern_str = re.sub(r'\([^)]+\)', escaped_path, pattern_str, count=1)
-            tag_pattern = re.compile(tag_pattern_str)
-
-            local_path = load_image_from_path(img_path)
-
-            if local_path is None:
-                logger.warning(f"[{self.provider.upper()}] Image load failed, keeping original tag: {img_path}")
-                continue
-
-            ocr_result = self.convert_image_to_text(local_path)
-
-            if ocr_result is None or ocr_result.startswith("[Image conversion error:"):
-                logger.warning(f"[{self.provider.upper()}] Image conversion failed, keeping original tag: {img_path}")
-                continue
-
-            result_text = tag_pattern.sub(ocr_result, result_text)
-            logger.info(f"[{self.provider.upper()}] Tag replacement completed: {img_path[:50]}...")
-
-        return result_text
+            logger.error(f"[{self.provider.upper()}] OCR failed: {image_path} — {e}")
+            return f"[Image conversion error: {e!s}]"
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(provider='{self.provider}')"
+
+
+__all__ = [
+    "BaseOCREngine",
+    "DEFAULT_OCR_PROMPT",
+    "SIMPLE_OCR_PROMPT",
+    "get_mime_type",
+    "encode_image_base64",
+]

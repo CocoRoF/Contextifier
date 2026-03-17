@@ -1,167 +1,49 @@
-# libs/chunking/__init__.py
+# contextifier_new/chunking/__init__.py
 """
-Chunking - Text Chunking Module
+Chunking — Text Chunking Subsystem
 
-This package provides functionality to split document text into appropriately sized chunks.
+Replaces the old monolithic create_chunks() function with a class-based
+TextChunker that uses pluggable strategies.
 
-Module Structure:
-- chunking: Main chunking functions (split_text_preserving_html_blocks, etc.)
-- constants: Constants, patterns, and data classes
-- table_parser: HTML table parsing
-- table_chunker: Table chunking core logic
-- protected_regions: Protected region handling
-- page_chunker: Page-based chunking
-- text_chunker: Text chunking
-- sheet_processor: Sheet and metadata processing
+Architecture:
+    TextChunker (facade)
+      └── ChunkingStrategy (abstract)
+            ├── TableChunkingStrategy     — table-aware splitting  (priority 5)
+            ├── PageChunkingStrategy      — split by page markers  (priority 10)
+            ├── ProtectedChunkingStrategy — protected region splitting (priority 20)
+            └── PlainChunkingStrategy     — recursive text splitting  (priority 100)
 
-Usage:
-    from contextifier.chunking import split_text_preserving_html_blocks, chunk_plain_text
-    from contextifier.chunking import TableRow, ParsedTable
+    Shared utilities:
+        table_parser   — HTML & Markdown table structure analysis
+        table_chunker  — Row-level splitting for large tables
+        constants      — Patterns, thresholds, dataclasses
+
+Design improvements over v1:
+- Strategy pattern replaces mega-function branching
+- TextChunker is injectable (services passed to constructor)
+- Each strategy is independently testable
+- Constants/patterns centralized and config-driven
 """
 
-# === Main Chunking Functions (chunking.py) ===
-from contextifier.chunking.chunking import (
-    create_chunks,
-)
-
-# constants
-from contextifier.chunking.constants import (
-    # Constants
-    LANGCHAIN_CODE_LANGUAGE_MAP,
-    HTML_TABLE_PATTERN,
-    CHART_BLOCK_PATTERN,
-    TEXTBOX_BLOCK_PATTERN,
-    IMAGE_TAG_PATTERN,
-    MARKDOWN_TABLE_PATTERN,
-    TABLE_WRAPPER_OVERHEAD,
-    CHUNK_INDEX_OVERHEAD,
-    TABLE_SIZE_THRESHOLD_MULTIPLIER,
-    TABLE_BASED_FILE_TYPES,
-    # Data classes
-    TableRow,
-    ParsedTable,
-)
-
-# table_parser
+from contextifier.chunking.chunker import TextChunker
 from contextifier.chunking.table_parser import (
     parse_html_table,
-    extract_cell_spans,
-    extract_cell_spans_with_positions,
-    has_complex_spans,
+    parse_markdown_table,
+    is_markdown_table,
 )
-
-# table_chunker
 from contextifier.chunking.table_chunker import (
-    calculate_available_space,
-    adjust_rowspan_in_chunk,
-    build_table_chunk,
-    update_chunk_metadata,
-    split_table_into_chunks,
-    split_table_preserving_rowspan,
+    chunk_html_table,
+    chunk_markdown_table,
     chunk_large_table,
 )
 
-# protected_regions
-from contextifier.chunking.protected_regions import (
-    find_protected_regions,
-    get_protected_region_positions,
-    ensure_protected_region_integrity,
-    split_with_protected_regions,
-    split_large_chunk_with_protected_regions,
-    # Backward compatibility aliases
-    ensure_table_integrity,
-    split_large_chunk_with_table_protection,
-)
-
-# page_chunker
-from contextifier.chunking.page_chunker import (
-    split_into_pages,
-    merge_pages,
-    get_overlap_content,
-    chunk_by_pages,
-)
-
-# text_chunker
-from contextifier.chunking.text_chunker import (
-    chunk_plain_text,
-    chunk_text_without_tables,
-    chunk_with_row_protection,
-    chunk_with_row_protection_simple,
-    clean_chunks,
-    chunk_code_text,
-    reconstruct_text_from_chunks,
-    find_overlap_length,
-    estimate_chunks_count,
-)
-
-# sheet_processor
-from contextifier.chunking.sheet_processor import (
-    extract_document_metadata,
-    prepend_metadata_to_chunks,
-    extract_sheet_sections,
-    extract_content_segments,
-    chunk_multi_sheet_content,
-    chunk_single_table_content,
-)
-
-
 __all__ = [
-    # === Primary API ===
-    "create_chunks",
-    # constants
-    "LANGCHAIN_CODE_LANGUAGE_MAP",
-    "HTML_TABLE_PATTERN",
-    "CHART_BLOCK_PATTERN",
-    "TEXTBOX_BLOCK_PATTERN",
-    "IMAGE_TAG_PATTERN",
-    "MARKDOWN_TABLE_PATTERN",
-    "TABLE_WRAPPER_OVERHEAD",
-    "CHUNK_INDEX_OVERHEAD",
-    "TABLE_SIZE_THRESHOLD_MULTIPLIER",
-    "TABLE_BASED_FILE_TYPES",
-    "TableRow",
-    "ParsedTable",
-    # table_parser
+    "TextChunker",
+    # Table utilities (useful for direct use and testing)
     "parse_html_table",
-    "extract_cell_spans",
-    "extract_cell_spans_with_positions",
-    "has_complex_spans",
-    # table_chunker
-    "calculate_available_space",
-    "adjust_rowspan_in_chunk",
-    "build_table_chunk",
-    "update_chunk_metadata",
-    "split_table_into_chunks",
-    "split_table_preserving_rowspan",
+    "parse_markdown_table",
+    "is_markdown_table",
+    "chunk_html_table",
+    "chunk_markdown_table",
     "chunk_large_table",
-    # protected_regions
-    "find_protected_regions",
-    "get_protected_region_positions",
-    "ensure_protected_region_integrity",
-    "split_with_protected_regions",
-    "split_large_chunk_with_protected_regions",
-    "ensure_table_integrity",
-    "split_large_chunk_with_table_protection",
-    # page_chunker
-    "split_into_pages",
-    "merge_pages",
-    "get_overlap_content",
-    "chunk_by_pages",
-    # text_chunker
-    "chunk_plain_text",
-    "chunk_text_without_tables",
-    "chunk_with_row_protection",
-    "chunk_with_row_protection_simple",
-    "clean_chunks",
-    "chunk_code_text",
-    "reconstruct_text_from_chunks",
-    "find_overlap_length",
-    "estimate_chunks_count",
-    # sheet_processor
-    "extract_document_metadata",
-    "prepend_metadata_to_chunks",
-    "extract_sheet_sections",
-    "extract_content_segments",
-    "chunk_multi_sheet_content",
-    "chunk_single_table_content",
 ]
