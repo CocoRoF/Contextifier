@@ -244,7 +244,7 @@ class PdfPlusContentExtractor(BaseContentExtractor):
                 for ann in pt.annotations:
                     elements.append(PageElement(
                         element_type=ElementType.ANNOTATION,
-                        content=ann.content,
+                        content=ann.text,
                         bbox=ann.bbox,
                         page_num=page_num,
                     ))
@@ -298,7 +298,7 @@ class PdfPlusContentExtractor(BaseContentExtractor):
                 for ann in pt.annotations:
                     elements.append(PageElement(
                         element_type=ElementType.ANNOTATION,
-                        content=ann.content,
+                        content=ann.text,
                         bbox=ann.bbox,
                         page_num=page_num,
                     ))

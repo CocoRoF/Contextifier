@@ -381,9 +381,9 @@ class CellInfo:
 @dataclass
 class AnnotationInfo:
     """Annotation (footnote / endnote) associated with a table."""
-    type: str
-    bbox: Tuple[float, float, float, float]
-    content: str = ""
+    text: str = ""
+    bbox: Tuple[float, float, float, float] = (0.0, 0.0, 0.0, 0.0)
+    annotation_type: str = "annotation"
     color: Optional[Tuple[float, float, float]] = None
 
 
@@ -570,22 +570,19 @@ class LayoutAnalysisResult:
 class TextQualityResult:
     """Quality analysis for a text fragment."""
     quality_score: float         # 0.0 – 1.0
-    pua_ratio: float = 0.0
-    replacement_ratio: float = 0.0
-    valid_ratio: float = 0.0
-    ocr_needed: bool = False
     total_chars: int = 0
+    pua_chars: int = 0
+    garbled_ratio: float = 0.0
+    needs_ocr: bool = False
+    details: str = "ok"
 
 
 @dataclass
 class PageTextAnalysis:
-    """Quality analysis for an entire page's text."""
-    overall_quality: float = 1.0
-    block_qualities: List[Tuple[Tuple, float]] = field(default_factory=list)
-    problem_regions: List[Tuple[float, float, float, float]] = field(
-        default_factory=list,
-    )
-    ocr_needed: bool = False
+    """Quality-aware text extraction result for a single page."""
+    text: str = ""
+    quality: Optional[TextQualityResult] = None
+    used_ocr: bool = False
 
 
 # ═════════════════════════════════════════════════════════════════════════════

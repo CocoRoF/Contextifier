@@ -113,7 +113,7 @@ class TableDetectionEngine:
                         continue
                     cells = self._cells_from_pymupdf(table, col_map)
                     cands.append(TableCandidate(
-                        strategy=TableDetectionStrategy.PYMUPDF,
+                        strategy=TableDetectionStrategy.PYMUPDF_NATIVE,
                         confidence=conf, bbox=table.bbox, grid=None,
                         cells=cells, data=merged_data, raw_table=table,
                     ))
@@ -154,7 +154,7 @@ class TableDetectionEngine:
                     if conf < self.CONFIDENCE_THRESHOLD:
                         continue
                     cands.append(TableCandidate(
-                        strategy=TableDetectionStrategy.PDFPLUMBER,
+                        strategy=TableDetectionStrategy.PDFPLUMBER_LINES,
                         confidence=conf, bbox=bbox, grid=None,
                         cells=[], data=tdata, raw_table=None,
                     ))
@@ -186,7 +186,7 @@ class TableDetectionEngine:
         if conf < self.CONFIDENCE_THRESHOLD:
             return []
         return [TableCandidate(
-            strategy=TableDetectionStrategy.HYBRID,
+            strategy=TableDetectionStrategy.HYBRID_ANALYSIS,
             confidence=conf, bbox=grid.bbox, grid=grid,
             cells=cells, data=data, raw_table=None,
         )]
@@ -526,7 +526,7 @@ class TableDetectionEngine:
     def _validate(self, cands: list[TableCandidate]) -> list[TableCandidate]:
         out: list[TableCandidate] = []
         for c in cands:
-            skip_gfx = c.strategy == TableDetectionStrategy.PYMUPDF
+            skip_gfx = c.strategy == TableDetectionStrategy.PYMUPDF_NATIVE
             ok, conf, reason = self.quality_validator.validate(
                 data=c.data, bbox=c.bbox,
                 cells_info=[
@@ -552,10 +552,10 @@ class TableDetectionEngine:
         if not cands:
             return []
         priority = {
-            TableDetectionStrategy.PYMUPDF: 0,
-            TableDetectionStrategy.PDFPLUMBER: 1,
-            TableDetectionStrategy.HYBRID: 2,
-            TableDetectionStrategy.BORDERLESS: 3,
+            TableDetectionStrategy.PYMUPDF_NATIVE: 0,
+            TableDetectionStrategy.PDFPLUMBER_LINES: 1,
+            TableDetectionStrategy.HYBRID_ANALYSIS: 2,
+            TableDetectionStrategy.BORDERLESS_HEURISTIC: 3,
         }
 
         def key(c: TableCandidate) -> tuple:

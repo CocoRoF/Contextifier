@@ -26,6 +26,7 @@ from contextifier_new.pipeline.metadata_extractor import BaseMetadataExtractor
 from contextifier_new.pipeline.content_extractor import BaseContentExtractor
 from contextifier_new.pipeline.postprocessor import BasePostprocessor, DefaultPostprocessor
 
+from contextifier_new.errors import ConversionError
 from contextifier_new.handlers.hwp.converter import HwpConverter
 from contextifier_new.handlers.hwp.preprocessor import HwpPreprocessor
 from contextifier_new.handlers.hwp.metadata_extractor import HwpMetadataExtractor
@@ -33,6 +34,7 @@ from contextifier_new.handlers.hwp.content_extractor import HwpContentExtractor
 
 _ZIP_MAGIC = b"PK\x03\x04"
 _OLE2_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
+_HWP30_MAGIC = b"HWP Document File"
 
 
 class HWPHandler(BaseHandler):
@@ -60,6 +62,15 @@ class HWPHandler(BaseHandler):
         # ZIP magic → HWPX
         if data[:4] == _ZIP_MAGIC:
             return self._delegate_to("hwpx", file_context, **kwargs)
+
+        # HWP 3.0 format → not supported
+        if data[:17] == _HWP30_MAGIC:
+            raise ConversionError(
+                "HWP 3.0 format is not supported. "
+                "Please convert to HWP 5.0 (.hwp) or HWPX (.hwpx) format.",
+                stage="convert",
+                handler=self.handler_name,
+            )
 
         return None
 
