@@ -31,14 +31,12 @@ Usage:
     chunks = processor.extract_chunks("document.pdf", chunk_size=1000)
 """
 
-__version__ = "2.0.0-alpha"
-
 from importlib.metadata import version, PackageNotFoundError
 
 try:
     __version__ = version("contextifier")
 except PackageNotFoundError:
-    pass
+    __version__ = "0.0.0-dev"
 
 from contextifier.document_processor import DocumentProcessor
 
