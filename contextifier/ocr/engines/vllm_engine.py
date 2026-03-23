@@ -1,4 +1,4 @@
-# contextifier_new/ocr/engines/vllm_engine.py
+# contextifier/ocr/engines/vllm_engine.py
 """Self-hosted VLLM Vision OCR engine."""
 
 from __future__ import annotations

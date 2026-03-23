@@ -1,4 +1,4 @@
-# contextifier_new/handlers/ppt/__init__.py
+# contextifier/handlers/ppt/__init__.py
 """PPT/PPTX handler package."""
 
 from contextifier.handlers.ppt.handler import PPTHandler

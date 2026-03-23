@@ -1,4 +1,4 @@
-# contextifier_new/handlers/registry.py
+# contextifier/handlers/registry.py
 """
 HandlerRegistry — Centralized Handler Management
 
@@ -148,21 +148,21 @@ class HandlerRegistry:
         """
         default_handlers: List[tuple] = [
             # Document formats — one extension per handler
-            ("contextifier_new.handlers.pdf.handler", "PDFHandler"),
-            ("contextifier_new.handlers.docx.handler", "DOCXHandler"),
-            ("contextifier_new.handlers.doc.handler", "DOCHandler"),
-            ("contextifier_new.handlers.pptx.handler", "PPTXHandler"),
-            ("contextifier_new.handlers.ppt.handler", "PPTHandler"),
-            ("contextifier_new.handlers.xlsx.handler", "XLSXHandler"),
-            ("contextifier_new.handlers.xls.handler", "XLSHandler"),
-            ("contextifier_new.handlers.csv.handler", "CSVHandler"),
-            ("contextifier_new.handlers.tsv.handler", "TSVHandler"),
-            ("contextifier_new.handlers.hwp.handler", "HWPHandler"),
-            ("contextifier_new.handlers.hwpx.handler", "HWPXHandler"),
-            ("contextifier_new.handlers.rtf.handler", "RTFHandler"),
+            ("contextifier.handlers.pdf.handler", "PDFHandler"),
+            ("contextifier.handlers.docx.handler", "DOCXHandler"),
+            ("contextifier.handlers.doc.handler", "DOCHandler"),
+            ("contextifier.handlers.pptx.handler", "PPTXHandler"),
+            ("contextifier.handlers.ppt.handler", "PPTHandler"),
+            ("contextifier.handlers.xlsx.handler", "XLSXHandler"),
+            ("contextifier.handlers.xls.handler", "XLSHandler"),
+            ("contextifier.handlers.csv.handler", "CSVHandler"),
+            ("contextifier.handlers.tsv.handler", "TSVHandler"),
+            ("contextifier.handlers.hwp.handler", "HWPHandler"),
+            ("contextifier.handlers.hwpx.handler", "HWPXHandler"),
+            ("contextifier.handlers.rtf.handler", "RTFHandler"),
             # Category handlers — multiple extensions by design
-            ("contextifier_new.handlers.text.handler", "TextHandler"),
-            ("contextifier_new.handlers.image.handler", "ImageFileHandler"),
+            ("contextifier.handlers.text.handler", "TextHandler"),
+            ("contextifier.handlers.image.handler", "ImageFileHandler"),
         ]
 
         for module_path, class_name in default_handlers:

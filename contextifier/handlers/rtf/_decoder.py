@@ -1,4 +1,4 @@
-# contextifier_new/handlers/rtf/_decoder.py
+# contextifier/handlers/rtf/_decoder.py
 """
 RTF Decoding Utilities — Encoding detection and string decoding.
 

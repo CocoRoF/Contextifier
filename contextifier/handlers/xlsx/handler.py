@@ -1,4 +1,4 @@
-# contextifier_new/handlers/xlsx/handler.py
+# contextifier/handlers/xlsx/handler.py
 """
 XLSXHandler — Handler for modern Excel XLSX spreadsheets (.xlsx ONLY).
 

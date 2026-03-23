@@ -1,4 +1,4 @@
-# contextifier_new/handlers/hwpx/_section.py
+# contextifier/handlers/hwpx/_section.py
 """
 HWPX section XML parser.
 

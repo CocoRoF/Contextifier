@@ -1,4 +1,4 @@
-# contextifier_new/ocr/engines/bedrock_engine.py
+# contextifier/ocr/engines/bedrock_engine.py
 """AWS Bedrock (Claude) Vision OCR engine."""
 
 from __future__ import annotations

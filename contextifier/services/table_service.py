@@ -1,4 +1,4 @@
-# contextifier_new/services/table_service.py
+# contextifier/services/table_service.py
 """
 TableService — Table Data Formatting
 

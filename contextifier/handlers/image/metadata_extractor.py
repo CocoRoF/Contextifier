@@ -1,4 +1,4 @@
-# contextifier_new/handlers/image/metadata_extractor.py
+# contextifier/handlers/image/metadata_extractor.py
 """
 ImageMetadataExtractor — Stage 3: extract minimal metadata from image
 

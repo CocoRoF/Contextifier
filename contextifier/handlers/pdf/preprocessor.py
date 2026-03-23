@@ -1,4 +1,4 @@
-# contextifier_new/handlers/pdf/preprocessor.py
+# contextifier/handlers/pdf/preprocessor.py
 """
 PdfPreprocessor — Stage 2: pass-through with basic metadata
 

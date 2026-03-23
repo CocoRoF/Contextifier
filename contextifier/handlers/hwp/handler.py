@@ -1,4 +1,4 @@
-# contextifier_new/handlers/hwp/handler.py
+# contextifier/handlers/hwp/handler.py
 """
 HWPHandler — Handler for Hangul Word Processor 5.0 (HWP) documents.
 

@@ -1,4 +1,4 @@
-# contextifier_new/chunking/__init__.py
+# contextifier/chunking/__init__.py
 """
 Chunking — Text Chunking Subsystem
 

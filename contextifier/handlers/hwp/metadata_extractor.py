@@ -1,4 +1,4 @@
-# contextifier_new/handlers/hwp/metadata_extractor.py
+# contextifier/handlers/hwp/metadata_extractor.py
 """
 HwpMetadataExtractor — Stage 3: OLE → DocumentMetadata
 

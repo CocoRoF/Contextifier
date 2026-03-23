@@ -1,4 +1,4 @@
-# contextifier_new/chunking/table_parser.py
+# contextifier/chunking/table_parser.py
 """
 Table Parser — HTML & Markdown Table Structure Analysis
 

@@ -1,4 +1,4 @@
-# contextifier_new/handlers/pdf/metadata_extractor.py
+# contextifier/handlers/pdf/metadata_extractor.py
 """
 PdfMetadataExtractor — Stage 3: read PDF metadata
 

@@ -1,4 +1,4 @@
-# contextifier_new/handlers/xls/converter.py
+# contextifier/handlers/xls/converter.py
 """
 XlsConverter — validate & open .xls files via xlrd.
 

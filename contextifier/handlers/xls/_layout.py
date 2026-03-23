@@ -1,4 +1,4 @@
-# contextifier_new/handlers/xls/_layout.py
+# contextifier/handlers/xls/_layout.py
 """
 Layout detection for XLS (xlrd) sheets.
 

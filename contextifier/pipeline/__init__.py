@@ -1,4 +1,4 @@
-# contextifier_new/pipeline/__init__.py
+# contextifier/pipeline/__init__.py
 """
 Pipeline — Processing Pipeline Components
 

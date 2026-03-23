@@ -1,4 +1,4 @@
-# contextifier_new/handlers/hwp/_docinfo.py
+# contextifier/handlers/hwp/_docinfo.py
 """
 HWP DocInfo stream parser.
 

@@ -1,4 +1,4 @@
-# contextifier_new/handlers/rtf/_table_parser.py
+# contextifier/handlers/rtf/_table_parser.py
 """
 RTF Table Parser — internal module for extracting tables from RTF content.
 

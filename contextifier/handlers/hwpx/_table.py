@@ -1,4 +1,4 @@
-# contextifier_new/handlers/hwpx/_table.py
+# contextifier/handlers/hwpx/_table.py
 """
 HWPX table parsing utilities.
 

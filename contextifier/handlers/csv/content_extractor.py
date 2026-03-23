@@ -1,4 +1,4 @@
-# contextifier_new/handlers/csv/content_extractor.py
+# contextifier/handlers/csv/content_extractor.py
 """
 CsvContentExtractor — Stage 4: Parsed CSV → Table content
 

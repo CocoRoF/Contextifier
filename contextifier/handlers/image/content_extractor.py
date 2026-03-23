@@ -1,4 +1,4 @@
-# contextifier_new/handlers/image/content_extractor.py
+# contextifier/handlers/image/content_extractor.py
 """
 ImageContentExtractor — Stage 4: save the image and return a tag
 

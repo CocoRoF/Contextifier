@@ -1,4 +1,4 @@
-# contextifier_new/handlers/pdf_plus/__init__.py
+# contextifier/handlers/pdf_plus/__init__.py
 """
 PDF Plus — adaptive, multi-strategy PDF extraction engine.
 

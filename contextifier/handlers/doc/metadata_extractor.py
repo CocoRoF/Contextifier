@@ -1,4 +1,4 @@
-# contextifier_new/handlers/doc/metadata_extractor.py
+# contextifier/handlers/doc/metadata_extractor.py
 """
 DocMetadataExtractor — Stage 3: Extract document metadata from OLE properties.
 

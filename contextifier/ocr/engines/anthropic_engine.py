@@ -1,4 +1,4 @@
-# contextifier_new/ocr/engines/anthropic_engine.py
+# contextifier/ocr/engines/anthropic_engine.py
 """Anthropic Claude Vision OCR engine."""
 
 from __future__ import annotations

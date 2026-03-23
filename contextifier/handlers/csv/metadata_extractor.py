@@ -1,4 +1,4 @@
-# contextifier_new/handlers/csv/metadata_extractor.py
+# contextifier/handlers/csv/metadata_extractor.py
 """
 CsvMetadataExtractor — Stage 3: CSV structure metadata
 

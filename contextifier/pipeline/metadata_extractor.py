@@ -1,4 +1,4 @@
-# contextifier_new/pipeline/metadata_extractor.py
+# contextifier/pipeline/metadata_extractor.py
 """
 BaseMetadataExtractor — Stage 3: Document Metadata Extraction
 

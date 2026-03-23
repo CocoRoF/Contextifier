@@ -1,4 +1,4 @@
-# contextifier_new/handlers/pdf_plus/_page_analyzer.py
+# contextifier/handlers/pdf_plus/_page_analyzer.py
 """
 PDF Plus — page-level analysis helpers.
 

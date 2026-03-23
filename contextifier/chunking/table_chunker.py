@@ -1,4 +1,4 @@
-# contextifier_new/chunking/table_chunker.py
+# contextifier/chunking/table_chunker.py
 """
 Table Chunker — Row-Level Splitting for HTML & Markdown Tables
 

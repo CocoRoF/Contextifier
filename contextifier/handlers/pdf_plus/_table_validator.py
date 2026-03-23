@@ -1,4 +1,4 @@
-# contextifier_new/handlers/pdf_plus/_table_validator.py
+# contextifier/handlers/pdf_plus/_table_validator.py
 """
 PDF Plus — Table Quality Validator (12-point system).
 

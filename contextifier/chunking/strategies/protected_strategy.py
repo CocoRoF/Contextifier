@@ -1,4 +1,4 @@
-# contextifier_new/chunking/strategies/protected_strategy.py
+# contextifier/chunking/strategies/protected_strategy.py
 """
 ProtectedChunkingStrategy — Region-aware chunking.
 

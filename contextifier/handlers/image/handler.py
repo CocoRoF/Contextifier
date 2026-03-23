@@ -1,4 +1,4 @@
-# contextifier_new/handlers/image/handler.py
+# contextifier/handlers/image/handler.py
 """
 ImageFileHandler — Unified handler for standalone image files.
 

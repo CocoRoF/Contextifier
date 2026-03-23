@@ -1,4 +1,4 @@
-# contextifier_new/handlers/pdf_plus/_layout_block_detector.py
+# contextifier/handlers/pdf_plus/_layout_block_detector.py
 """
 PDF Plus — Layout Block Detector.
 

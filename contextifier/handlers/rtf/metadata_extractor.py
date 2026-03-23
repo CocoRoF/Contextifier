@@ -1,4 +1,4 @@
-# contextifier_new/handlers/rtf/metadata_extractor.py
+# contextifier/handlers/rtf/metadata_extractor.py
 """
 RtfMetadataExtractor — Stage 3: RTF Metadata Extraction.
 

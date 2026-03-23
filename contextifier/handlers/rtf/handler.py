@@ -1,4 +1,4 @@
-# contextifier_new/handlers/rtf/handler.py
+# contextifier/handlers/rtf/handler.py
 """
 RTFHandler — Unified handler for Rich Text Format documents.
 

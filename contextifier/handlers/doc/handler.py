@@ -1,4 +1,4 @@
-# contextifier_new/handlers/doc/handler.py
+# contextifier/handlers/doc/handler.py
 """
 DOCHandler — Handler for legacy Microsoft Word DOC documents (.doc ONLY).
 

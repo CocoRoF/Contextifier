@@ -1,4 +1,4 @@
-# contextifier_new/handlers/pptx/handler.py
+# contextifier/handlers/pptx/handler.py
 """
 PPTXHandler — Handler for modern PowerPoint PPTX documents (.pptx ONLY).
 

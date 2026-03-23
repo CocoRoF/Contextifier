@@ -1,4 +1,4 @@
-# contextifier_new/types.py
+# contextifier/types.py
 """
 Core type definitions for Contextifier v2.
 

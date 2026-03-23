@@ -1,4 +1,4 @@
-# contextifier_new/__init__.py
+# contextifier/__init__.py
 """
 Contextifier v2 — Unified Document Processing Library
 
@@ -24,7 +24,7 @@ Architecture:
       └── OCR (optional vision-based extraction)
 
 Usage:
-    from contextifier_new import DocumentProcessor
+    from contextifier import DocumentProcessor
 
     processor = DocumentProcessor()
     text = processor.extract_text("document.pdf")
@@ -32,6 +32,13 @@ Usage:
 """
 
 __version__ = "2.0.0-alpha"
+
+from importlib.metadata import version, PackageNotFoundError
+
+try:
+    __version__ = version("contextifier")
+except PackageNotFoundError:
+    pass
 
 from contextifier.document_processor import DocumentProcessor
 

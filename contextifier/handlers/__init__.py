@@ -1,4 +1,4 @@
-# contextifier_new/handlers/__init__.py
+# contextifier/handlers/__init__.py
 """
 Handlers — Format-Specific Document Processing
 

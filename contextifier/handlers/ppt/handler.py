@@ -1,4 +1,4 @@
-# contextifier_new/handlers/ppt/handler.py
+# contextifier/handlers/ppt/handler.py
 """
 PPTHandler — Handler for legacy PowerPoint PPT documents (.ppt ONLY).
 

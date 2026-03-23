@@ -1,4 +1,4 @@
-# contextifier_new/handlers/pdf/converter.py
+# contextifier/handlers/pdf/converter.py
 """
 PdfConverter — Stage 1: raw bytes → fitz.Document
 

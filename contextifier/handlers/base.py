@@ -1,4 +1,4 @@
-# contextifier_new/handlers/base.py
+# contextifier/handlers/base.py
 """
 BaseHandler — Abstract Base Class for All Document Handlers
 

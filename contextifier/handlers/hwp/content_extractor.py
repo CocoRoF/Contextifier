@@ -1,4 +1,4 @@
-# contextifier_new/handlers/hwp/content_extractor.py
+# contextifier/handlers/hwp/content_extractor.py
 """
 HwpContentExtractor — Stage 4: OLE → text / tables / images
 

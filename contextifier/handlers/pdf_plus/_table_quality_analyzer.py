@@ -1,4 +1,4 @@
-# contextifier_new/handlers/pdf_plus/_table_quality_analyzer.py
+# contextifier/handlers/pdf_plus/_table_quality_analyzer.py
 """
 PDF Plus — Table Quality Analyzer.
 

@@ -1,4 +1,4 @@
-# contextifier_new/handlers/pdf_plus/_table_detection.py
+# contextifier/handlers/pdf_plus/_table_detection.py
 """
 PDF Plus — Multi-strategy Table Detection Engine.
 

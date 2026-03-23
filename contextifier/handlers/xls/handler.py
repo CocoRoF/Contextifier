@@ -1,4 +1,4 @@
-# contextifier_new/handlers/xls/handler.py
+# contextifier/handlers/xls/handler.py
 """
 XLSHandler — Handler for legacy Excel XLS spreadsheets (.xls ONLY).
 

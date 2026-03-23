@@ -1,4 +1,4 @@
-# contextifier_new/handlers/docx/handler.py
+# contextifier/handlers/docx/handler.py
 """
 DOCXHandler — Handler for Microsoft Word DOCX documents (.docx ONLY).
 

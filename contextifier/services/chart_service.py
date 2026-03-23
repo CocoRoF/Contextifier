@@ -1,4 +1,4 @@
-# contextifier_new/services/chart_service.py
+# contextifier/services/chart_service.py
 """
 ChartService — Chart Data Formatting
 

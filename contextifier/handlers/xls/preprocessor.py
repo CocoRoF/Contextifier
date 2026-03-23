@@ -1,4 +1,4 @@
-# contextifier_new/handlers/xls/preprocessor.py
+# contextifier/handlers/xls/preprocessor.py
 """
 XlsPreprocessor — unwrap XlsConvertedData, record sheet info.
 

@@ -1,4 +1,4 @@
-# contextifier_new/handlers/hwpx/__init__.py
+# contextifier/handlers/hwpx/__init__.py
 """HWPX handler package."""
 
 from contextifier.handlers.hwpx.handler import HWPXHandler

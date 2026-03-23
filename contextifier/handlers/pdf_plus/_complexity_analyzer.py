@@ -1,4 +1,4 @@
-# contextifier_new/handlers/pdf_plus/_complexity_analyzer.py
+# contextifier/handlers/pdf_plus/_complexity_analyzer.py
 """
 PDF Plus — Page Complexity Analyzer.
 

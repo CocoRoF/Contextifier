@@ -1,4 +1,4 @@
-# contextifier_new/handlers/pdf_plus/_text_extractor.py
+# contextifier/handlers/pdf_plus/_text_extractor.py
 """
 PDF Plus — Text Block Extractor.
 

@@ -1,4 +1,4 @@
-# contextifier_new/handlers/hwpx/handler.py
+# contextifier/handlers/hwpx/handler.py
 """
 HWPXHandler — Unified handler for Hangul HWPX (ZIP-based XML) documents.
 

@@ -1,4 +1,4 @@
-# contextifier_new/handlers/xls/_constants.py
+# contextifier/handlers/xls/_constants.py
 """Constants for XLS (BIFF) processing."""
 
 from __future__ import annotations

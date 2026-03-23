@@ -1,4 +1,4 @@
-# contextifier_new/handlers/pdf_plus/_vector_text_ocr.py
+# contextifier/handlers/pdf_plus/_vector_text_ocr.py
 """
 PDF Plus — Vector / Outlined Text OCR Engine.
 

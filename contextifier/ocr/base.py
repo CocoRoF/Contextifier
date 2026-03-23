@@ -1,4 +1,4 @@
-# contextifier_new/ocr/base.py
+# contextifier/ocr/base.py
 """
 BaseOCREngine — Abstract interface for all OCR engine implementations.
 

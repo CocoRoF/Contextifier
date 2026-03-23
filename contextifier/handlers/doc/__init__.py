@@ -1,4 +1,4 @@
-# contextifier_new/handlers/doc/__init__.py
+# contextifier/handlers/doc/__init__.py
 """DOC handler package."""
 
 from contextifier.handlers.doc.handler import DOCHandler

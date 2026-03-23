@@ -1,4 +1,4 @@
-# contextifier_new/handlers/text/converter.py
+# contextifier/handlers/text/converter.py
 """
 TextConverter — Stage 1: Binary bytes → Decoded string
 

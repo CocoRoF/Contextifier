@@ -1,4 +1,4 @@
-# contextifier_new/chunking/strategies/table_strategy.py
+# contextifier/chunking/strategies/table_strategy.py
 """
 TableChunkingStrategy — Table-aware chunking for spreadsheet-type content.
 

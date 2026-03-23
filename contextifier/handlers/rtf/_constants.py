@@ -1,4 +1,4 @@
-# contextifier_new/handlers/rtf/_constants.py
+# contextifier/handlers/rtf/_constants.py
 """
 RTF Constants — Shared constants for RTF parsing.
 

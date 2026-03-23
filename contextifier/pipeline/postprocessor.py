@@ -1,4 +1,4 @@
-# contextifier_new/pipeline/postprocessor.py
+# contextifier/pipeline/postprocessor.py
 """
 BasePostprocessor — Stage 5: Final Assembly & Cleanup
 

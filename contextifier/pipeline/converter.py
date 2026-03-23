@@ -1,4 +1,4 @@
-# contextifier_new/pipeline/converter.py
+# contextifier/pipeline/converter.py
 """
 BaseConverter — Stage 1: Binary → Format Object
 

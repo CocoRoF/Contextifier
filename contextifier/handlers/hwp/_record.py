@@ -1,4 +1,4 @@
-# contextifier_new/handlers/hwp/_record.py
+# contextifier/handlers/hwp/_record.py
 """
 HWP 5.0 binary record parser.
 

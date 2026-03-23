@@ -1,4 +1,4 @@
-# contextifier_new/handlers/pdf/handler.py
+# contextifier/handlers/pdf/handler.py
 """
 PDFHandler — Unified handler for PDF documents.
 

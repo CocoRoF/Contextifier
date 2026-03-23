@@ -1,4 +1,4 @@
-# contextifier_new/handlers/doc/preprocessor.py
+# contextifier/handlers/doc/preprocessor.py
 """
 DocPreprocessor — Stage 2: OLE2 object → preprocessed streams
 

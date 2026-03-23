@@ -1,4 +1,4 @@
-# contextifier_new/handlers/pdf_plus/_table_processor.py
+# contextifier/handlers/pdf_plus/_table_processor.py
 """
 PDF Plus — Table Processor (orchestrator).
 

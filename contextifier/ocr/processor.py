@@ -1,4 +1,4 @@
-# contextifier_new/ocr/processor.py
+# contextifier/ocr/processor.py
 """
 OCRProcessor — Orchestrator for replacing image tags with OCR results.
 

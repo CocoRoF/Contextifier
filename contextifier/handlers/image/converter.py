@@ -1,4 +1,4 @@
-# contextifier_new/handlers/image/converter.py
+# contextifier/handlers/image/converter.py
 """
 ImageConverter — Stage 1: raw bytes → validated image data
 

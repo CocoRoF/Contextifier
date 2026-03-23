@@ -1,4 +1,4 @@
-# contextifier_new/handlers/hwp/_recovery.py
+# contextifier/handlers/hwp/_recovery.py
 """
 Forensic-recovery utilities for corrupt / non-standard HWP files.
 

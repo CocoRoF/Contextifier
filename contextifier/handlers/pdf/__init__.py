@@ -1,4 +1,4 @@
-# contextifier_new/handlers/pdf/__init__.py
+# contextifier/handlers/pdf/__init__.py
 """PDF handler package."""
 
 from contextifier.handlers.pdf.handler import PDFHandler

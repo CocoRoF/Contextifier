@@ -1,4 +1,4 @@
-# contextifier_new/handlers/xls/content_extractor.py
+# contextifier/handlers/xls/content_extractor.py
 """
 XlsContentExtractor — extract text / tables from XLS (xlrd) files.
 

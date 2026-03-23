@@ -1,4 +1,4 @@
-# contextifier_new/handlers/pdf_default/content_extractor.py
+# contextifier/handlers/pdf_default/content_extractor.py
 """
 PdfDefaultContentExtractor — simple page-by-page PDF extraction.
 

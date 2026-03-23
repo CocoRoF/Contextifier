@@ -1,4 +1,4 @@
-# contextifier_new/handlers/image/_constants.py
+# contextifier/handlers/image/_constants.py
 """
 Constants for image file processing.
 """

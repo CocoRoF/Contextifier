@@ -1,4 +1,4 @@
-# contextifier_new/handlers/pdf_plus/_element_merger.py
+# contextifier/handlers/pdf_plus/_element_merger.py
 """
 PDF Plus — position-aware element merger.
 

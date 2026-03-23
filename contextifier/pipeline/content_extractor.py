@@ -1,4 +1,4 @@
-# contextifier_new/pipeline/content_extractor.py
+# contextifier/pipeline/content_extractor.py
 """
 BaseContentExtractor — Stage 4: Content Extraction
 

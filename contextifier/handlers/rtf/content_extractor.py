@@ -1,4 +1,4 @@
-# contextifier_new/handlers/rtf/content_extractor.py
+# contextifier/handlers/rtf/content_extractor.py
 """
 RtfContentExtractor — Stage 4: Text + Table + Image extraction from RTF.
 

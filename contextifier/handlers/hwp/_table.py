@@ -1,4 +1,4 @@
-# contextifier_new/handlers/hwp/_table.py
+# contextifier/handlers/hwp/_table.py
 """
 HWP 5.0 table parsing utilities.
 

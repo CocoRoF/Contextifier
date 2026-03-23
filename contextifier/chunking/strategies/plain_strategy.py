@@ -1,4 +1,4 @@
-# contextifier_new/chunking/strategies/plain_strategy.py
+# contextifier/chunking/strategies/plain_strategy.py
 """
 PlainChunkingStrategy — Simple recursive text splitting.
 

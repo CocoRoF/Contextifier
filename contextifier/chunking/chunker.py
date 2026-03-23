@@ -1,4 +1,4 @@
-# contextifier_new/chunking/chunker.py
+# contextifier/chunking/chunker.py
 """
 TextChunker — Main Chunking Facade
 

@@ -1,4 +1,4 @@
-# contextifier_new/handlers/pdf_plus/_text_quality_analyzer.py
+# contextifier/handlers/pdf_plus/_text_quality_analyzer.py
 """
 PDF Plus — Text Quality Analyzer & OCR Fallback.
 

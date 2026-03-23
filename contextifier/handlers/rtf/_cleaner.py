@@ -1,4 +1,4 @@
-# contextifier_new/handlers/rtf/_cleaner.py
+# contextifier/handlers/rtf/_cleaner.py
 """
 RTF Text Cleaner — Remove RTF control codes and extract pure text.
 

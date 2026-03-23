@@ -1,4 +1,4 @@
-# contextifier_new/handlers/csv/handler.py
+# contextifier/handlers/csv/handler.py
 """
 CSVHandler — Handler for CSV (Comma-Separated Values) files (.csv ONLY).
 

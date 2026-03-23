@@ -1,4 +1,4 @@
-# contextifier_new/handlers/rtf/converter.py
+# contextifier/handlers/rtf/converter.py
 """
 RtfConverter — Stage 1: Validate and wrap raw RTF bytes.
 

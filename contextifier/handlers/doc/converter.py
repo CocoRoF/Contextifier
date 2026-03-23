@@ -1,4 +1,4 @@
-# contextifier_new/handlers/doc/converter.py
+# contextifier/handlers/doc/converter.py
 """
 DocConverter — Stage 1: Raw bytes → OLE2 object
 

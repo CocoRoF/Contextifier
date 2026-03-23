@@ -1,4 +1,4 @@
-# contextifier_new/chunking/strategies/base.py
+# contextifier/chunking/strategies/base.py
 """
 BaseChunkingStrategy — Abstract Chunking Strategy
 

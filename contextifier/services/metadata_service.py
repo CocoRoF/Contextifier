@@ -1,4 +1,4 @@
-# contextifier_new/services/metadata_service.py
+# contextifier/services/metadata_service.py
 """
 MetadataService — Metadata Formatting
 

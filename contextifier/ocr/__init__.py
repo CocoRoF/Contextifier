@@ -1,4 +1,4 @@
-# contextifier_new/ocr/__init__.py
+# contextifier/ocr/__init__.py
 """
 OCR — Optical Character Recognition Subsystem
 

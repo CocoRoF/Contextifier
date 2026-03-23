@@ -1,4 +1,4 @@
-# contextifier_new/handlers/pdf/_constants.py
+# contextifier/handlers/pdf/_constants.py
 """
 Shared constants and configuration for both PDF handler modes.
 

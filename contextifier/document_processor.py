@@ -1,4 +1,4 @@
-# contextifier_new/document_processor.py
+# contextifier/document_processor.py
 """
 DocumentProcessor — Main Entry Point for Contextify v2
 
@@ -6,14 +6,14 @@ This is the single public-facing API for all document processing.
 It replaces the v1 DocumentProcessor with a cleaner architecture:
 
 Usage:
-    from contextifier_new import DocumentProcessor
+    from contextifier import DocumentProcessor
 
     # Simple extraction
     processor = DocumentProcessor()
     text = processor.extract_text("document.pdf")
 
     # With config
-    from contextifier_new.config import ProcessingConfig
+    from contextifier.config import ProcessingConfig
     config = ProcessingConfig(extract_metadata=True)
     processor = DocumentProcessor(config=config)
     text = processor.extract_text("document.pdf")

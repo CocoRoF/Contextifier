@@ -1,4 +1,4 @@
-# contextifier_new/handlers/hwp/_decoder.py
+# contextifier/handlers/hwp/_decoder.py
 """
 HWP 5.0 compression / decompression utilities.
 

@@ -1,4 +1,4 @@
-# contextifier_new/handlers/pdf_plus/_image_extractor.py
+# contextifier/handlers/pdf_plus/_image_extractor.py
 """
 PDF Plus — PDF Image Extractor.
 

@@ -1,4 +1,4 @@
-# contextifier_new/handlers/text/preprocessor.py
+# contextifier/handlers/text/preprocessor.py
 """
 TextPreprocessor — Stage 2: Normalize decoded text
 

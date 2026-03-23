@@ -1,4 +1,4 @@
-# contextifier_new/ocr/engines/__init__.py
+# contextifier/ocr/engines/__init__.py
 """
 OCR Engine Implementations
 

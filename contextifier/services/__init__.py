@@ -1,4 +1,4 @@
-# contextifier_new/services/__init__.py
+# contextifier/services/__init__.py
 """
 Services — Shared Format-Agnostic Processing Services
 

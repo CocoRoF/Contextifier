@@ -1,4 +1,4 @@
-# contextifier_new/handlers/doc/content_extractor.py
+# contextifier/handlers/doc/content_extractor.py
 """
 DocContentExtractor — Stage 4: Extract text, images from OLE2 DOC.
 

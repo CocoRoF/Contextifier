@@ -1,4 +1,4 @@
-# contextifier_new/handlers/pdf_plus/_block_image_engine.py
+# contextifier/handlers/pdf_plus/_block_image_engine.py
 """
 PDF Plus — Block Image Engine.
 

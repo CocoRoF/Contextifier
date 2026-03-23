@@ -1,4 +1,4 @@
-# contextifier_new/handlers/doc/_constants.py
+# contextifier/handlers/doc/_constants.py
 """
 Constants for DOC (OLE2 Compound Binary Format) handler.
 

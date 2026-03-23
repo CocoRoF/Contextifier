@@ -1,4 +1,4 @@
-# contextifier_new/handlers/hwpx/content_extractor.py
+# contextifier/handlers/hwpx/content_extractor.py
 """
 HwpxContentExtractor — Stage 4: ZipFile → text / tables / images
 

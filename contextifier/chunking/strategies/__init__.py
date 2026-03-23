@@ -1,4 +1,4 @@
-# contextifier_new/chunking/strategies/__init__.py
+# contextifier/chunking/strategies/__init__.py
 """
 Chunking Strategies
 

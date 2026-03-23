@@ -1,4 +1,4 @@
-# contextifier_new/handlers/image/__init__.py
+# contextifier/handlers/image/__init__.py
 """Image file handler package."""
 
 from contextifier.handlers.image.handler import ImageFileHandler

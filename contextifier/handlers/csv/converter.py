@@ -1,4 +1,4 @@
-# contextifier_new/handlers/csv/converter.py
+# contextifier/handlers/csv/converter.py
 """
 CsvConverter — Stage 1: Binary bytes → Decoded string
 

@@ -1,4 +1,4 @@
-# contextifier_new/handlers/hwpx/preprocessor.py
+# contextifier/handlers/hwpx/preprocessor.py
 """
 HwpxPreprocessor — Stage 2: ZipFile → PreprocessedData
 

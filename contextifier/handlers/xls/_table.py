@@ -1,4 +1,4 @@
-# contextifier_new/handlers/xls/_table.py
+# contextifier/handlers/xls/_table.py
 """
 Table conversion utilities for XLS (xlrd) sheets.
 

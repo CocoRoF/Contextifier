@@ -1,4 +1,4 @@
-# contextifier_new/handlers/hwpx/metadata_extractor.py
+# contextifier/handlers/hwpx/metadata_extractor.py
 """
 HwpxMetadataExtractor — Stage 3: ZipFile → DocumentMetadata
 

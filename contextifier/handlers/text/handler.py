@@ -1,4 +1,4 @@
-# contextifier_new/handlers/text/handler.py
+# contextifier/handlers/text/handler.py
 """
 TextHandler — Unified handler for plain text files.
 

@@ -1,4 +1,4 @@
-# contextifier_new/services/image_service.py
+# contextifier/services/image_service.py
 """
 ImageService — Image Saving, Deduplication & Tag Generation
 

@@ -1,4 +1,4 @@
-# contextifier_new/handlers/pdf_plus/_utils.py
+# contextifier/handlers/pdf_plus/_utils.py
 """
 PDF Plus — shared utility functions.
 

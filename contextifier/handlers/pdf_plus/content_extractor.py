@@ -1,4 +1,4 @@
-# contextifier_new/handlers/pdf_plus/content_extractor.py
+# contextifier/handlers/pdf_plus/content_extractor.py
 """
 PdfPlusContentExtractor — adaptive, multi-strategy PDF extraction.
 

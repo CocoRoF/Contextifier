@@ -1,4 +1,4 @@
-# contextifier_new/handlers/pdf_plus/_graphic_detector.py
+# contextifier/handlers/pdf_plus/_graphic_detector.py
 """
 PDF Plus — Graphic Region Detector.
 

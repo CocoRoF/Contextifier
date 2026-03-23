@@ -1,4 +1,4 @@
-# contextifier_new/handlers/hwp/preprocessor.py
+# contextifier/handlers/hwp/preprocessor.py
 """
 HwpPreprocessor — Stage 2: OLE → PreprocessedData
 

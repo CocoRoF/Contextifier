@@ -1,4 +1,4 @@
-# contextifier_new/handlers/text/content_extractor.py
+# contextifier/handlers/text/content_extractor.py
 """
 TextContentExtractor — Stage 4: Extract text content
 

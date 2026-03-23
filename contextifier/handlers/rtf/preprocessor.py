@@ -1,4 +1,4 @@
-# contextifier_new/handlers/rtf/preprocessor.py
+# contextifier/handlers/rtf/preprocessor.py
 """
 RtfPreprocessor — Stage 2: Binary processing + image extraction + decoding.
 

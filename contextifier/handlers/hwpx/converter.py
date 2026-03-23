@@ -1,4 +1,4 @@
-# contextifier_new/handlers/hwpx/converter.py
+# contextifier/handlers/hwpx/converter.py
 """
 HwpxConverter — Stage 1: raw bytes → ZipFile object
 

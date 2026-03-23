@@ -1,4 +1,4 @@
-# contextifier_new/handlers/hwp/_constants.py
+# contextifier/handlers/hwp/_constants.py
 """
 HWP 5.0 binary-format constants.
 

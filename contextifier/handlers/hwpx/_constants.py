@@ -1,4 +1,4 @@
-# contextifier_new/handlers/hwpx/_constants.py
+# contextifier/handlers/hwpx/_constants.py
 """
 Constants for HWPX (ZIP-based XML) document parsing.
 

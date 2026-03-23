@@ -1,4 +1,4 @@
-# contextifier_new/handlers/image/preprocessor.py
+# contextifier/handlers/image/preprocessor.py
 """
 ImagePreprocessor — Stage 2: detect format, wrap in PreprocessedData
 

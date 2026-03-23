@@ -1,4 +1,4 @@
-# contextifier_new/handlers/text/__init__.py
+# contextifier/handlers/text/__init__.py
 """Text handler package."""
 
 from contextifier.handlers.text.handler import TextHandler

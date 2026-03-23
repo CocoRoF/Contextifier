@@ -1,4 +1,4 @@
-# contextifier_new/handlers/xls/metadata_extractor.py
+# contextifier/handlers/xls/metadata_extractor.py
 """
 XlsMetadataExtractor — extract metadata from XLS (BIFF) files.
 

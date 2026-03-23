@@ -1,4 +1,4 @@
-# contextifier_new/handlers/rtf/__init__.py
+# contextifier/handlers/rtf/__init__.py
 """RTF handler package."""
 
 from contextifier.handlers.rtf.handler import RTFHandler

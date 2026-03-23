@@ -1,4 +1,4 @@
-# contextifier_new/handlers/hwp/converter.py
+# contextifier/handlers/hwp/converter.py
 """
 HwpConverter — Stage 1: raw bytes → OLE2 object
 

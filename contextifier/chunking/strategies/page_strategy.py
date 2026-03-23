@@ -1,4 +1,4 @@
-# contextifier_new/chunking/strategies/page_strategy.py
+# contextifier/chunking/strategies/page_strategy.py
 """
 PageChunkingStrategy — Split by page/slide markers.
 

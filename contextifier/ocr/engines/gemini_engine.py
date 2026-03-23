@@ -1,4 +1,4 @@
-# contextifier_new/ocr/engines/gemini_engine.py
+# contextifier/ocr/engines/gemini_engine.py
 """Google Gemini Vision OCR engine."""
 
 from __future__ import annotations

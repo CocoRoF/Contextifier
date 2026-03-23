@@ -1,4 +1,4 @@
-# contextifier_new/handlers/pdf_plus/_types.py
+# contextifier/handlers/pdf_plus/_types.py
 """
 PDF Plus — type definitions for the adaptive PDF engine.
 

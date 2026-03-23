@@ -1,4 +1,4 @@
-# contextifier_new/handlers/pdf_default/__init__.py
+# contextifier/handlers/pdf_default/__init__.py
 """
 pdf_default — Simple / basic PDF content extraction.
 

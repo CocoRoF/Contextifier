@@ -1,4 +1,4 @@
-# contextifier_new/config.py
+# contextifier/config.py
 """
 Unified configuration system for Contextifier v2.
 

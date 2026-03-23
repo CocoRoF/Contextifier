@@ -1,4 +1,4 @@
-# contextifier_new/errors.py
+# contextifier/errors.py
 """
 Unified exception hierarchy for Contextifier v2.
 

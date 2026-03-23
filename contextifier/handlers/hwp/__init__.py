@@ -1,4 +1,4 @@
-# contextifier_new/handlers/hwp/__init__.py
+# contextifier/handlers/hwp/__init__.py
 """HWP handler package."""
 
 from contextifier.handlers.hwp.handler import HWPHandler

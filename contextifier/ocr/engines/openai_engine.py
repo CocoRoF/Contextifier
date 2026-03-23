@@ -1,4 +1,4 @@
-# contextifier_new/ocr/engines/openai_engine.py
+# contextifier/ocr/engines/openai_engine.py
 """OpenAI Vision OCR engine."""
 
 from __future__ import annotations

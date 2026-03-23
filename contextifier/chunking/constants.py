@@ -1,4 +1,4 @@
-# contextifier_new/chunking/constants.py
+# contextifier/chunking/constants.py
 """
 Chunking Module Constants
 
