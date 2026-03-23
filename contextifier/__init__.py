@@ -1,42 +1,48 @@
 # contextifier/__init__.py
 """
-Contextifier Library
+Contextifier v2 — Unified Document Processing Library
 
-A document processing and chunking library for AI applications.
+A complete rewrite with strict interface contracts, unified pipeline,
+and consistent processing across all file formats.
 
-Package Structure:
-- core: Document processing core module
-    - DocumentProcessor: Main document processing class
-    - processor: Individual document type handlers (PDF, DOCX, PPT, Excel, HWP, etc.)
-    - functions: Utility functions
-
-- chunking: Text chunking module
-    - Text splitting and chunking logic
-    - Table-preserving chunking
-    - Page-based chunking
+Architecture:
+    DocumentProcessor (entry point)
+      └── Handler (per format: PDF, DOCX, PPT, Excel, ...)
+            └── Pipeline stages (convert → preprocess → extract → postprocess)
+                  ├── Converter: binary → format object
+                  ├── Preprocessor: clean/transform
+                  ├── ContentExtractor: text, images, tables, charts
+                  ├── MetadataExtractor: document metadata
+                  └── Postprocessor: final assembly & cleanup
+      └── Services (shared, injected)
+            ├── ImageService: image save/tag generation
+            ├── TagService: page/slide/sheet/chart tags
+            ├── TableService: table formatting (HTML/MD/Text)
+            ├── MetadataService: metadata formatting
+            └── StorageBackend: local/cloud file storage
+      └── TextChunker (chunking subsystem)
+      └── OCR (optional vision-based extraction)
 
 Usage:
     from contextifier import DocumentProcessor
-    
+
     processor = DocumentProcessor()
     text = processor.extract_text("document.pdf")
-    result = processor.extract_chunks("document.pdf", chunk_size=1000)
+    chunks = processor.extract_chunks("document.pdf", chunk_size=1000)
 """
 
-__version__ = "0.1.2"
+__version__ = "2.0.0-alpha"
 
-# Expose core classes at top level
-from contextifier.core import DocumentProcessor
+from importlib.metadata import version, PackageNotFoundError
 
-# Explicit subpackages
-from contextifier import core
-from contextifier import chunking
+try:
+    __version__ = version("contextifier")
+except PackageNotFoundError:
+    pass
+
+from contextifier.document_processor import DocumentProcessor
 
 __all__ = [
     "__version__",
-    # Core classes
     "DocumentProcessor",
-    # Subpackages
-    "core",
-    "chunking",
 ]

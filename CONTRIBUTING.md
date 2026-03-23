@@ -1,72 +1,134 @@
-# Contributing to Contextify
+# Contributing to Contextifier
 
-Thank you for your interest in contributing to Contextify! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to Contextifier! This document provides guidelines and instructions for contributing.
 
 ## Development Setup
 
-1. Clone the repository:
+### 1. Clone & Create Environment
+
 ```bash
-git clone https://github.com/CocoRoF/Contextifier.git
+git clone https://github.com/your-org/contextifier.git
 cd contextifier
-```
 
-2. Create a virtual environment and install dependencies:
-```bash
-# Using uv (recommended)
-uv venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-uv pip install -e ".[dev]"
-
-# Or using pip
 python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+source .venv/bin/activate    # Linux/Mac
+.venv\Scripts\activate       # Windows
+
 pip install -e ".[dev]"
 ```
 
-3. Run tests:
-```bash
-python test_all_handlers.py
+### 2. Project Structure
+
+```
+contextifier_new/           # v2 main package
+├── document_processor.py   # Facade (public API)
+├── config.py               # ProcessingConfig
+├── types.py                # Shared types
+├── errors.py               # Exception hierarchy
+├── handlers/               # 14 format handlers
+├── pipeline/               # 5-Stage ABCs
+├── services/               # Shared services
+├── chunking/               # Chunking subsystem
+└── ocr/                    # OCR subsystem
 ```
 
-## Code Style
+## Coding Conventions
 
-- Follow PEP 8 guidelines
-- Use type hints where appropriate
-- Add docstrings for public functions and classes
-- Keep functions focused and modular
+### General Rules
 
-## Testing
+- **Python 3.12+** syntax
+- Type hints required on all public APIs
+- Docstrings required (Google style)
+- `from __future__ import annotations` at the top of every module
 
-- Add tests for new features
-- Ensure all tests pass before submitting a PR
-- Test with multiple document formats when applicable
+### Architecture Rules
 
-## Pull Request Process
+1. **All handlers must follow the 5-stage pipeline:**
+   - `Converter` → `Preprocessor` → `MetadataExtractor` → `ContentExtractor` → `Postprocessor`
+   - `BaseHandler.process()` enforces execution order — implement each stage only.
 
-1. Fork the repository
-2. Create a new branch for your feature (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Run tests to ensure everything works
-5. Commit your changes (`git commit -m 'Add amazing feature'`)
-6. Push to your branch (`git push origin feature/amazing-feature`)
-7. Open a Pull Request
+2. **Do not create services directly:**
+   - `TagService`, `ImageService`, etc. are created by `DocumentProcessor` and injected.
+   - Handlers access them via `self._services["tag_service"]`, etc.
+
+3. **Pass all settings through `ProcessingConfig`:**
+   - No hardcoded magic numbers.
+   - If you need a new setting, add a field to the appropriate `*Config` class.
+
+4. **Respect the Facade pattern:**
+   - The only user-facing API is `DocumentProcessor`.
+   - Do not instruct users to import internal modules directly (OCR engines excepted).
+
+## Adding a New Handler
+
+### 1. Create Directory
+
+```
+contextifier_new/handlers/myformat/
+├── __init__.py
+├── converter.py
+├── preprocessor.py
+├── metadata_extractor.py
+├── content_extractor.py
+└── postprocessor.py
+```
+
+### 2. Implement Each Pipeline Stage
+
+```python
+# converter.py
+from contextifier_new.pipeline.converter import BaseConverter
+
+class MyFormatConverter(BaseConverter):
+    def convert(self, file_context, **kwargs):
+        # Binary → Format-specific object
+        return parsed_object
+```
+
+### 3. Register the Handler
+
+Add to `contextifier_new/handlers/registry.py` in `register_defaults()`:
+
+```python
+from contextifier_new.handlers.myformat import MyFormatHandler
+self.register(MyFormatHandler, extensions=["myf", "myformat"])
+```
+
+## Commit Convention
+
+```
+feat: add new feature
+fix: bug fix
+docs: documentation changes
+refactor: refactoring (no behavior change)
+test: add/modify tests
+chore: build/config changes
+```
+
+Examples:
+```
+feat(handler): add EPUB handler with full pipeline
+fix(chunking): preserve table structure in protected strategy
+docs: update QUICKSTART with batch processing example
+```
+
+## Pull Request Guide
+
+1. Create a feature branch from `main`
+2. Implement changes and test
+3. Include rationale and test results in PR description
+4. Squash merge after review
 
 ## Reporting Issues
 
-When reporting issues, please include:
+When reporting a bug, please include:
+
 - Python version
-- Operating system
-- Document format being processed
-- Minimal code to reproduce the issue
-- Error messages and stack traces
-
-## Feature Requests
-
-We welcome feature requests! Please:
-- Check if the feature already exists or is planned
-- Provide a clear description of the feature
-- Explain the use case and benefits
+- OS and version
+- Input file format and size
+- Full error message
+- Reproduction code (if possible)
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the Apache License 2.0.
+All contributions are released under the project's Apache License 2.0.

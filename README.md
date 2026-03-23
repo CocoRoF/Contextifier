@@ -1,35 +1,15 @@
-# Contextifier
+# Contextifier v2
 
-**Contextifier** is a document processing library that converts raw documents into AI-understandable context. It analyzes, restructures, and normalizes content so that language models can reason over documents with higher accuracy and consistency.
+**Contextifier** is a Python document processing library that converts documents of various formats into structured, AI-ready text. It applies a **uniform 5-stage pipeline** to every document format, ensuring consistent and predictable output.
 
-## Features
+## Key Features
 
-- **Multi-format Support**: Process a wide variety of document formats including:
-  - PDF (with table detection, OCR fallback, and complex layout handling)
-  - Microsoft Office: DOCX, DOC, PPTX, PPT, XLSX, XLS
-  - Korean documents: HWP, HWPX (Hangul Word Processor)
-  - Text formats: TXT, MD, RTF, CSV, HTML
-  - Code files: Python, JavaScript, TypeScript, and 20+ languages
-
-- **Intelligent Text Extraction**: 
-  - Preserves document structure (headings, paragraphs, lists)
-  - Extracts tables as HTML with proper `rowspan`/`colspan` handling
-  - Handles merged cells and complex table layouts
-  - Extracts and processes inline images
-
-- **OCR Integration**:
-  - Pluggable OCR engine architecture
-  - Supports OpenAI, Anthropic, Google Gemini, and vLLM backends
-  - Automatic OCR fallback for scanned documents or image-based PDFs
-
-- **Smart Chunking**:
-  - Semantic text chunking with configurable size and overlap
-  - Table-aware chunking that preserves table integrity
-  - Protected regions for code blocks and special content
-
-- **Metadata Extraction**:
-  - Extracts document metadata (title, author, creation date, etc.)
-  - Formats metadata in a structured, parseable format
+- **Broad Format Support**: PDF, DOCX, DOC, PPTX, PPT, XLSX, XLS, HWP, HWPX, RTF, CSV, TSV, TXT, MD, HTML, images, code files, and 80+ extensions
+- **Intelligent Text Extraction**: Preserves document structure (headings, tables, image positions) with automatic metadata extraction
+- **Table Processing**: Converts tables to HTML/Markdown/Text with `rowspan`/`colspan` support for merged cells
+- **OCR Integration**: 5 Vision LLM engines — OpenAI, Anthropic, Google Gemini, AWS Bedrock, vLLM
+- **Smart Chunking**: 4 strategies with automatic selection — table-aware, page-boundary, protected-region, and recursive splitting
+- **Immutable Config System**: Frozen dataclass-based `ProcessingConfig` controls all behavior
 
 ## Installation
 
@@ -37,7 +17,7 @@
 pip install contextifier
 ```
 
-Or using uv:
+or
 
 ```bash
 uv add contextifier
@@ -45,129 +25,146 @@ uv add contextifier
 
 ## Quick Start
 
-### Basic Usage
+### 1. Basic Text Extraction
 
 ```python
-from contextifier import DocumentProcessor
+from contextifier_new import DocumentProcessor
 
-# Create processor instance
 processor = DocumentProcessor()
-
-# Extract text from a document
 text = processor.extract_text("document.pdf")
 print(text)
-
-# Extract text and chunk in one step
-result = processor.extract_chunks(
-    "document.pdf",
-    chunk_size=1000,
-    chunk_overlap=200
-)
-
-# Access chunks
-for i, chunk in enumerate(result.chunks):
-    print(f"Chunk {i + 1}: {chunk[:100]}...")
-
-# Save chunks to markdown file
-result.save_to_md("output/chunks.md")
 ```
 
-### With OCR Processing
+### 2. Extract + Chunk in One Step
 
 ```python
-from contextifier import DocumentProcessor
-from contextifier.ocr.ocr_engine.openai_ocr import OpenAIOCREngine
+from contextifier_new import DocumentProcessor
 
-# Initialize OCR engine
-ocr_engine = OpenAIOCREngine(api_key="sk-...", model="gpt-4o")
+processor = DocumentProcessor()
+result = processor.extract_chunks("document.pdf")
 
-# Create processor with OCR
-processor = DocumentProcessor(ocr_engine=ocr_engine)
+for i, chunk in enumerate(result.chunks, 1):
+    print(f"Chunk {i}: {chunk[:100]}...")
 
-# Extract text with OCR processing enabled
-text = processor.extract_text(
-    "scanned_document.pdf",
-    ocr_processing=True
+# Save as Markdown files
+result.save_to_md("output/chunks")
+```
+
+### 3. Custom Configuration
+
+```python
+from contextifier_new import DocumentProcessor
+from contextifier_new.config import ProcessingConfig, ChunkingConfig, TagConfig
+
+config = ProcessingConfig(
+    tags=TagConfig(page_prefix="<page>", page_suffix="</page>"),
+    chunking=ChunkingConfig(chunk_size=2000, chunk_overlap=300),
 )
+
+processor = DocumentProcessor(config=config)
+text = processor.extract_text("report.xlsx")
+```
+
+### 4. OCR Integration
+
+```python
+from contextifier_new import DocumentProcessor
+from contextifier_new.ocr.engines import OpenAIOCREngine
+
+ocr = OpenAIOCREngine.from_api_key("sk-...", model="gpt-4o")
+processor = DocumentProcessor(ocr_engine=ocr)
+
+text = processor.extract_text("scanned.pdf", ocr_processing=True)
 ```
 
 ## Supported Formats
 
-| Category | Extensions |
-|----------|------------|
-| Documents | `.pdf`, `.docx`, `.doc`, `.pptx`, `.ppt`, `.hwp`, `.hwpx` |
-| Spreadsheets | `.xlsx`, `.xls`, `.csv`, `.tsv` |
-| Text | `.txt`, `.md`, `.rtf` |
-| Web | `.html`, `.htm`, `.xml` |
-| Code | `.py`, `.js`, `.ts`, `.java`, `.cpp`, `.c`, `.go`, `.rs`, and more |
-| Config | `.json`, `.yaml`, `.yml`, `.toml`, `.ini`, `.env` |
+| Category | Extensions | Notes |
+|----------|-----------|-------|
+| **Documents** | `.pdf`, `.docx`, `.doc`, `.hwp`, `.hwpx`, `.rtf` | HWP 5.0+, HWPX supported |
+| **Presentations** | `.pptx`, `.ppt` | Slides, notes, and charts extracted |
+| **Spreadsheets** | `.xlsx`, `.xls`, `.csv`, `.tsv` | Multi-sheet, formulas, charts |
+| **Text** | `.txt`, `.md`, `.log`, `.rst` | Auto encoding detection |
+| **Web** | `.html`, `.htm`, `.xhtml` | Table/structure preservation |
+| **Code** | `.py`, `.js`, `.ts`, `.java`, `.cpp`, `.go`, `.rs`, etc. (20+) | Language-aware highlighting |
+| **Config** | `.json`, `.yaml`, `.toml`, `.ini`, `.xml`, `.env` | Structure preservation |
+| **Images** | `.jpg`, `.png`, `.gif`, `.bmp`, `.webp`, `.tiff` | Requires OCR engine |
 
 ## Architecture
 
 ```
-libs/
-├── core/
-│   ├── document_processor.py    # Main entry point
-│   ├── processor/               # Format-specific handlers
-│   │   ├── pdf_handler.py       # PDF processing with V4 engine
-│   │   ├── docx_handler.py      # DOCX processing
-│   │   ├── ppt_handler.py       # PowerPoint processing
-│   │   ├── excel_handler.py     # Excel processing
-│   │   ├── hwp_processor.py     # HWP 5.0 OLE processing
-│   │   ├── hwpx_processor.py    # HWPX (ZIP/XML) processing
-│   │   └── ...
-│   └── functions/
-│       └── img_processor.py     # Image handling utilities
-├── chunking/
-│   ├── chunking.py              # Main chunking interface
-│   ├── text_chunker.py          # Text-based chunking
-│   ├── table_chunker.py         # Table-aware chunking
-│   └── page_chunker.py          # Page-based chunking
-└── ocr/
-    ├── base.py                  # OCR base class
-    ├── ocr_processor.py         # OCR processing utilities
-    └── ocr_engine/              # OCR engine implementations
-        ├── openai_ocr.py
-        ├── anthropic_ocr.py
-        ├── gemini_ocr.py
-        └── vllm_ocr.py
+contextifier_new/
+├── document_processor.py     # Facade: single public entry point
+├── config.py                 # Immutable config system (ProcessingConfig)
+├── types.py                  # Shared types / Enums / TypedDicts
+├── errors.py                 # Unified exception hierarchy
+│
+├── handlers/                 # 14 format-specific handlers
+│   ├── base.py               #   BaseHandler — enforces 5-stage pipeline
+│   ├── registry.py           #   HandlerRegistry — extension → handler mapping
+│   ├── pdf/                  #   PDF (default)
+│   ├── pdf_plus/             #   PDF (advanced: table detection, complex layouts)
+│   ├── docx/ doc/ pptx/ ppt/ #   Office documents
+│   ├── xlsx/ xls/ csv/       #   Spreadsheets / data
+│   ├── hwp/ hwpx/            #   Korean word processor
+│   ├── rtf/ text/            #   RTF / text / code / config
+│   └── image/                #   Image (OCR integration)
+│
+├── pipeline/                 # 5-Stage pipeline ABCs
+│   ├── converter.py          #   Stage 1: Binary → Format Object
+│   ├── preprocessor.py       #   Stage 2: Preprocessing
+│   ├── metadata_extractor.py #   Stage 3: Metadata extraction
+│   ├── content_extractor.py  #   Stage 4: Text / table / image / chart extraction
+│   └── postprocessor.py      #   Stage 5: Final assembly & cleanup
+│
+├── services/                 # Shared services (DI)
+│   ├── tag_service.py        #   Page / slide / sheet tag generation
+│   ├── image_service.py      #   Image saving / tagging / deduplication
+│   ├── chart_service.py      #   Chart data formatting
+│   ├── table_service.py      #   Table HTML / MD rendering
+│   ├── metadata_service.py   #   Metadata formatting
+│   └── storage/              #   Storage backends (Local, MinIO, S3, ...)
+│
+├── chunking/                 # Chunking subsystem
+│   ├── chunker.py            #   TextChunker — auto strategy selection
+│   ├── constants.py          #   Protected region patterns
+│   └── strategies/           #   4 chunking strategies
+│       ├── plain_strategy.py     # Recursive splitting (default fallback)
+│       ├── table_strategy.py     # Sheet / table-based splitting
+│       ├── page_strategy.py      # Page-boundary splitting
+│       └── protected_strategy.py # Protected region preservation
+│
+└── ocr/                      # OCR subsystem (optional)
+    ├── base.py               #   BaseOCREngine ABC
+    ├── processor.py          #   OCRProcessor — tag detection + engine call
+    └── engines/              #   5 engine implementations
+        ├── openai_engine.py
+        ├── anthropic_engine.py
+        ├── gemini_engine.py
+        ├── bedrock_engine.py
+        └── vllm_engine.py
 ```
 
 ## Requirements
 
-- Python 3.12+
-- Required dependencies are automatically installed (see `pyproject.toml`)
+- **Python** 3.12+
+- Required dependencies are included in `pyproject.toml`
+- **Optional**: LibreOffice (DOC/PPT/RTF conversion), Poppler (PDF image extraction)
 
-### System Dependencies
+## Documentation
 
-For full functionality, you may need:
-
-- **Tesseract OCR**: For local OCR fallback
-- **LibreOffice**: For DOC/RTF conversion (optional)
-- **Poppler**: For PDF image extraction
-
-## Configuration
-
-```python
-# Custom configuration
-config = {
-    "pdf": {
-        "extract_images": True,
-        "ocr_fallback": True,
-    },
-    "chunking": {
-        "default_size": 1000,
-        "default_overlap": 200,
-    }
-}
-
-processor = DocumentProcessor(config=config)
-```
+| Document | Contents |
+|----------|----------|
+| [QUICKSTART.md](QUICKSTART.md) | Detailed usage guide & full API reference |
+| [Process Logic.md](Process%20Logic.md) | Handler processing flow diagrams |
+| [ARCHITECTURE.md](contextifier_new/ARCHITECTURE.md) | Internal architecture specification |
+| [CHANGELOG.md](CHANGELOG.md) | Version history |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guidelines |
 
 ## License
 
-Apache License 2.0 - see [LICENSE](LICENSE) for details.
+Apache License 2.0 — see [LICENSE](LICENSE)
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md).
