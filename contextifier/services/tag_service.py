@@ -90,11 +90,11 @@ class TagService:
         return self._tag_config.chart_suffix
 
     def create_metadata_open_tag(self) -> str:
-        """Metadata block opening tag. E.g., '<Document-Metadata>'"""
+        """Metadata block opening tag. E.g., '[Document-Metadata]'"""
         return self._tag_config.metadata_prefix
 
     def create_metadata_close_tag(self) -> str:
-        """Metadata block closing tag. E.g., '</Document-Metadata>'"""
+        """Metadata block closing tag. E.g., '[/Document-Metadata]'"""
         return self._tag_config.metadata_suffix
 
     # ── Pattern Access ────────────────────────────────────────────────────

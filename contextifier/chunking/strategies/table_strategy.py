@@ -215,7 +215,7 @@ class TableChunkingStrategy(BaseChunkingStrategy):
     def _extract_metadata_block(
         text: str, tags: Any,
     ) -> Tuple[Optional[str], str]:
-        """Extract ``<Document-Metadata>…</Document-Metadata>`` block."""
+        """Extract ``[Document-Metadata]…[/Document-Metadata]`` block."""
         pattern = re.compile(
             rf"{re.escape(tags.metadata_prefix)}.*?{re.escape(tags.metadata_suffix)}\s*",
             re.DOTALL,

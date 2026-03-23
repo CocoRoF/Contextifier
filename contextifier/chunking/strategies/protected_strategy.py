@@ -58,7 +58,7 @@ class ProtectedChunkingStrategy(BaseChunkingStrategy):
     - Chart blocks       ``[chart]…[/chart]``
     - Textbox blocks     ``[textbox]…[/textbox]``
     - HTML tables        ``<table>…</table>``
-    - Metadata blocks    ``<Document-Metadata>…</Document-Metadata>``
+    - Metadata blocks    ``[Document-Metadata]…[/Document-Metadata]``
     - Image tags         ``[Image:…]``
     - Page / Slide / Sheet tags
     - Markdown tables    ``|…|``

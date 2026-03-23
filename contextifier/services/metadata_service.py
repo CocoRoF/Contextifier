@@ -62,11 +62,11 @@ class MetadataService:
     Formats DocumentMetadata into tagged text blocks.
 
     Example output:
-        <Document-Metadata>
+        [Document-Metadata]
           제목: My Document
           작성자: John Doe
           작성일: 2024-01-15 10:30:00
-        </Document-Metadata>
+        [/Document-Metadata]
     """
 
     def __init__(self, config: ProcessingConfig) -> None:

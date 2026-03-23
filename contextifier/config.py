@@ -65,9 +65,9 @@ class TagConfig:
     chart_prefix: str = "[chart]"
     chart_suffix: str = "[/chart]"
 
-    # Metadata tags: e.g., "<Document-Metadata>...</Document-Metadata>"
-    metadata_prefix: str = "<Document-Metadata>"
-    metadata_suffix: str = "</Document-Metadata>"
+    # Metadata tags: e.g., "[Document-Metadata]...[/Document-Metadata]"
+    metadata_prefix: str = "[Document-Metadata]"
+    metadata_suffix: str = "[/Document-Metadata]"
 
 
 # ─── Image Configuration ──────────────────────────────────────────────────────
