@@ -45,9 +45,10 @@ Differences from old BaseHandler:
 
 from __future__ import annotations
 
+import concurrent.futures
 import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, FrozenSet, Optional
+from typing import TYPE_CHECKING, Any, FrozenSet, Optional, final
 
 from contextifier.config import ProcessingConfig
 from contextifier.types import (
@@ -248,11 +249,13 @@ class BaseHandler(ABC):
     # Public API (FINAL — do not override)
     # ═══════════════════════════════════════════════════════════════════════
 
+    @final
     def process(
         self,
         file_context: FileContext,
         *,
         include_metadata: bool = True,
+        timeout: Optional[float] = None,
         **kwargs: Any,
     ) -> ExtractionResult:
         """
@@ -268,14 +271,63 @@ class BaseHandler(ABC):
         Args:
             file_context: Standardized file input.
             include_metadata: Whether to extract & include metadata.
+            timeout: Maximum seconds to wait for pipeline completion.
+                     None means no timeout (blocking until done).
             **kwargs: Passed to all pipeline stages.
 
         Returns:
             ExtractionResult with text, metadata, tables, charts, images.
 
         Raises:
-            HandlerExecutionError: Wraps any pipeline stage failure.
+            HandlerExecutionError: Wraps any pipeline stage failure,
+                                   or if processing exceeds *timeout*.
         """
+        if timeout is not None:
+            return self._process_with_timeout(
+                file_context,
+                timeout=timeout,
+                include_metadata=include_metadata,
+                **kwargs,
+            )
+        return self._execute_pipeline(
+            file_context, include_metadata=include_metadata, **kwargs
+        )
+
+    def _process_with_timeout(
+        self,
+        file_context: FileContext,
+        *,
+        timeout: float,
+        include_metadata: bool = True,
+        **kwargs: Any,
+    ) -> ExtractionResult:
+        """Run the pipeline in a worker thread with a timeout guard."""
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(
+                self._execute_pipeline,
+                file_context,
+                include_metadata=include_metadata,
+                **kwargs,
+            )
+            try:
+                return future.result(timeout=timeout)
+            except concurrent.futures.TimeoutError:
+                raise HandlerExecutionError(
+                    f"Processing timed out after {timeout}s",
+                    context={
+                        "file": file_context.get("file_name", "unknown"),
+                        "timeout": timeout,
+                    },
+                )
+
+    def _execute_pipeline(
+        self,
+        file_context: FileContext,
+        *,
+        include_metadata: bool = True,
+        **kwargs: Any,
+    ) -> ExtractionResult:
+        """Core pipeline execution (delegation check + 5 stages)."""
         # Stage 0: Delegation check (e.g., .doc that is actually RTF)
         delegation_result = self._check_delegation(file_context, **kwargs)
         if delegation_result is not None:
@@ -345,9 +397,10 @@ class BaseHandler(ABC):
             if converted is not None:
                 try:
                     self._converter.close(converted)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    self._logger.debug("Converter close failed: %s", exc)
 
+    @final
     def extract_text(
         self,
         file_context: FileContext,
@@ -477,6 +530,7 @@ class BaseHandler(ABC):
         file_context: FileContext,
         *,
         include_metadata: bool = True,
+        fallback_to_self: bool = True,
         **kwargs: Any,
     ) -> ExtractionResult:
         """
@@ -486,18 +540,29 @@ class BaseHandler(ABC):
         Requires that set_registry() was called (done automatically by
         HandlerRegistry.register()).
 
+        When *fallback_to_self* is True (default), a delegation failure
+        causes this handler to retry with its own pipeline instead of
+        propagating the exception.  This handles scenarios like a .doc
+        file detected as ZIP/OOXML that turns out to be a corrupted ZIP
+        — the DOCHandler falls back to its native OLE2 pipeline.
+
         Args:
             extension: Target extension to delegate to (e.g., "rtf").
             file_context: File context to pass to the delegate handler.
             include_metadata: Whether to include metadata.
+            fallback_to_self: If True, catch delegation errors and retry
+                              with this handler's own pipeline.
             **kwargs: Additional arguments.
 
         Returns:
-            ExtractionResult from the delegate handler.
+            ExtractionResult from the delegate handler, or from this
+            handler's own pipeline if delegation failed and fallback is on.
 
         Raises:
-            HandlerExecutionError: If no registry is available.
-            HandlerNotFoundError: If no handler found for extension.
+            HandlerExecutionError: If no registry is available, or if
+                                   delegation AND fallback both fail.
+            HandlerNotFoundError: If no handler found for extension
+                                  (only when fallback_to_self is False).
         """
         if self._handler_registry is None:
             raise HandlerExecutionError(
@@ -508,11 +573,24 @@ class BaseHandler(ABC):
         self._logger.info(
             f"{self.handler_name} -> delegating to {delegate.handler_name}"
         )
-        return delegate.process(
-            file_context,
-            include_metadata=include_metadata,
-            **kwargs,
-        )
+        try:
+            return delegate.process(
+                file_context,
+                include_metadata=include_metadata,
+                **kwargs,
+            )
+        except Exception as delegation_err:
+            if not fallback_to_self:
+                raise
+            self._logger.warning(
+                f"Delegation to {delegate.handler_name} failed: {delegation_err}. "
+                f"Falling back to {self.handler_name} own pipeline."
+            )
+            return self._execute_pipeline(
+                file_context,
+                include_metadata=include_metadata,
+                **kwargs,
+            )
 
     def __repr__(self) -> str:
         exts = ", ".join(sorted(self.supported_extensions))

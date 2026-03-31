@@ -31,9 +31,10 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import threading
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, List, Optional, Set
+from typing import TYPE_CHECKING, Dict, List, Optional, Set
 
 from contextifier.config import ProcessingConfig, ImageConfig
 from contextifier.types import NamingStrategy
@@ -54,6 +55,9 @@ class ImageService:
     is defined in ONE place (TagConfig) and applied uniformly.
 
     Thread-safe for concurrent handler use within one processor.
+
+    Per-file state (hashes, paths, counter) is protected by a lock
+    so that concurrent calls to save()/clear_state() do not race.
     """
 
     def __init__(
@@ -83,10 +87,22 @@ class ImageService:
         )
         self._logger = logging.getLogger("contextifier.services.image")
 
-        # Deduplication state (per-session)
-        self._processed_hashes: Set[str] = set()
-        self._processed_paths: List[str] = []
-        self._counter: int = 0
+        # Per-thread deduplication state.
+        # Using threading.local ensures that concurrent calls from
+        # different threads each get their own hash set / path list /
+        # counter — without needing a global lock for every operation.
+        self._local = threading.local()
+
+    # ── Thread-local state helpers ────────────────────────────────────────
+
+    def _ensure_state(self) -> None:
+        """Lazily initialise per-thread state attributes."""
+        local = self._local
+        if not hasattr(local, "processed_hashes"):
+            local.processed_hashes: Set[str] = set()
+            local.hash_to_tag: Dict[str, str] = {}
+            local.processed_paths: List[str] = []
+            local.counter: int = 0
 
     # ── Public API ────────────────────────────────────────────────────────
 
@@ -117,17 +133,19 @@ class ImageService:
         if not image_data:
             return None
 
+        self._ensure_state()
+
         should_skip = (
             skip_duplicate if skip_duplicate is not None
             else self._image_config.skip_duplicate
         )
 
-        # Duplicate check
+        # Duplicate check (per-thread state — no lock needed)
         if should_skip:
             content_hash = self._hash(image_data)
-            if content_hash in self._processed_hashes:
+            if content_hash in self._local.processed_hashes:
                 return None
-            self._processed_hashes.add(content_hash)
+            self._local.processed_hashes.add(content_hash)
 
         # Generate filename
         filename = custom_name or self._generate_filename(image_data)
@@ -145,7 +163,7 @@ class ImageService:
                 cause=e,
             )
 
-        self._processed_paths.append(file_path)
+        self._local.processed_paths.append(file_path)
         return file_path
 
     def save_and_tag(
@@ -182,18 +200,62 @@ class ImageService:
         return self._build_tag(file_path)
 
     def get_processed_count(self) -> int:
-        """Number of images processed in this session."""
-        return len(self._processed_paths)
+        """Number of images processed in this session (current thread)."""
+        self._ensure_state()
+        return len(self._local.processed_paths)
 
     def get_processed_paths(self) -> List[str]:
-        """List of all saved image paths."""
-        return list(self._processed_paths)
+        """List of all saved image paths (current thread)."""
+        self._ensure_state()
+        return list(self._local.processed_paths)
 
     def clear_state(self) -> None:
-        """Reset deduplication state and counters for a new session."""
-        self._processed_hashes.clear()
-        self._processed_paths.clear()
-        self._counter = 0
+        """Reset deduplication state and counters for a new session (current thread)."""
+        self._ensure_state()
+        self._local.processed_hashes.clear()
+        self._local.hash_to_tag.clear()
+        self._local.processed_paths.clear()
+        self._local.counter = 0
+
+    def extract_and_deduplicate(
+        self,
+        image_bytes: bytes,
+        source_hint: str,
+    ) -> Optional[str]:
+        """
+        Unified content-hash dedup + save + tag generation.
+
+        If the image was already saved (same content hash), returns the
+        existing tag.  Otherwise saves, records the tag, and returns it.
+
+        Args:
+            image_bytes: Raw image bytes.
+            source_hint: Short handler hint used in the filename
+                         (e.g. ``"docx"``, ``"pptx_slide3"``).
+
+        Returns:
+            Image tag string, or None if the data is empty.
+        """
+        if not image_bytes:
+            return None
+
+        self._ensure_state()
+        content_hash = self._hash(image_bytes)
+
+        existing = self._local.hash_to_tag.get(content_hash)
+        if existing is not None:
+            return existing
+
+        custom_name = f"{source_hint}_{content_hash[:8]}"
+        tag = self.save_and_tag(
+            image_bytes,
+            custom_name=custom_name,
+            skip_duplicate=True,
+        )
+
+        if tag:
+            self._local.hash_to_tag[content_hash] = tag
+        return tag
 
     # ── Private ───────────────────────────────────────────────────────────
 
@@ -215,17 +277,18 @@ class ImageService:
         strategy = self._image_config.naming_strategy
 
         if strategy == NamingStrategy.HASH:
-            name = hashlib.md5(image_data).hexdigest()[:16]
+            name = hashlib.sha256(image_data).hexdigest()[:16]
         elif strategy == NamingStrategy.UUID:
             name = uuid.uuid4().hex[:16]
         elif strategy == NamingStrategy.SEQUENTIAL:
-            self._counter += 1
-            name = f"img_{self._counter:04d}"
+            self._ensure_state()
+            self._local.counter += 1
+            name = f"img_{self._local.counter:04d}"
         elif strategy == NamingStrategy.TIMESTAMP:
             ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
             name = f"img_{ts}"
         else:
-            name = hashlib.md5(image_data).hexdigest()[:16]
+            name = hashlib.sha256(image_data).hexdigest()[:16]
 
         return f"{name}.{ext}"
 

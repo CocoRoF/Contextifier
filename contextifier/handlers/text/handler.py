@@ -62,7 +62,7 @@ _TEXT_EXTENSIONS = frozenset({
     # SQL
     "sql",
     # Web
-    "html", "htm", "xhtml", "css", "scss", "less", "sass",
+    "css", "scss", "less", "sass",
     # Vue / Svelte (single-file components)
     "vue", "svelte",
     # Dotfiles

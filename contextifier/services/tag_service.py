@@ -167,12 +167,15 @@ class TagService:
         """Remove all slide tags from text."""
         return self._slide_pattern.sub("", text)
 
-    def remove_all_structural_markers(self, text: str) -> str:
-        """Remove all page, slide, and sheet tags."""
+    def remove_page_slide_sheet_markers(self, text: str) -> str:
+        """Remove all page, slide, and sheet tags from text."""
         text = self._page_pattern.sub("", text)
         text = self._slide_pattern.sub("", text)
         text = self._sheet_pattern.sub("", text)
         return text
+
+    # Backward-compatible alias (deprecated)
+    remove_all_structural_markers = remove_page_slide_sheet_markers
 
     # ── Private Helpers ───────────────────────────────────────────────────
 

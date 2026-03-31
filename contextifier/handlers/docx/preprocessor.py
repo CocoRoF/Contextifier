@@ -67,10 +67,10 @@ class DocxPreprocessor(BasePreprocessor):
         paragraph_count = len(doc.paragraphs) if hasattr(doc, "paragraphs") else 0
         table_count = len(doc.tables) if hasattr(doc, "tables") else 0
 
-        # Pre-extract charts from ZIP
-        charts: List[str] = []
+        # Pre-extract charts from ZIP, keyed by relationship ID
+        charts_by_rel: Dict[str, str] = {}
         try:
-            charts = self._extract_charts_from_zip(doc)
+            charts_by_rel = self._extract_charts_by_rel(doc)
         except Exception as exc:
             logger.debug("Chart pre-extraction failed: %s", exc)
 
@@ -79,12 +79,12 @@ class DocxPreprocessor(BasePreprocessor):
             raw_content=doc,
             encoding="utf-8",
             resources={
-                "charts": charts,
+                "charts": charts_by_rel,
             },
             properties={
                 "paragraph_count": paragraph_count,
                 "table_count": table_count,
-                "chart_count": len(charts),
+                "chart_count": len(charts_by_rel),
             },
         )
 
@@ -92,6 +92,51 @@ class DocxPreprocessor(BasePreprocessor):
         return "docx"
 
     # ── Chart pre-extraction ──────────────────────────────────────────────
+
+    def _extract_charts_by_rel(self, doc: Any) -> Dict[str, str]:
+        """
+        Build a mapping ``{relationship_id: formatted_chart_text}`` using
+        the document part's relationships and the underlying chart XML.
+
+        Falls back to positional extraction when relationship introspection
+        is not available.
+        """
+        mapping: Dict[str, str] = {}
+
+        # Try relationship-based extraction first
+        try:
+            rels = doc.part.rels
+            zip_stream = self._get_zip_stream(doc)
+
+            if zip_stream is not None:
+                chart_xml_map: Dict[str, bytes] = {}
+                with zipfile.ZipFile(zip_stream, "r") as zf:
+                    for name in zf.namelist():
+                        if name.startswith("word/charts/chart") and name.endswith(".xml"):
+                            chart_xml_map[name] = zf.read(name)
+
+                for rel_id, rel in rels.items():
+                    target = getattr(rel, "target_ref", "") or ""
+                    # Normalise relative paths (e.g. "charts/chart1.xml" → "word/charts/chart1.xml")
+                    if not target.startswith("word/") and not target.startswith("/"):
+                        full_path = f"word/{target}"
+                    else:
+                        full_path = target.lstrip("/")
+                    if full_path in chart_xml_map:
+                        formatted = self._parse_chart_xml(chart_xml_map[full_path])
+                        mapping[rel_id] = formatted
+        except Exception as exc:
+            logger.debug("Relationship-based chart extraction failed: %s", exc)
+
+        # Fallback: positional order (old behaviour)
+        if not mapping:
+            charts_list = self._extract_charts_from_zip(doc)
+            if charts_list:
+                # Assign synthetic keys so content extractor can still consume
+                for idx, chart_text in enumerate(charts_list):
+                    mapping[f"__positional_{idx}"] = chart_text
+
+        return mapping
 
     def _extract_charts_from_zip(self, doc: Any) -> List[str]:
         """

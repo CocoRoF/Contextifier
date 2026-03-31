@@ -38,9 +38,32 @@ try:
 except PackageNotFoundError:
     __version__ = "0.0.0-dev"
 
-from contextifier.document_processor import DocumentProcessor
+from contextifier.document_processor import DocumentProcessor, ChunkResult
+from contextifier.config import ProcessingConfig, ChunkingConfig
+from contextifier.types import ExtractionResult, FileContext, Chunk, ChunkMetadata
+from contextifier.chunking.chunker import TextChunker
+from contextifier.errors import ContextifierError, UnsupportedFormatError
+from contextifier.async_processor import AsyncDocumentProcessor
+from contextifier.cached_processor import CachedDocumentProcessor
 
 __all__ = [
     "__version__",
+    # Core
     "DocumentProcessor",
+    "AsyncDocumentProcessor",
+    "CachedDocumentProcessor",
+    "ChunkResult",
+    # Config
+    "ProcessingConfig",
+    "ChunkingConfig",
+    # Types
+    "ExtractionResult",
+    "FileContext",
+    "Chunk",
+    "ChunkMetadata",
+    # Chunking
+    "TextChunker",
+    # Errors
+    "ContextifierError",
+    "UnsupportedFormatError",
 ]

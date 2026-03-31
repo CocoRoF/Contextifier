@@ -62,6 +62,24 @@ class PdfConverter(BaseConverter):
                 handler="pdf",
             ) from exc
 
+        # Handle password-protected PDFs
+        if doc.needs_pass:
+            password = kwargs.get("password") or ""
+            if not password:
+                doc.close()
+                raise ConversionError(
+                    "PDF is password-protected. Provide a 'password' kwarg.",
+                    stage="convert",
+                    handler="pdf",
+                )
+            if not doc.authenticate(password):
+                doc.close()
+                raise ConversionError(
+                    "Incorrect PDF password.",
+                    stage="convert",
+                    handler="pdf",
+                )
+
         return PdfConvertedData(doc=doc, file_data=file_data)
 
     def get_format_name(self) -> str:

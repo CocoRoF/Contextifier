@@ -141,6 +141,13 @@ class DefaultPostprocessor(BasePostprocessor):
         # 2. Normalize whitespace
         text = self._normalize_text(text)
 
+        # 3. Append extraction warnings as HTML comments
+        if result.warnings:
+            warning_lines = "\n".join(
+                f"<!-- warning: {w} -->" for w in result.warnings
+            )
+            text = text + "\n\n" + warning_lines
+
         return text
 
     def get_format_name(self) -> str:

@@ -38,6 +38,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from contextifier.types import (
     ChartData,
+    ChartSeries,
     DocumentMetadata,
     ExtractionResult,
     PreprocessedData,
@@ -286,6 +287,65 @@ class BaseContentExtractor(ABC):
     @property
     def table_service(self) -> Optional["TableService"]:
         return self._table_service
+
+    # ── Shared helpers (reduces per-handler boilerplate) ──────────────────
+
+    def _safe_tag(self, tag_fn: Any, *args: Any) -> Optional[str]:
+        """Invoke a TagService method, returning None on failure or if
+        TagService is not available.  Eliminates the repetitive
+        ``if self._tag_service is not None: try: ... except: pass``
+        pattern across all content extractors.
+        """
+        if self._tag_service is None:
+            return None
+        try:
+            return tag_fn(*args)
+        except Exception as exc:
+            self._logger.debug("Tag creation failed: %s", exc)
+            return None
+
+    def _format_chart_from_dict(self, chart_dict: dict) -> str:
+        """Build ChartData from a preprocessor dict and format via ChartService.
+
+        Eliminates the duplicated dict→ChartData→ChartService→fallback
+        logic across PPTX, XLSX (and any future handlers).
+
+        Args:
+            chart_dict: Raw chart dict from the preprocessor with keys
+                ``chart_type``, ``title``, ``categories``, ``series``
+                (each series has ``name`` and ``values``).
+
+        Returns:
+            Formatted chart string, or a ``[Chart: …]`` fallback.
+        """
+        chart_type = chart_dict.get("chart_type", "Chart")
+        title = chart_dict.get("title", "")
+
+        if self._chart_service is not None:
+            try:
+                series = [
+                    ChartSeries(
+                        name=s.get("name"),
+                        values=s.get("values", []),
+                    )
+                    for s in chart_dict.get("series", [])
+                ]
+                chart_data = ChartData(
+                    chart_type=chart_type,
+                    title=title,
+                    categories=chart_dict.get("categories", []),
+                    series=series,
+                )
+                return self._chart_service.format_chart(chart_data)
+            except Exception as exc:
+                self._logger.debug("ChartService formatting failed: %s", exc)
+
+        # Fallback
+        label = f"[Chart: {chart_type}"
+        if title:
+            label += f" - {title}"
+        label += "]"
+        return label
 
 
 class NullContentExtractor(BaseContentExtractor):

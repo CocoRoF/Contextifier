@@ -46,7 +46,7 @@ class FileCategory(str, Enum):
     DATA = "data"               # CSV, TSV
     SCRIPT = "script"           # SH, BAT, PS1, ...
     LOG = "log"                 # LOG
-    WEB = "web"                 # HTM, XHTML
+    WEB = "web"                 # HTML, HTM, XHTML
     IMAGE = "image"             # JPG, PNG, GIF, ...
     UNKNOWN = "unknown"
 
@@ -120,13 +120,16 @@ class FileContext(TypedDict):
     Created once by DocumentProcessor from the file path,
     then passed through the entire pipeline unchanged.
     Binary-level reading resolves encoding/path issues upfront.
+
+    ``file_stream`` may be ``None`` to save memory; use
+    ``BaseConverter._get_stream()`` to obtain a seekable stream.
     """
     file_path: str          # Absolute path to the original file
     file_name: str          # Filename with extension
     file_extension: str     # Lowercase extension without dot
     file_category: str      # FileCategory value
     file_data: bytes        # Raw binary content
-    file_stream: io.BytesIO # Seekable binary stream (reusable)
+    file_stream: Optional[io.BytesIO]  # Seekable binary stream (may be None)
     file_size: int          # Size in bytes
 
 
@@ -379,7 +382,7 @@ _CATEGORY_EXTENSIONS: Dict[FileCategory, FrozenSet[str]] = {
     FileCategory.CODE: frozenset([
         "py", "js", "ts", "java", "cpp", "c", "h", "cs", "go", "rs",
         "php", "rb", "swift", "kt", "scala", "dart", "r", "sql",
-        "html", "css", "jsx", "tsx", "vue", "svelte",
+        "css", "jsx", "tsx", "vue", "svelte",
     ]),
     FileCategory.CONFIG: frozenset([
         "json", "yaml", "yml", "xml", "toml", "ini", "cfg", "conf", "properties", "env",
@@ -387,7 +390,7 @@ _CATEGORY_EXTENSIONS: Dict[FileCategory, FrozenSet[str]] = {
     FileCategory.DATA: frozenset(["csv", "tsv"]),
     FileCategory.SCRIPT: frozenset(["sh", "bat", "ps1", "zsh", "fish"]),
     FileCategory.LOG: frozenset(["log"]),
-    FileCategory.WEB: frozenset(["htm", "xhtml"]),
+    FileCategory.WEB: frozenset(["html", "htm", "xhtml"]),
     FileCategory.IMAGE: frozenset(["jpg", "jpeg", "png", "gif", "bmp", "webp"]),
 }
 

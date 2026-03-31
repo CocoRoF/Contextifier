@@ -25,9 +25,11 @@ Configuration Hierarchy:
 
 from __future__ import annotations
 
+import types
 from dataclasses import dataclass, field, replace
-from typing import Any, Dict, FrozenSet, Optional
+from typing import Any, Dict, FrozenSet, Literal, Optional
 
+from contextifier.errors import ConfigurationError
 from contextifier.types import (
     NamingStrategy,
     OutputFormat,
@@ -132,7 +134,16 @@ class ChunkingConfig:
     chunk_overlap: int = 200
     preserve_tables: bool = True
     include_position_metadata: bool = False
-    strategy: str = "recursive"       # "recursive", "sliding", "hierarchical"
+    strategy: Literal["recursive", "sliding", "hierarchical"] = "recursive"
+
+    _VALID_STRATEGIES: frozenset = frozenset({"recursive", "sliding", "hierarchical"})  # noqa: RUF009
+
+    def __post_init__(self) -> None:
+        if self.strategy not in self._VALID_STRATEGIES:
+            raise ConfigurationError(
+                f"Invalid chunking strategy '{self.strategy}'. "
+                f"Must be one of: {', '.join(sorted(self._VALID_STRATEGIES))}"
+            )
 
 
 # ─── OCR Configuration ───────────────────────────────────────────────────────
@@ -183,10 +194,13 @@ class ProcessingConfig:
     format_options: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        # Frozen dataclass doesn't allow assignment, but we need to
-        # convert mutable default dict. Use object.__setattr__ for frozen.
-        if not isinstance(self.format_options, dict):
-            object.__setattr__(self, "format_options", dict(self.format_options))
+        # Deep-freeze format_options so external code cannot mutate
+        # the internal state of this frozen dataclass.
+        raw = self.format_options if isinstance(self.format_options, dict) else dict(self.format_options)
+        frozen = types.MappingProxyType(
+            {k: types.MappingProxyType(dict(v)) for k, v in raw.items()}
+        )
+        object.__setattr__(self, "format_options", frozen)
 
     # ── Fluent modification methods ───────────────────────────────────────
 
@@ -235,8 +249,20 @@ class ProcessingConfig:
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize config to dictionary."""
-        from dataclasses import asdict
-        return asdict(self)
+        from dataclasses import asdict, fields
+        # asdict() fails on MappingProxyType (not deepcopy-able).
+        # Temporarily swap format_options to a plain dict for serialization.
+        plain_opts = dict(self.format_options)
+        object.__setattr__(self, "format_options", plain_opts)
+        try:
+            d = asdict(self)
+        finally:
+            object.__setattr__(self, "format_options", types.MappingProxyType(plain_opts))
+        # Ensure format_options values are plain dicts
+        d["format_options"] = {
+            k: dict(v) for k, v in plain_opts.items()
+        }
+        return d
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "ProcessingConfig":

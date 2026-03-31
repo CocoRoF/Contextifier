@@ -221,5 +221,4 @@ __all__ = [
     "OCRProcessor",
     "OCRProgressEvent",
     "OCRProgressCallback",
-    "DEFAULT_IMAGE_TAG_PATTERN",
 ]

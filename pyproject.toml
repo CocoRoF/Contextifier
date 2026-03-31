@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "contextifier"
-version = "0.2.4"
+version = "0.2.5"
 description = "Convert raw documents into AI-understandable context with intelligent text extraction, table detection, and semantic chunking"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -41,13 +41,34 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "pydantic>=2.12.0",
-    "pydantic-settings>=2.12.0",
-    "python-dotenv>=1.0.0",
-    "python-multipart>=0.0.20",
-    "orjson>=3.10.0",
-    "psutil>=7.0.0",
-    "pandas>=2.2.0",
+    # Core
+    "beautifulsoup4>=4.12.0",
+    "chardet>=5.0.0",
+    "langchain-text-splitters>=1.0.0",
+    # PDF
+    "pymupdf>=1.24.0",
+    "pdfplumber>=0.11.0",
+    "pdfminer.six>=20231228",
+    "pdf2image>=1.17.0",
+    # Office — DOCX / PPTX / Excel
+    "python-docx>=1.1.0",
+    "docx2pdf>=0.1.8",
+    "python-pptx>=1.0.0",
+    "openpyxl>=3.1.0",
+    "xlrd>=2.0.0",
+    # HWP
+    "pyhwp>=0.1b15",
+    "olefile>=0.47",
+    # RTF
+    "striprtf>=0.0.29",
+    # Image & OCR
+    "pi-heif>=1.0.0",
+    "pytesseract>=0.3.10",
+]
+
+[project.optional-dependencies]
+# These are ecosystem integrations, not core functionality
+langchain = [
     "langchain>=1.0.0",
     "langchain-aws>=1.0.0",
     "langchain-community>=0.4.0",
@@ -55,25 +76,20 @@ dependencies = [
     "langchain-openai>=1.0.0",
     "langchain-anthropic>=1.0.0",
     "langchain-google-genai>=4.0.0",
-    "langchain-text-splitters>=1.0.0",
     "langgraph>=1.0.0",
     "langsmith>=0.6.0",
-    "beautifulsoup4>=4.12.0",
-    "docx2pdf>=0.1.8",
-    "python-docx>=1.1.0",
-    "python-pptx>=1.0.0",
-    "pymupdf>=1.24.0",
-    "pdfplumber>=0.11.0",
-    "openpyxl>=3.1.0",
-    "xlrd>=2.0.0",
-    "olefile>=0.47",
-    "pyhwp>=0.1b15",
-    "chardet>=5.0.0",
-    "pi-heif>=1.0.0",
-    "pdfminer.six>=20231228",
-    "pdf2image>=1.17.0",
-    "pytesseract>=0.3.10",
-    "striprtf>=0.0.29",
+]
+server = [
+    "pydantic>=2.12.0",
+    "pydantic-settings>=2.12.0",
+    "python-dotenv>=1.0.0",
+    "python-multipart>=0.0.20",
+    "orjson>=3.10.0",
+    "psutil>=7.0.0",
+]
+all = [
+    "contextifier[langchain,server]",
+    "pandas>=2.2.0",
     "cachetools>=5.3.0",
 ]
 

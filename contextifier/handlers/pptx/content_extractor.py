@@ -16,10 +16,13 @@ Slide notes are appended after the slide content.
 
 from __future__ import annotations
 
+import hashlib
 import logging
+import re
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from contextifier.pipeline.content_extractor import BaseContentExtractor
+from contextifier.services.table_service import TableService
 from contextifier.types import (
     ChartData,
     ChartSeries,
@@ -45,6 +48,8 @@ class PptxContentExtractor(BaseContentExtractor):
     Processes all slides, extracting text, tables, images, and charts
     in visual reading order.
     """
+
+    _MAX_GROUP_DEPTH: int = 20
 
     # ── Main extraction ───────────────────────────────────────────────────
 
@@ -109,7 +114,6 @@ class PptxContentExtractor(BaseContentExtractor):
 
         result = "\n\n".join(parts)
         # Clean excessive whitespace
-        import re
         result = re.sub(r"\n{3,}", "\n\n", result)
         return result.strip()
 
@@ -200,6 +204,8 @@ class PptxContentExtractor(BaseContentExtractor):
         chart_queue: List[Any],
         chart_ptr: int,
         processed_images: Set[str],
+        *,
+        depth: int = 0,
     ) -> Tuple[List[SlideElement], int]:
         """
         Process a single shape and return content elements + updated chart pointer.
@@ -261,7 +267,8 @@ class PptxContentExtractor(BaseContentExtractor):
         # Group shape (recursive)
         if hasattr(shape, "shapes"):
             group_elems, chart_ptr = self._process_group(
-                shape, slide_idx, chart_queue, chart_ptr, processed_images
+                shape, slide_idx, chart_queue, chart_ptr, processed_images,
+                depth=depth,
             )
             elements.extend(group_elems)
             return elements, chart_ptr
@@ -284,13 +291,23 @@ class PptxContentExtractor(BaseContentExtractor):
         chart_queue: List[Any],
         chart_ptr: int,
         processed_images: Set[str],
+        *,
+        depth: int = 0,
     ) -> Tuple[List[SlideElement], int]:
-        """Recursively process shapes inside a group."""
+        """Recursively process shapes inside a group (depth-limited)."""
+        if depth >= self._MAX_GROUP_DEPTH:
+            logger.warning(
+                "Group shape nesting depth %d exceeds limit %d, skipping",
+                depth, self._MAX_GROUP_DEPTH,
+            )
+            return [], chart_ptr
+
         elements: List[SlideElement] = []
         try:
             for sub_shape in group_shape.shapes:
                 sub_elems, chart_ptr = self._process_shape(
-                    sub_shape, slide_idx, chart_queue, chart_ptr, processed_images
+                    sub_shape, slide_idx, chart_queue, chart_ptr,
+                    processed_images, depth=depth + 1,
                 )
                 elements.extend(sub_elems)
         except Exception as exc:
@@ -330,7 +347,7 @@ class PptxContentExtractor(BaseContentExtractor):
                 pass
 
         # Fallback: HTML
-        return _table_to_html(table_data)
+        return TableService.format_as_html_simple(table_data)
 
     # ── Image processing ──────────────────────────────────────────────────
 
@@ -353,7 +370,6 @@ class PptxContentExtractor(BaseContentExtractor):
                 return None
 
             # Deduplicate by content hash
-            import hashlib
             content_hash = hashlib.md5(image_data).hexdigest()[:16]
             if content_hash in processed_images:
                 return None
@@ -395,33 +411,7 @@ class PptxContentExtractor(BaseContentExtractor):
         if chart_ptr >= len(chart_queue):
             return "[Chart]"
 
-        chart = chart_queue[chart_ptr]
-        chart_type = chart.get("chart_type", "Chart")
-        title = chart.get("title")
-
-        # Use ChartService if available
-        if self._chart_service is not None:
-            try:
-                categories = chart.get("categories", [])
-                series_raw = chart.get("series", [])
-                series = [
-                    ChartSeries(name=s.get("name"), values=s.get("values", []))
-                    for s in series_raw
-                ]
-                cd = ChartData(
-                    chart_type=chart_type,
-                    title=title,
-                    categories=categories,
-                    series=series,
-                )
-                return self._chart_service.format_chart(cd)
-            except Exception:
-                pass
-
-        # Fallback
-        if title:
-            return f"[Chart: {chart_type} - {title}]"
-        return f"[Chart: {chart_type}]"
+        return self._format_chart_from_dict(chart_queue[chart_ptr])
 
     def _try_extract_chart_data(self, shape: Any) -> Optional[ChartData]:
         """Extract ChartData from a chart shape."""
@@ -433,16 +423,16 @@ class PptxContentExtractor(BaseContentExtractor):
             try:
                 if chart.has_title and chart.chart_title and chart.chart_title.has_text_frame:
                     title = chart.chart_title.text_frame.text.strip() or None
-            except Exception:
-                pass
+            except (AttributeError, TypeError) as exc:
+                logger.debug("Chart title extraction failed: %s", exc)
 
             chart_type = "Chart"
             try:
                 if hasattr(chart, "chart_type"):
                     t = str(chart.chart_type).split(".")[-1].split(" ")[0]
                     chart_type = t.replace("_", " ").title()
-            except Exception:
-                pass
+            except (AttributeError, ValueError) as exc:
+                logger.debug("Chart type extraction failed: %s", exc)
 
             categories: List[str] = []
             try:
@@ -451,8 +441,8 @@ class PptxContentExtractor(BaseContentExtractor):
                         if hasattr(plot, "categories") and plot.categories:
                             categories = [str(c) for c in plot.categories]
                             break
-            except Exception:
-                pass
+            except (AttributeError, TypeError) as exc:
+                logger.debug("Chart categories extraction failed: %s", exc)
 
             series: List[ChartSeries] = []
             try:
@@ -461,17 +451,17 @@ class PptxContentExtractor(BaseContentExtractor):
                     try:
                         if s.name:
                             name = str(s.name)
-                    except Exception:
+                    except (AttributeError, TypeError):
                         pass
                     vals: List[Any] = []
                     try:
                         if s.values:
                             vals = list(s.values)
-                    except Exception:
+                    except (AttributeError, TypeError):
                         pass
                     series.append(ChartSeries(name=name, values=vals))
-            except Exception:
-                pass
+            except (AttributeError, TypeError) as exc:
+                logger.debug("Chart series extraction failed: %s", exc)
 
             return ChartData(
                 chart_type=chart_type,
@@ -479,7 +469,8 @@ class PptxContentExtractor(BaseContentExtractor):
                 categories=categories,
                 series=series,
             )
-        except Exception:
+        except Exception as exc:
+            logger.debug("Chart data extraction failed: %s", exc)
             return None
 
     # ── Slide tags ────────────────────────────────────────────────────────
@@ -489,8 +480,8 @@ class PptxContentExtractor(BaseContentExtractor):
         if self._tag_service is not None:
             try:
                 return self._tag_service.make_slide_tag(slide_number)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Slide tag creation failed: %s", exc)
         return f"[Slide:{slide_number}]"
 
     # ── Utility ───────────────────────────────────────────────────────────
@@ -568,31 +559,6 @@ def _merge_elements(elements: List[SlideElement]) -> str:
         elif elem.element_type == ElementType.TEXT:
             parts.append(elem.content + "\n")
     return "".join(parts)
-
-
-def _table_to_html(table_data: TableData) -> str:
-    """Fallback HTML table generation."""
-    lines: List[str] = ["<table border='1'>"]
-    for row in table_data.rows:
-        lines.append("  <tr>")
-        for cell in row:
-            tag = "th" if cell.is_header else "td"
-            attrs = ""
-            if cell.row_span > 1:
-                attrs += f" rowspan='{cell.row_span}'"
-            if cell.col_span > 1:
-                attrs += f" colspan='{cell.col_span}'"
-            content = cell.content.replace("\n", "<br>") if cell.content else ""
-            # Escape HTML
-            content = (
-                content.replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-            ) if content and "<br>" not in content else content
-            lines.append(f"    <{tag}{attrs}>{content}</{tag}>")
-        lines.append("  </tr>")
-    lines.append("</table>")
-    return "\n".join(lines)
 
 
 __all__ = ["PptxContentExtractor"]

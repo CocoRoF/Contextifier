@@ -18,10 +18,13 @@ formatted via the ``TagService`` if available.
 
 from __future__ import annotations
 
+import hashlib
 import logging
+import re
 from typing import Any, Dict, List, Optional, Set
 
 from contextifier.pipeline.content_extractor import BaseContentExtractor
+from contextifier.services.table_service import TableService
 from contextifier.types import (
     ChartData,
     PreprocessedData,
@@ -72,14 +75,26 @@ class DocxContentExtractor(BaseContentExtractor):
         if doc is None:
             return ""
 
-        # Pre-extracted charts from preprocessor
-        charts: List[str] = preprocessed.resources.get("charts", [])
+        # Pre-extracted charts from preprocessor (rel_id → text, or positional fallback)
+        charts_raw = preprocessed.resources.get("charts", {})
+        if isinstance(charts_raw, dict):
+            charts_by_rel: Dict[str, str] = charts_raw
+            # Build a positional fallback list from __positional_* keys
+            positional_charts: List[str] = [
+                charts_by_rel[k]
+                for k in sorted(charts_by_rel)
+                if k.startswith("__positional_")
+            ]
+        else:
+            # Legacy list format
+            charts_by_rel = {}
+            positional_charts = list(charts_raw)
         chart_index = 0
 
         # Page tracking
         page_number = 1
         parts: List[str] = []
-        processed_images: Set[str] = set()
+        processed_images: Dict[str, str] = {}
 
         # Add initial page tag
         page_tag = self._make_page_tag(page_number)
@@ -108,7 +123,8 @@ class DocxContentExtractor(BaseContentExtractor):
                 # Process drawings (images, charts, diagrams)
                 for drawing in drawings:
                     content = self._process_drawing(
-                        drawing, doc, charts, chart_index, processed_images
+                        drawing, doc, charts_by_rel, positional_charts,
+                        chart_index, processed_images,
                     )
                     if drawing.kind == DrawingKind.CHART:
                         chart_index += 1
@@ -139,8 +155,13 @@ class DocxContentExtractor(BaseContentExtractor):
 
         result = "\n\n".join(parts)
         # Clean up excessive whitespace
-        import re
         result = re.sub(r"\n{3,}", "\n\n", result)
+
+        # Append supplementary sections (headers, footers, footnotes)
+        extras = self._extract_supplementary(doc)
+        if extras:
+            result = result.rstrip() + "\n\n" + extras
+
         return result.strip()
 
     def extract_tables(
@@ -181,7 +202,7 @@ class DocxContentExtractor(BaseContentExtractor):
             return []
 
         tags: List[str] = []
-        processed: Set[str] = set()
+        processed: Dict[str, str] = {}
         body = doc.element.body
         if body is None:
             return tags
@@ -214,9 +235,10 @@ class DocxContentExtractor(BaseContentExtractor):
         self,
         drawing: DrawingInfo,
         doc: Any,
-        charts: List[str],
+        charts_by_rel: Dict[str, str],
+        positional_charts: List[str],
         chart_index: int,
-        processed_images: Set[str],
+        processed_images: Dict[str, str],
     ) -> str:
         """Process a drawing element → return content string."""
 
@@ -227,8 +249,12 @@ class DocxContentExtractor(BaseContentExtractor):
             return tag or ""
 
         if drawing.kind == DrawingKind.CHART:
-            if chart_index < len(charts):
-                return charts[chart_index]
+            # Prefer relationship-based lookup
+            if drawing.rel_id and drawing.rel_id in charts_by_rel:
+                return charts_by_rel[drawing.rel_id]
+            # Fallback to positional index
+            if chart_index < len(positional_charts):
+                return positional_charts[chart_index]
             return "[Chart]"
 
         if drawing.kind == DrawingKind.DIAGRAM:
@@ -242,7 +268,7 @@ class DocxContentExtractor(BaseContentExtractor):
         self,
         pict: PictInfo,
         doc: Any,
-        processed_images: Set[str],
+        processed_images: Dict[str, str],
     ) -> str:
         """Process a VML pict element → return image tag string."""
         tag = self._extract_image_by_rel(pict.rel_id, doc, processed_images)
@@ -252,17 +278,17 @@ class DocxContentExtractor(BaseContentExtractor):
         self,
         rel_id: Optional[str],
         doc: Any,
-        processed_images: Set[str],
+        processed_images: Dict[str, str],
     ) -> Optional[str]:
         """
         Extract image data from a relationship ID and save via ImageService.
 
-        Deduplicates by rel_id to avoid saving the same image multiple times.
+        Deduplicates by content hash to avoid saving the same image
+        multiple times, even when different rel_ids reference identical data.
+        Duplicate occurrences return the cached tag so the image reference
+        still appears at each document location.
         """
         if not rel_id or self._image_service is None:
-            return None
-
-        if rel_id in processed_images:
             return None
 
         try:
@@ -277,6 +303,11 @@ class DocxContentExtractor(BaseContentExtractor):
             if not image_data:
                 return None
 
+            # Content-hash based deduplication
+            content_hash = hashlib.sha256(image_data).hexdigest()
+            if content_hash in processed_images:
+                return processed_images[content_hash]
+
             # Derive a name from the part name
             custom_name = f"docx_{rel_id}"
             if hasattr(rel.target_part, "partname"):
@@ -290,7 +321,7 @@ class DocxContentExtractor(BaseContentExtractor):
             )
 
             if tag:
-                processed_images.add(rel_id)
+                processed_images[content_hash] = tag
                 return tag
 
         except Exception as exc:
@@ -331,38 +362,104 @@ class DocxContentExtractor(BaseContentExtractor):
                 logger.debug("TableService formatting failed: %s", exc)
 
         # Fallback: simple HTML generation
-        return self._table_to_html(table_data)
-
-    @staticmethod
-    def _table_to_html(table_data: TableData) -> str:
-        """Simple HTML table generation as fallback."""
-        lines: List[str] = ["<table border='1'>"]
-
-        for row in table_data.rows:
-            lines.append("  <tr>")
-            for cell in row:
-                tag = "th" if cell.is_header else "td"
-                attrs = ""
-                if cell.row_span > 1:
-                    attrs += f" rowspan='{cell.row_span}'"
-                if cell.col_span > 1:
-                    attrs += f" colspan='{cell.col_span}'"
-                content = cell.content.replace("\n", "<br>") if cell.content else ""
-                lines.append(f"    <{tag}{attrs}>{content}</{tag}>")
-            lines.append("  </tr>")
-
-        lines.append("</table>")
-        return "\n".join(lines)
+        return TableService.format_as_html_simple(table_data)
 
     # ── Page tags ─────────────────────────────────────────────────────────
+
+    # ── Supplementary content (headers, footers, footnotes) ─────────────
+
+    @staticmethod
+    def _extract_supplementary(doc: Any) -> str:
+        """Extract header, footer, and footnote text from the document."""
+        sections: List[str] = []
+
+        # --- Headers & Footers ---
+        header_texts: List[str] = []
+        footer_texts: List[str] = []
+        seen_headers: set = set()
+        seen_footers: set = set()
+
+        try:
+            for section in doc.sections:
+                # Header
+                try:
+                    header = section.header
+                    if header and not header.is_linked_to_previous:
+                        text = "\n".join(
+                            p.text.strip() for p in header.paragraphs if p.text.strip()
+                        )
+                        if text and text not in seen_headers:
+                            seen_headers.add(text)
+                            header_texts.append(text)
+                except Exception:
+                    pass
+
+                # Footer
+                try:
+                    footer = section.footer
+                    if footer and not footer.is_linked_to_previous:
+                        text = "\n".join(
+                            p.text.strip() for p in footer.paragraphs if p.text.strip()
+                        )
+                        if text and text not in seen_footers:
+                            seen_footers.add(text)
+                            footer_texts.append(text)
+                except Exception:
+                    pass
+        except Exception as exc:
+            logger.debug("Failed to extract headers/footers: %s", exc)
+
+        if header_texts:
+            sections.append("[Headers]\n" + "\n\n".join(header_texts))
+        if footer_texts:
+            sections.append("[Footers]\n" + "\n\n".join(footer_texts))
+
+        # --- Footnotes & Endnotes ---
+        footnotes: List[str] = []
+        try:
+            # python-docx exposes footnotes via the document part
+            fn_part = getattr(doc.part, "footnotes_part", None)
+            if fn_part is not None:
+                fn_element = fn_part.element
+                for fn in fn_element:
+                    fn_type = fn.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}type", "")
+                    if fn_type in ("separator", "continuationSeparator"):
+                        continue
+                    paras = fn.findall(
+                        "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}p"
+                    )
+                    text = " ".join(
+                        "".join(
+                            r.text or ""
+                            for r in p.findall(
+                                "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}r"
+                            )
+                        ).strip()
+                        for p in paras
+                    ).strip()
+                    if text:
+                        footnotes.append(text)
+        except Exception as exc:
+            logger.debug("Failed to extract footnotes: %s", exc)
+
+        if footnotes:
+            sections.append(
+                "[Footnotes]\n" + "\n".join(
+                    f"[{i}] {fn}" for i, fn in enumerate(footnotes, 1)
+                )
+            )
+
+        return "\n\n".join(sections)
+
+    # ── Tag helpers ───────────────────────────────────────────────────────
 
     def _make_page_tag(self, page_number: int) -> Optional[str]:
         """Generate a page tag using TagService, or None if unavailable."""
         if self._tag_service is not None:
             try:
                 return self._tag_service.make_page_tag(page_number)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Page tag creation failed: %s", exc)
         return None
 
     # ── Utility ───────────────────────────────────────────────────────────

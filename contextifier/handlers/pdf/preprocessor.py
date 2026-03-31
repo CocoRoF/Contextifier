@@ -42,6 +42,7 @@ class PdfPreprocessor(BasePreprocessor):
 
         page_count = getattr(doc, "page_count", 0)
         is_encrypted = getattr(doc, "is_encrypted", False)
+        needs_ocr = self._detect_scan(doc, page_count)
 
         return PreprocessedData(
             content=doc,              # fitz.Document
@@ -51,11 +52,46 @@ class PdfPreprocessor(BasePreprocessor):
             properties={
                 "page_count": page_count,
                 "is_encrypted": is_encrypted,
+                "needs_ocr": needs_ocr,
             },
         )
 
     def get_format_name(self) -> str:
         return "pdf"
+
+    # ── Helpers ───────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _detect_scan(doc: Any, page_count: int) -> bool:
+        """Sample the first few pages to detect a scanned (image-only) PDF.
+
+        If the average character count per page is below a threshold,
+        the document is likely a scan with no text layer.
+        """
+        if page_count == 0:
+            return False
+
+        sample_size = min(page_count, 5)
+        _MIN_CHARS_PER_PAGE = 20
+        total_chars = 0
+
+        try:
+            for idx in range(sample_size):
+                page = doc[idx]
+                text = page.get_text("text") or ""
+                total_chars += len(text.strip())
+        except Exception as exc:
+            logger.debug("Scan detection sampling failed: %s", exc)
+            return False
+
+        avg = total_chars / sample_size
+        is_scan = avg < _MIN_CHARS_PER_PAGE
+        if is_scan:
+            logger.info(
+                "PDF appears to be a scan (avg %.1f chars/page across %d sample pages)",
+                avg, sample_size,
+            )
+        return is_scan
 
 
 __all__ = ["PdfPreprocessor"]

@@ -44,7 +44,9 @@ class XLSXHandler(BaseHandler):
         return "XLSX Handler"
 
     def create_converter(self) -> BaseConverter:
-        return XlsxConverter()
+        xlsx_opts = self._config.format_options.get("xlsx", {})
+        data_only = xlsx_opts.get("data_only", True)
+        return XlsxConverter(data_only=data_only)
 
     def create_preprocessor(self) -> BasePreprocessor:
         return XlsxPreprocessor()
@@ -53,11 +55,14 @@ class XLSXHandler(BaseHandler):
         return XlsxMetadataExtractor()
 
     def create_content_extractor(self) -> BaseContentExtractor:
+        xlsx_opts = self._config.format_options.get("xlsx", {})
+        include_hidden = xlsx_opts.get("include_hidden_sheets", False)
         return XlsxContentExtractor(
             image_service=self._image_service,
             tag_service=self._tag_service,
             chart_service=self._chart_service,
             table_service=self._table_service,
+            include_hidden_sheets=include_hidden,
         )
 
     def create_postprocessor(self) -> BasePostprocessor:

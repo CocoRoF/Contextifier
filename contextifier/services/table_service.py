@@ -15,6 +15,7 @@ table formatting goes through this one service.
 
 from __future__ import annotations
 
+import html as html_mod
 import logging
 from typing import List, Optional
 
@@ -122,6 +123,34 @@ class TableService:
         if self._table_config.clean_whitespace:
             content = " ".join(content.split())
         return content.strip()
+
+    @staticmethod
+    def format_as_html_simple(table_data: "TableData") -> str:
+        """Fallback HTML table generation for use without a TableService instance.
+
+        All content extractors that need a no-config fallback should call
+        this method instead of maintaining their own ``_table_to_html``.
+        """
+        if not table_data.rows:
+            return ""
+
+        lines: List[str] = ["<table border='1'>"]
+        for row in table_data.rows:
+            lines.append("  <tr>")
+            for cell in row:
+                tag = "th" if cell.is_header else "td"
+                attrs = ""
+                if cell.row_span > 1:
+                    attrs += f" rowspan='{cell.row_span}'"
+                if cell.col_span > 1:
+                    attrs += f" colspan='{cell.col_span}'"
+                content = cell.content or ""
+                content = html_mod.escape(content, quote=False)
+                content = content.replace("\n", "<br>")
+                lines.append(f"    <{tag}{attrs}>{content}</{tag}>")
+            lines.append("  </tr>")
+        lines.append("</table>")
+        return "\n".join(lines)
 
 
 __all__ = ["TableService"]

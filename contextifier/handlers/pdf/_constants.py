@@ -49,6 +49,7 @@ def parse_pdf_date(date_str: Optional[str]) -> Optional[datetime]:
 
 PDF_MODE_DEFAULT = "default"
 PDF_MODE_PLUS = "plus"
+PDF_VALID_MODES = frozenset({PDF_MODE_DEFAULT, PDF_MODE_PLUS})
 PDF_FORMAT_OPTION_KEY = "pdf"
 PDF_MODE_OPTION = "mode"
 
@@ -58,6 +59,7 @@ __all__ = [
     "parse_pdf_date",
     "PDF_MODE_DEFAULT",
     "PDF_MODE_PLUS",
+    "PDF_VALID_MODES",
     "PDF_FORMAT_OPTION_KEY",
     "PDF_MODE_OPTION",
 ]

@@ -249,7 +249,9 @@ class DocumentProcessor:
         ext = self._resolve_extension(file_path_str, file_extension)
 
         # Build FileContext
-        file_context = self._create_file_context(file_path_str, ext)
+        file_context = self._create_file_context(
+            file_path_str, ext, max_file_size=self._MAX_FILE_SIZE,
+        )
 
         self._logger.info(f"Extracting text: {file_path_str} (ext={ext})")
 
@@ -307,7 +309,9 @@ class DocumentProcessor:
             )
 
         ext = self._resolve_extension(file_path_str, file_extension)
-        file_context = self._create_file_context(file_path_str, ext)
+        file_context = self._create_file_context(
+            file_path_str, ext, max_file_size=self._MAX_FILE_SIZE,
+        )
 
         # Reset per-file image deduplication state
         self._services["image_service"].clear_state()
@@ -511,9 +515,33 @@ class DocumentProcessor:
             return override.lower().lstrip(".")
         return os.path.splitext(file_path)[1].lower().lstrip(".")
 
+    # Maximum file size (bytes) that will be loaded into memory.
+    # Override via config or subclass as needed.
+    _MAX_FILE_SIZE: int = 500 * 1024 * 1024  # 500 MB
+
     @staticmethod
-    def _create_file_context(file_path: str, extension: str) -> FileContext:
-        """Create a standardised FileContext dict from a file path."""
+    def _create_file_context(
+        file_path: str, extension: str, *, max_file_size: int = 0,
+    ) -> FileContext:
+        """Create a standardised FileContext dict from a file path.
+
+        The ``file_stream`` field is intentionally **not** pre-allocated
+        as an ``io.BytesIO`` copy of ``file_data``.  Handlers that need a
+        seekable stream obtain one lazily via
+        ``BaseConverter._get_stream()`` which constructs a ``BytesIO``
+        from ``file_data`` on demand.  This avoids keeping two copies of
+        potentially large file contents in memory simultaneously.
+        """
+        file_size = os.path.getsize(file_path)
+        if max_file_size and file_size > max_file_size:
+            from contextifier.errors import FileReadError
+            raise FileReadError(
+                f"File size ({file_size:,} bytes) exceeds the limit "
+                f"({max_file_size:,} bytes). Consider processing in "
+                f"streaming mode or increase the limit.",
+                context={"file_path": file_path, "file_size": file_size,
+                         "max_file_size": max_file_size},
+            )
         file_data = Path(file_path).read_bytes()
         return FileContext(
             file_path=file_path,
@@ -521,8 +549,8 @@ class DocumentProcessor:
             file_extension=extension,
             file_category=get_category(extension).value,
             file_data=file_data,
-            file_stream=io.BytesIO(file_data),
-            file_size=len(file_data),
+            file_stream=None,  # type: ignore[typeddict-item]  # lazy via _get_stream
+            file_size=file_size,
         )
 
     def __repr__(self) -> str:

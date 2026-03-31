@@ -45,6 +45,23 @@ class XlsxContentExtractor(BaseContentExtractor):
     extract text, tables, charts, and images from all sheets.
     """
 
+    def __init__(
+        self,
+        image_service=None,
+        tag_service=None,
+        chart_service=None,
+        table_service=None,
+        *,
+        include_hidden_sheets: bool = False,
+    ) -> None:
+        super().__init__(
+            image_service=image_service,
+            tag_service=tag_service,
+            chart_service=chart_service,
+            table_service=table_service,
+        )
+        self._include_hidden_sheets = include_hidden_sheets
+
     def extract_text(
         self,
         preprocessed: PreprocessedData,
@@ -71,8 +88,16 @@ class XlsxContentExtractor(BaseContentExtractor):
         for sheet_name in wb.sheetnames:
             try:
                 ws = wb[sheet_name]
-            except Exception:
+            except KeyError:
+                logger.debug("Sheet '%s' not accessible, skipping", sheet_name)
                 continue
+
+            # Skip hidden sheets unless explicitly included
+            if not self._include_hidden_sheets:
+                state = getattr(ws, "sheet_state", "visible")
+                if state != "visible":
+                    logger.debug("Skipping hidden sheet '%s' (state=%s)", sheet_name, state)
+                    continue
 
             sheet_parts: List[str] = []
 
@@ -229,8 +254,8 @@ class XlsxContentExtractor(BaseContentExtractor):
                     categories=chart_dict.get("categories", []),
                     series=series,
                 ))
-            except Exception:
-                pass
+            except (KeyError, TypeError, ValueError) as exc:
+                logger.debug("Failed to parse chart data: %s", exc)
 
         return result
 
@@ -244,40 +269,13 @@ class XlsxContentExtractor(BaseContentExtractor):
         if self._tag_service is not None:
             try:
                 return self._tag_service.make_sheet_tag(sheet_name)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Sheet tag creation failed: %s", exc)
         return f"[Sheet: {sheet_name}]"
 
-    def _format_chart(self, chart_dict: dict) -> Optional[str]:
-        """Format a chart dict using ChartService or fallback text."""
-        chart_type = chart_dict.get("chart_type", "Chart")
-        title = chart_dict.get("title", "")
-
-        if self._chart_service is not None:
-            try:
-                series = [
-                    ChartSeries(
-                        name=s.get("name"),
-                        values=s.get("values", []),
-                    )
-                    for s in chart_dict.get("series", [])
-                ]
-                chart_data = ChartData(
-                    chart_type=chart_type,
-                    title=title,
-                    categories=chart_dict.get("categories", []),
-                    series=series,
-                )
-                return self._chart_service.format_chart(chart_data)
-            except Exception:
-                pass
-
-        # Fallback
-        label = f"[Chart: {chart_type}"
-        if title:
-            label += f" - {title}"
-        label += "]"
-        return label
+    def _format_chart(self, chart_dict: dict) -> str:
+        """Format a chart dict using the shared base helper."""
+        return self._format_chart_from_dict(chart_dict)
 
     def _extract_sheet_images(
         self,
@@ -304,17 +302,19 @@ class XlsxContentExtractor(BaseContentExtractor):
                     if content_hash in processed_hashes:
                         continue
 
+                    content_name = hashlib.sha256(img_data).hexdigest()[:8]
+                    sheet_title = getattr(ws, "title", "sheet")
                     tag = self._image_service.save_and_tag(
                         image_bytes=img_data,
-                        custom_name=f"excel_sheet_img",
+                        custom_name=f"excel_{sheet_title}_{content_name}",
                     )
                     if tag:
                         tags.append(tag)
                         processed_hashes.add(content_hash)
-                except Exception:
-                    pass
-        except Exception:
-            pass
+                except Exception as exc:
+                    logger.debug("Failed to extract per-sheet image: %s", exc)
+        except Exception as exc:
+            logger.debug("Failed to access sheet images: %s", exc)
 
         return tags
 

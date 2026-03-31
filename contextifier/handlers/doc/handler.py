@@ -116,9 +116,11 @@ class DOCHandler(BaseHandler):
         header = data[:256].lstrip()
         if any(header.startswith(marker) for marker in _HTML_MARKERS):
             self._logger.info("DOC file is actually HTML (HTML markers detected)")
-            # TODO: delegate to 'html' handler once implemented
-            # For now, fall through to DOC pipeline
-            return None
+            return self._delegate_to(
+                "html", file_context,
+                include_metadata=kwargs.get("include_metadata", True),
+                **{k: v for k, v in kwargs.items() if k != "include_metadata"},
+            )
 
         # OLE2 or unknown — proceed with DOC pipeline
         return None

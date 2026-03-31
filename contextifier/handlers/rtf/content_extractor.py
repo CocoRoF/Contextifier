@@ -35,6 +35,7 @@ import re
 from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 from contextifier.pipeline.content_extractor import BaseContentExtractor
+from contextifier.services.table_service import TableService
 from contextifier.types import (
     ExtractionResult,
     PreprocessedData,
@@ -292,27 +293,7 @@ class RtfContentExtractor(BaseContentExtractor):
                 _logger.warning("TableService failed, using fallback: %s", e)
 
         # Fallback: simple HTML rendering
-        return self._table_to_html_fallback(table)
-
-    @staticmethod
-    def _table_to_html_fallback(table: TableData) -> str:
-        """Minimal HTML table rendering without TableService."""
-        if not table.rows:
-            return ""
-
-        lines = ['<table border="1">']
-        for row_cells in table.rows:
-            row_parts = []
-            for cell in row_cells:
-                attrs = ""
-                if cell.col_span > 1:
-                    attrs += f' colspan="{cell.col_span}"'
-                if cell.row_span > 1:
-                    attrs += f' rowspan="{cell.row_span}"'
-                row_parts.append(f"<td{attrs}>{cell.content}</td>")
-            lines.append(f"<tr>{''.join(row_parts)}</tr>")
-        lines.append("</table>")
-        return "\n".join(lines)
+        return TableService.format_as_html_simple(table)
 
     # ── Internal: Image saving ────────────────────────────────────────────
 

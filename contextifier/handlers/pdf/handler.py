@@ -40,6 +40,7 @@ from contextifier.handlers.pdf._constants import (
     PDF_MODE_DEFAULT,
     PDF_MODE_OPTION,
     PDF_MODE_PLUS,
+    PDF_VALID_MODES,
 )
 from contextifier.handlers.pdf.converter import PdfConverter
 from contextifier.handlers.pdf.preprocessor import PdfPreprocessor
@@ -75,6 +76,13 @@ class PDFHandler(BaseHandler):
             PDF_FORMAT_OPTION_KEY, PDF_MODE_OPTION, PDF_MODE_PLUS,
         )
         logger.debug("[PDFHandler] PDF mode = %s", mode)
+
+        if mode not in PDF_VALID_MODES:
+            from contextifier.errors import ConfigurationError
+            raise ConfigurationError(
+                f"Invalid PDF mode '{mode}'. Valid options: {sorted(PDF_VALID_MODES)}",
+                context={"mode": mode},
+            )
 
         if mode == PDF_MODE_DEFAULT:
             from contextifier.handlers.pdf_default import (
