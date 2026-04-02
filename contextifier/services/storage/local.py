@@ -24,14 +24,31 @@ class LocalStorageBackend(BaseStorageBackend):
         self._base_path = base_path
 
     def save(self, data: bytes, file_path: str) -> bool:
-        """Save data to a local file."""
+        """Save data to a local file.
+
+        The resolved *file_path* must reside under ``self._base_path``.
+        If the path escapes the base directory (e.g. via ``../``),
+        a :class:`StorageError` is raised to prevent path-traversal
+        attacks.
+        """
         try:
-            directory = os.path.dirname(file_path)
+            resolved_base = os.path.realpath(self._base_path)
+            resolved_path = os.path.realpath(file_path)
+
+            # Path-traversal guard: resolved path must be inside base dir
+            if not resolved_path.startswith(resolved_base + os.sep) and resolved_path != resolved_base:
+                raise StorageError(
+                    f"Path traversal blocked: {file_path!r} resolves outside base directory",
+                )
+
+            directory = os.path.dirname(resolved_path)
             if directory:
                 os.makedirs(directory, exist_ok=True)
-            with open(file_path, "wb") as f:
+            with open(resolved_path, "wb") as f:
                 f.write(data)
             return True
+        except StorageError:
+            raise
         except Exception as e:
             raise StorageError(
                 f"Failed to save file: {file_path}",

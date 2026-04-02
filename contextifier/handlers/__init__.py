@@ -18,7 +18,7 @@ Architecture:
       ├── DOCXHandler       → .docx (via python-docx)
       ├── DOCHandler        → .doc  (OLE2, with delegation for RTF/DOCX/HTML)
       ├── PPTXHandler       → .pptx (OOXML, via python-pptx)
-      ├── PPTHandler        → .ppt  (OLE2, via LibreOffice conversion)
+      ├── PPTHandler        → .ppt  (OLE2 binary, native record parsing)
       ├── XLSXHandler       → .xlsx (OOXML, via openpyxl)
       ├── XLSHandler        → .xls  (BIFF, via xlrd)
       ├── CSVHandler        → .csv  (comma-delimited)

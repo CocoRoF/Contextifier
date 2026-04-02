@@ -1,5 +1,5 @@
 """
-PptContentExtractor — Stage 4: Extract text from OLE2 PowerPoint.
+PptContentExtractor — Stage 4: Extract text, tables, charts from OLE2 PPT.
 
 Extracts text from the ``PowerPoint Document`` binary stream using
 record-level parsing. The PPT binary format stores text in specific
@@ -11,8 +11,18 @@ Key record types for text:
 - 0x0FBA (4026): CString (Unicode string)
 - 0x03F3 (1011): SlideListWithText container
 
-This is a best-effort extraction — the PPT binary format is
-extremely complex and full fidelity requires LibreOffice.
+Table extraction (v0.3.0)
+=========================
+PPT binary format does NOT have native table objects (unlike PPTX).
+Tables in PPT 97-2003 are typically constructed as grouped shapes.
+We detect tabular text patterns from the extracted text as a
+best-effort approach.
+
+Chart extraction (v0.3.0)
+=========================
+Charts in PPT are embedded OLE objects (Microsoft Graph / Excel).
+We scan the OLE compound file directory for chart-related storage
+entries and extract available metadata.
 """
 
 from __future__ import annotations
@@ -25,6 +35,7 @@ from contextifier.pipeline.content_extractor import BaseContentExtractor
 from contextifier.types import (
     ChartData,
     PreprocessedData,
+    TableCell,
     TableData,
 )
 
@@ -132,6 +143,53 @@ class PptContentExtractor(BaseContentExtractor):
 
     def get_format_name(self) -> str:
         return "ppt"
+
+    def extract_tables(
+        self,
+        preprocessed: PreprocessedData,
+        **kwargs: Any,
+    ) -> List[TableData]:
+        """
+        Best-effort table detection from PPT slide text.
+
+        PPT binary format does not have native table objects.
+        Tables in PPT 97-2003 are typically grouped auto-shapes.
+        This method detects tabular text patterns (tab-separated
+        columns within consecutive lines) as a heuristic fallback.
+
+        Returns:
+            List of detected TableData objects.
+        """
+        pp_stream = preprocessed.resources.get("pp_stream")
+        if not pp_stream:
+            return []
+
+        text_records = _parse_text_records(pp_stream)
+        if not text_records:
+            return []
+
+        return _detect_tabular_text(text_records)
+
+    def extract_charts(
+        self,
+        preprocessed: PreprocessedData,
+        **kwargs: Any,
+    ) -> List[ChartData]:
+        """
+        Detect embedded chart OLE objects in the PPT compound file.
+
+        Charts in PPT are embedded Microsoft Graph or Excel Chart
+        OLE objects. We scan the OLE directory for chart-related
+        storage entries.
+
+        Returns:
+            List of ChartData with available metadata.
+        """
+        ole = preprocessed.content
+        if ole is None or not hasattr(ole, "listdir"):
+            return []
+
+        return _detect_ole_charts(ole)
 
     # ── Slide tags ────────────────────────────────────────────────────────
 
@@ -266,3 +324,119 @@ def _group_into_slides(records: List[Tuple[int, str]]) -> List[List[str]]:
 
 
 __all__ = ["PptContentExtractor"]
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Table detection from text patterns
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _detect_tabular_text(
+    records: List[Tuple[int, str]],
+) -> List[TableData]:
+    """
+    Detect table-like structures from tab-separated text records.
+
+    In PPT binary, "tables" are often stored as text with tab
+    characters separating columns.  Consecutive records with
+    consistent tab counts suggest a table.
+    """
+    tables: List[TableData] = []
+    candidate_rows: List[List[str]] = []
+
+    for _, text in records:
+        if "\t" not in text:
+            # Non-tabular text — save any accumulated rows
+            if len(candidate_rows) >= 2:
+                tables.append(_rows_to_table_data(candidate_rows))
+            candidate_rows = []
+            continue
+
+        cells = [c.strip() for c in text.split("\t")]
+        candidate_rows.append(cells)
+
+    # Flush remaining
+    if len(candidate_rows) >= 2:
+        tables.append(_rows_to_table_data(candidate_rows))
+
+    return tables
+
+
+def _rows_to_table_data(rows: List[List[str]]) -> TableData:
+    """Convert raw row/cell lists into a ``TableData`` instance."""
+    max_cols = max(len(r) for r in rows) if rows else 0
+    table_rows: List[List[TableCell]] = []
+
+    for row_idx, cells in enumerate(rows):
+        row: List[TableCell] = []
+        for col_idx, text in enumerate(cells):
+            row.append(TableCell(
+                content=text,
+                row_index=row_idx,
+                col_index=col_idx,
+            ))
+        table_rows.append(row)
+
+    return TableData(
+        rows=table_rows,
+        num_rows=len(rows),
+        num_cols=max_cols,
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Chart OLE object detection
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Keywords in OLE storage names that indicate chart objects
+_CHART_STORAGE_KEYWORDS = {"chart", "graph", "microsoft graph"}
+
+
+def _detect_ole_charts(ole: Any) -> List[ChartData]:
+    """
+    Scan the OLE directory for embedded chart objects.
+
+    Microsoft Graph charts are stored as separate OLE storage
+    entries (e.g. "Object 1/", "Object 2/") containing chart data.
+    We check for known chart program identifiers.
+    """
+    charts: List[ChartData] = []
+
+    try:
+        entries = ole.listdir(storages=True, streams=True)
+    except Exception:
+        return []
+
+    chart_storages: Set[str] = set()
+
+    for entry in entries:
+        path_lower = "/".join(entry).lower()
+        # Check for chart-related storage names
+        for kw in _CHART_STORAGE_KEYWORDS:
+            if kw in path_lower:
+                # Record the top-level storage
+                chart_storages.add(entry[0])
+                break
+        # Also check for \x01Ole10Native / CONTENTS streams under
+        # object storages — these may contain embedded charts
+        if len(entry) >= 2 and entry[-1].lower() in ("contents", "\x01ole10native"):
+            parent = entry[0]
+            # Try to read the OLE class ID of the parent storage
+            try:
+                clsid = ole.get_rootentry_name() if len(entry) == 1 else None
+            except Exception:
+                clsid = None
+            # We can't reliably determine chart type without full parsing,
+            # but we note the embedded object
+            if parent not in chart_storages:
+                # Check if this looks like an object storage
+                if parent.lower().startswith("object") or "ole" in parent.lower():
+                    chart_storages.add(parent)
+
+    for storage_name in chart_storages:
+        charts.append(ChartData(
+            chart_type="embedded_ole",
+            title=f"Embedded Chart ({storage_name})",
+            raw_content=f"OLE embedded chart object in storage: {storage_name}",
+        ))
+
+    return charts

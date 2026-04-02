@@ -82,9 +82,14 @@ class CsvPreprocessor(BasePreprocessor):
             and use this delimiter. TSVHandler passes ``'\\t'`` here.
     """
 
-    def __init__(self, default_delimiter: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        default_delimiter: Optional[str] = None,
+        delimiter_candidates: Optional[List[str]] = None,
+    ) -> None:
         super().__init__()
         self._default_delimiter = default_delimiter
+        self._delimiter_candidates = delimiter_candidates
 
     def preprocess(
         self,
@@ -116,7 +121,7 @@ class CsvPreprocessor(BasePreprocessor):
             or self._default_delimiter
         )
         if delimiter is None:
-            delimiter = _detect_delimiter(text)
+            delimiter = _detect_delimiter(text, self._delimiter_candidates)
 
         # Parse CSV rows
         rows = _parse_csv_content(text, delimiter)
@@ -185,7 +190,10 @@ class CsvPreprocessor(BasePreprocessor):
 _logger = logging.getLogger("contextifier.csv.preprocessor")
 
 
-def _detect_delimiter(content: str) -> str:
+def _detect_delimiter(
+    content: str,
+    candidates: Optional[List[str]] = None,
+) -> str:
     """
     Auto-detect the CSV delimiter.
 
@@ -196,10 +204,14 @@ def _detect_delimiter(content: str) -> str:
 
     Args:
         content: Decoded CSV text.
+        candidates: Delimiter characters to try. Defaults to
+            ``DELIMITER_CANDIDATES`` if not provided.
 
     Returns:
         Detected delimiter character. Defaults to ``','``.
     """
+    if candidates is None:
+        candidates = DELIMITER_CANDIDATES
     sample_lines = content.split("\n")[:20]
     sample = "\n".join(sample_lines)
 
@@ -218,7 +230,7 @@ def _detect_delimiter(content: str) -> str:
     if not non_empty_lines:
         return ","
 
-    for delim in DELIMITER_CANDIDATES:
+    for delim in candidates:
         counts = [line.count(delim) for line in non_empty_lines]
         if not counts or max(counts) == 0:
             continue

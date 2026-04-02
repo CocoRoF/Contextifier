@@ -154,8 +154,9 @@ class OCRConfig:
     Configuration for OCR processing.
     """
     enabled: bool = False
-    provider: Optional[str] = None    # "openai", "anthropic", "gemini", "vllm", "bedrock"
+    provider: Optional[str] = None    # "openai", "anthropic", "gemini", "vllm", "bedrock", "tesseract"
     prompt: Optional[str] = None      # Custom OCR prompt (None = use default)
+    prompt_language: str = "ko"       # Prompt output language: "ko", "en", etc.
 
 
 # ─── Root Configuration ──────────────────────────────────────────────────────

@@ -20,7 +20,7 @@ from typing import Any
 
 from docx import Document
 
-from contextifier.pipeline.converter import BaseConverter
+from contextifier.pipeline.converter import BaseConverter, check_zip_bomb
 from contextifier.types import FileContext
 from contextifier.errors import ConversionError
 
@@ -90,10 +90,13 @@ class DocxConverter(BaseConverter):
         if data[:4] != ZIP_MAGIC:
             return False
 
-        # Content-Types check
+        # Content-Types + ZIP bomb check
         try:
             with zipfile.ZipFile(io.BytesIO(data), "r") as zf:
-                return CONTENT_TYPES_PATH in zf.namelist()
+                if CONTENT_TYPES_PATH not in zf.namelist():
+                    return False
+                check_zip_bomb(zf, handler="docx")
+                return True
         except (zipfile.BadZipFile, Exception):
             return False
 

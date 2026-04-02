@@ -47,6 +47,7 @@ from contextifier.types import (
 from contextifier.errors import ExtractionError
 
 if TYPE_CHECKING:
+    from contextifier.config import ProcessingConfig
     from contextifier.services.image_service import ImageService
     from contextifier.services.tag_service import TagService
     from contextifier.services.chart_service import ChartService
@@ -76,6 +77,7 @@ class BaseContentExtractor(ABC):
         tag_service: Optional["TagService"] = None,
         chart_service: Optional["ChartService"] = None,
         table_service: Optional["TableService"] = None,
+        config: Optional["ProcessingConfig"] = None,
     ) -> None:
         """
         Initialize with injected services.
@@ -89,11 +91,13 @@ class BaseContentExtractor(ABC):
             tag_service: For generating page/slide/sheet tags.
             chart_service: For formatting chart data.
             table_service: For formatting table data.
+            config: Processing configuration for format-specific options.
         """
         self._image_service = image_service
         self._tag_service = tag_service
         self._chart_service = chart_service
         self._table_service = table_service
+        self._config = config
         self._logger = logging.getLogger(
             f"contextifier.extractor.{self.__class__.__name__}"
         )

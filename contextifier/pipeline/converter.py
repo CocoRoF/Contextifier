@@ -23,11 +23,41 @@ from __future__ import annotations
 
 import io
 import logging
+import zipfile
 from abc import ABC, abstractmethod
 from typing import Any, BinaryIO, Optional
 
 from contextifier.types import FileContext
 from contextifier.errors import ConversionError
+
+# Default maximum total decompressed size for ZIP-based formats (1 GB).
+# Prevents ZIP-bomb style denial-of-service attacks.
+MAX_ZIP_DECOMPRESSED_BYTES: int = 1 * 1024 * 1024 * 1024
+
+logger = logging.getLogger(__name__)
+
+
+def check_zip_bomb(
+    zf: zipfile.ZipFile,
+    *,
+    max_bytes: int | None = None,
+    handler: str = "unknown",
+) -> None:
+    """Raise :class:`ConversionError` if total uncompressed size exceeds *max_bytes*.
+
+    Uses the ``file_size`` field from each ``ZipInfo`` entry — no actual
+    decompression occurs.
+    """
+    if max_bytes is None:
+        max_bytes = MAX_ZIP_DECOMPRESSED_BYTES
+    total = sum(info.file_size for info in zf.infolist())
+    if total > max_bytes:
+        raise ConversionError(
+            f"ZIP bomb detected: total decompressed size {total:,} bytes "
+            f"exceeds limit of {max_bytes:,} bytes",
+            stage="validate",
+            handler=handler,
+        )
 
 
 class BaseConverter(ABC):
@@ -128,4 +158,4 @@ class NullConverter(BaseConverter):
         return "raw"
 
 
-__all__ = ["BaseConverter", "NullConverter"]
+__all__ = ["BaseConverter", "NullConverter", "check_zip_bomb", "MAX_ZIP_DECOMPRESSED_BYTES"]

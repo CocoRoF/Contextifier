@@ -51,6 +51,14 @@ class PptxContentExtractor(BaseContentExtractor):
 
     _MAX_GROUP_DEPTH: int = 20
 
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        if self._config is not None:
+            depth = self._config.get_format_option(
+                "pptx", "max_group_depth", self._MAX_GROUP_DEPTH,
+            )
+            self._MAX_GROUP_DEPTH = int(depth)
+
     # ── Main extraction ───────────────────────────────────────────────────
 
     def extract_text(
@@ -122,7 +130,7 @@ class PptxContentExtractor(BaseContentExtractor):
         preprocessed: PreprocessedData,
         **kwargs: Any,
     ) -> List[TableData]:
-        """Extract all tables from all slides."""
+        """Extract all tables from all slides (recursive into groups)."""
         prs = self._get_presentation(preprocessed)
         if prs is None:
             return []
@@ -130,17 +138,7 @@ class PptxContentExtractor(BaseContentExtractor):
         tables: List[TableData] = []
         for slide in prs.slides:
             for shape in slide.shapes:
-                if shape.has_table:
-                    td = extract_table(shape.table)
-                    if td.num_rows > 0:
-                        tables.append(td)
-                # Group shapes
-                if hasattr(shape, "shapes"):
-                    for sub in shape.shapes:
-                        if hasattr(sub, "has_table") and sub.has_table:
-                            td = extract_table(sub.table)
-                            if td.num_rows > 0:
-                                tables.append(td)
+                self._collect_tables(shape, tables)
         return tables
 
     def extract_images(
@@ -148,7 +146,7 @@ class PptxContentExtractor(BaseContentExtractor):
         preprocessed: PreprocessedData,
         **kwargs: Any,
     ) -> List[str]:
-        """Extract and save all images from all slides."""
+        """Extract and save all images from all slides (recursive into groups)."""
         prs = self._get_presentation(preprocessed)
         if prs is None:
             return []
@@ -158,15 +156,7 @@ class PptxContentExtractor(BaseContentExtractor):
 
         for slide_idx, slide in enumerate(prs.slides):
             for shape in slide.shapes:
-                tag = self._try_save_image(shape, slide_idx, processed)
-                if tag:
-                    tags.append(tag)
-                # Group shapes
-                if hasattr(shape, "shapes"):
-                    for sub in shape.shapes:
-                        tag = self._try_save_image(sub, slide_idx, processed)
-                        if tag:
-                            tags.append(tag)
+                self._collect_images(shape, slide_idx, processed, tags)
         return tags
 
     def extract_charts(
@@ -174,7 +164,7 @@ class PptxContentExtractor(BaseContentExtractor):
         preprocessed: PreprocessedData,
         **kwargs: Any,
     ) -> List[ChartData]:
-        """Extract all charts from all slides as ``ChartData``."""
+        """Extract all charts from all slides as ``ChartData`` (recursive into groups)."""
         prs = self._get_presentation(preprocessed)
         if prs is None:
             return []
@@ -182,14 +172,7 @@ class PptxContentExtractor(BaseContentExtractor):
         charts: List[ChartData] = []
         for slide in prs.slides:
             for shape in slide.shapes:
-                cd = self._try_extract_chart_data(shape)
-                if cd is not None:
-                    charts.append(cd)
-                if hasattr(shape, "shapes"):
-                    for sub in shape.shapes:
-                        cd = self._try_extract_chart_data(sub)
-                        if cd is not None:
-                            charts.append(cd)
+                self._collect_charts(shape, charts)
         return charts
 
     def get_format_name(self) -> str:
@@ -313,6 +296,47 @@ class PptxContentExtractor(BaseContentExtractor):
         except Exception as exc:
             logger.debug("Error processing group shape: %s", exc)
         return elements, chart_ptr
+
+    # ── Recursive collection helpers (for extract_tables/images/charts) ──
+
+    def _collect_tables(
+        self, shape: Any, tables: List[TableData], depth: int = 0,
+    ) -> None:
+        """Recursively collect tables from shape and nested groups."""
+        if hasattr(shape, "has_table") and shape.has_table:
+            td = extract_table(shape.table)
+            if td.num_rows > 0:
+                tables.append(td)
+        if hasattr(shape, "shapes") and depth < self._MAX_GROUP_DEPTH:
+            for sub in shape.shapes:
+                self._collect_tables(sub, tables, depth + 1)
+
+    def _collect_images(
+        self,
+        shape: Any,
+        slide_idx: int,
+        processed: Set[str],
+        tags: List[str],
+        depth: int = 0,
+    ) -> None:
+        """Recursively collect images from shape and nested groups."""
+        tag = self._try_save_image(shape, slide_idx, processed)
+        if tag:
+            tags.append(tag)
+        if hasattr(shape, "shapes") and depth < self._MAX_GROUP_DEPTH:
+            for sub in shape.shapes:
+                self._collect_images(sub, slide_idx, processed, tags, depth + 1)
+
+    def _collect_charts(
+        self, shape: Any, charts: List[ChartData], depth: int = 0,
+    ) -> None:
+        """Recursively collect charts from shape and nested groups."""
+        cd = self._try_extract_chart_data(shape)
+        if cd is not None:
+            charts.append(cd)
+        if hasattr(shape, "shapes") and depth < self._MAX_GROUP_DEPTH:
+            for sub in shape.shapes:
+                self._collect_charts(sub, charts, depth + 1)
 
     # ── Table formatting ──────────────────────────────────────────────────
 

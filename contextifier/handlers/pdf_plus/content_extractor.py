@@ -82,6 +82,7 @@ class PdfPlusContentExtractor(BaseContentExtractor):
         tag_service: Any = None,
         chart_service: Any = None,
         table_service: Any = None,
+        config: Any = None,
     ) -> None:
         """
         Args:
@@ -89,12 +90,14 @@ class PdfPlusContentExtractor(BaseContentExtractor):
             tag_service:   Service for page/slide/sheet tags.
             chart_service: (unused — kept for interface compat.)
             table_service: Service for table formatting.
+            config:        Processing configuration for format-specific options.
         """
         super().__init__(
             image_service=image_service,
             tag_service=tag_service,
             chart_service=chart_service,
             table_service=table_service,
+            config=config,
         )
 
     # ─────────────────────────────────────────────────────────────────────

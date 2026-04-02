@@ -64,6 +64,7 @@ class TableService:
             line_parts: List[str] = []
             for cell in row_cells:
                 content = self._clean_cell(cell.content)
+                content = html_mod.escape(content, quote=False)
                 tag = "th" if cell.is_header else "td"
                 attrs = ""
                 if cell.row_span > 1:

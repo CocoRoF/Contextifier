@@ -58,6 +58,7 @@ class PPTXHandler(BaseHandler):
             tag_service=self._tag_service,
             chart_service=self._chart_service,
             table_service=self._table_service,
+            config=self._config,
         )
 
     def create_postprocessor(self) -> BasePostprocessor:

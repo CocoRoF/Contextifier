@@ -70,7 +70,12 @@ class CSVHandler(BaseHandler):
         Detects comma, tab, semicolon, or pipe — returns CsvParsedData
         with parsed rows, header flag, and structural metadata.
         """
-        return CsvPreprocessor(default_delimiter=None)
+        csv_opts = self._config.format_options.get("csv", {})
+        candidates = csv_opts.get("delimiter_candidates", None)
+        return CsvPreprocessor(
+            default_delimiter=None,
+            delimiter_candidates=candidates,
+        )
 
     def create_metadata_extractor(self) -> BaseMetadataExtractor:
         """Extracts CSV structural info into DocumentMetadata.custom."""

@@ -12,7 +12,7 @@ import logging
 import zipfile
 from typing import Any
 
-from contextifier.pipeline.converter import BaseConverter
+from contextifier.pipeline.converter import BaseConverter, check_zip_bomb
 from contextifier.types import FileContext
 from contextifier.errors import ConversionError
 
@@ -88,12 +88,13 @@ class PptxConverter(BaseConverter):
         if file_data[:4] != ZIP_MAGIC:
             return False
 
-        # Verify Content_Types.xml exists
+        # Verify Content_Types.xml + ZIP bomb check
         try:
             with zipfile.ZipFile(io.BytesIO(file_data), "r") as zf:
                 if _CONTENT_TYPES not in zf.namelist():
                     return False
-        except zipfile.BadZipFile:
+                check_zip_bomb(zf, handler="pptx")
+        except (zipfile.BadZipFile, Exception):
             return False
 
         return True

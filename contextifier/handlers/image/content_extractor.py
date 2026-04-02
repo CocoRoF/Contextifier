@@ -9,8 +9,17 @@ For standalone image files the "text extraction" is simply:
 If no *image_service* is available, a minimal placeholder tag is
 returned so downstream processing always has something.
 
-OCR is an **external** concern — the caller (e.g. DocumentProcessor)
-is responsible for feeding OCR output back if it is needed.
+**OCR integration path**:
+    OCR is an **external** concern — the caller (e.g. DocumentProcessor)
+    is responsible for feeding OCR output back if needed.
+
+    When ``ocr_processing=True`` is set on ``DocumentProcessor.extract_text()``:
+    1. This handler outputs ``[Image:filename.jpg]`` tags
+    2. ``DocumentProcessor`` post-processing invokes ``OCRProcessor``
+    3. ``OCRProcessor`` finds ``[Image:...]`` tags → resolves file paths
+    4. OCR engine converts images to text → tags are replaced
+
+    No code changes are needed in this handler to support OCR.
 """
 
 from __future__ import annotations

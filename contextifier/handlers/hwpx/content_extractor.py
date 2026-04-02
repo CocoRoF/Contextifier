@@ -102,7 +102,12 @@ class HwpxContentExtractor(BaseContentExtractor):
     def extract_charts(
         self, preprocessed: PreprocessedData, **kwargs: Any
     ) -> List[ChartData]:
-        # Charts are rendered inline during extract_text
+        # Charts are parsed inline during extract_text() via
+        # parse_hwpx_section() → _process_chart_ref().  OOXML chart XML
+        # referenced by <hp:chart chartIDRef="..."> is read from the ZIP,
+        # parsed, and formatted as text blocks.  Returning [] here is
+        # consistent with the inline rendering architecture (same as
+        # extract_tables / extract_images).
         return []
 
     def get_format_name(self) -> str:

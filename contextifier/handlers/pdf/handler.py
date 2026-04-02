@@ -92,6 +92,7 @@ class PDFHandler(BaseHandler):
                 image_service=self._image_service,
                 tag_service=self._tag_service,
                 table_service=self._table_service,
+                config=self._config,
             )
 
         # default → plus mode
@@ -102,6 +103,7 @@ class PDFHandler(BaseHandler):
             image_service=self._image_service,
             tag_service=self._tag_service,
             table_service=self._table_service,
+            config=self._config,
         )
 
     def create_postprocessor(self) -> BasePostprocessor:

@@ -23,6 +23,11 @@ from contextifier.handlers.html.converter import HtmlConvertedData
 
 logger = logging.getLogger(__name__)
 
+# Maximum decoded size for base64 embedded images (50 MB).
+# Images exceeding this limit are silently skipped to prevent
+# memory exhaustion from maliciously crafted HTML.
+_MAX_IMAGE_DECODE_BYTES = 50 * 1024 * 1024
+
 _DATA_URI_RE = re.compile(
     r"data:image/([a-zA-Z0-9+.-]+);base64,([A-Za-z0-9+/=\s]+)"
 )
@@ -74,8 +79,18 @@ class HtmlPreprocessor(BasePreprocessor):
             m = _DATA_URI_RE.match(src)
             if m:
                 fmt = m.group(1)
+                b64_str = m.group(2)
+                # Estimate decoded size (~3/4 of base64 string length)
+                estimated_size = len(b64_str) * 3 // 4
+                if estimated_size > _MAX_IMAGE_DECODE_BYTES:
+                    logger.warning(
+                        "Skipping oversized base64 image (~%d MB, limit %d MB)",
+                        estimated_size // (1024 * 1024),
+                        _MAX_IMAGE_DECODE_BYTES // (1024 * 1024),
+                    )
+                    continue
                 try:
-                    data = base64.b64decode(m.group(2))
+                    data = base64.b64decode(b64_str)
                     images.append({"format": fmt, "data": data})
                 except Exception:
                     pass

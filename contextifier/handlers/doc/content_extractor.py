@@ -1,21 +1,25 @@
 # contextifier/handlers/doc/content_extractor.py
 """
-DocContentExtractor — Stage 4: Extract text, images from OLE2 DOC.
+DocContentExtractor — Stage 4: Extract text, tables, images from OLE2 DOC.
 
 Text extraction strategy
 ========================
-Word 97-2003 stores text as either ANSI or Unicode (UTF-16LE) runs inside
-the ``WordDocument`` stream.  Full FIB + piece-table parsing is extremely
-complex (the Microsoft specification is ~400 pages).  We use the same
-**heuristic** approach as v1.0:
+**Primary (v0.3.0)**: FIB + Piece Table based extraction.
+Parses the File Information Block header in the WordDocument stream to
+locate the Clx structure in the Table Stream, then reads piece descriptors
+to reconstruct text in the correct document order.  This handles both
+ANSI (cp1252) and Unicode (UTF-16LE) text runs accurately.
 
-1. Walk the WordDocument stream byte-by-byte looking for consecutive
-   UTF-16LE code units that fall within printable ranges (ASCII, Hangul,
-   CJK).
-2. Collect runs of ≥ ``MIN_TEXT_FRAGMENT_LENGTH`` characters.
-3. Deduplicate and join the fragments.
+**Fallback**: Heuristic UTF-16LE byte scanning (v1.0 approach).
+If FIB parsing fails (corrupted FIB, Word 95 documents, truncated
+streams), we fall back to scanning the WordDocument stream byte-by-byte
+for consecutive UTF-16LE code units in printable ranges.
 
-This is imperfect but handles the vast majority of real-world DOC files.
+Table extraction (v0.3.0)
+=========================
+In MS-DOC, table cells are delimited by ``\\x07`` (BEL character).
+After extracting text via the piece table, cell markers are used to
+detect and reconstruct table structures.
 
 Image extraction
 ================
@@ -31,7 +35,7 @@ import logging
 from typing import Any, Dict, List, Optional, Set
 
 from contextifier.pipeline.content_extractor import BaseContentExtractor
-from contextifier.types import PreprocessedData, TableData
+from contextifier.types import PreprocessedData, TableData, TableCell
 
 from contextifier.handlers.doc._constants import (
     IMAGE_SIGNATURES,
@@ -39,6 +43,7 @@ from contextifier.handlers.doc._constants import (
     MIN_UNICODE_BYTES,
     CJK_HIGH_BYTE_RANGES,
 )
+from contextifier.handlers.doc._fib import parse_fib_text, detect_tables_from_text
 from contextifier.handlers.doc.preprocessor import DocStreamData
 
 logger = logging.getLogger(__name__)
@@ -52,6 +57,19 @@ class DocContentExtractor(BaseContentExtractor):
     scanning) from the preprocessed ``DocStreamData``.
     """
 
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        # Configurable threshold for heuristic text extraction
+        self._min_text_fragment_length = MIN_TEXT_FRAGMENT_LENGTH
+        self._min_unicode_bytes = MIN_UNICODE_BYTES
+        if self._config is not None:
+            frag_len = self._config.get_format_option(
+                "doc", "min_text_fragment_length",
+                self._min_text_fragment_length,
+            )
+            self._min_text_fragment_length = int(frag_len)
+            self._min_unicode_bytes = self._min_text_fragment_length * 2
+
     # ── BaseContentExtractor abstract methods ─────────────────────────────
 
     def extract_text(
@@ -60,7 +78,10 @@ class DocContentExtractor(BaseContentExtractor):
         **kwargs: Any,
     ) -> str:
         """
-        Extract text from the WordDocument stream using heuristic scanning.
+        Extract text from the WordDocument stream.
+
+        Uses FIB + Piece Table parsing as the primary method.
+        Falls back to heuristic UTF-16LE scanning if FIB parsing fails.
 
         Args:
             preprocessed: ``PreprocessedData`` whose ``content`` is a
@@ -73,12 +94,24 @@ class DocContentExtractor(BaseContentExtractor):
         if stream_data is None:
             return ""
 
-        text = self._extract_text_from_word_stream(stream_data.word_data)
+        # Primary: FIB + Piece Table based extraction
+        text = parse_fib_text(stream_data.word_data, stream_data.table_stream)
+
+        if text is None:
+            # Fallback: heuristic UTF-16LE byte scanning
+            logger.debug("FIB parsing failed, falling back to heuristic extraction")
+            text = self._extract_text_from_word_stream(stream_data.word_data)
+
+        # Store raw FIB text for table detection in extract_tables()
+        self._last_fib_text = text
 
         # Embed image tags if image service is available
         image_tags = self._save_images(preprocessed)
         if image_tags:
             text = text + "\n" + "\n".join(image_tags)
+
+        # Remove cell markers from display text (they're used by extract_tables)
+        text = text.replace("\x07", "")
 
         return text
 
@@ -88,12 +121,46 @@ class DocContentExtractor(BaseContentExtractor):
         **kwargs: Any,
     ) -> List[TableData]:
         """
-        DOC table extraction is not supported (would require full FIB parsing).
+        Extract tables from DOC using cell markers in piece-table text.
+
+        In MS-DOC format, table cells are delimited by ``\\x07`` (BEL).
+        This method uses text extracted via the piece table (stored by
+        ``extract_text()``) to detect table structures.
 
         Returns:
-            Empty list.
+            List of ``TableData`` objects, or empty list if no tables found.
         """
-        return []
+        # Use raw FIB text (with cell markers) saved by extract_text()
+        raw_text = getattr(self, "_last_fib_text", None)
+        if not raw_text:
+            return []
+
+        raw_tables = detect_tables_from_text(raw_text)
+        if not raw_tables:
+            return []
+
+        tables: List[TableData] = []
+        for raw_table in raw_tables:
+            rows: List[List[TableCell]] = []
+            max_cols = 0
+            for row_idx, row_cells in enumerate(raw_table):
+                row: List[TableCell] = []
+                for col_idx, cell_text in enumerate(row_cells):
+                    row.append(TableCell(
+                        content=cell_text,
+                        row_index=row_idx,
+                        col_index=col_idx,
+                    ))
+                rows.append(row)
+                max_cols = max(max_cols, len(row_cells))
+
+            tables.append(TableData(
+                rows=rows,
+                num_rows=len(rows),
+                num_cols=max_cols,
+            ))
+
+        return tables
 
     def extract_images(
         self,
@@ -155,13 +222,13 @@ class DocContentExtractor(BaseContentExtractor):
                     else:
                         break
 
-                if len(run_bytes) >= MIN_UNICODE_BYTES:
+                if len(run_bytes) >= self._min_unicode_bytes:
                     try:
                         fragment = bytes(run_bytes).decode(
                             "utf-16-le", errors="ignore"
                         ).strip()
                         if (
-                            len(fragment) >= MIN_TEXT_FRAGMENT_LENGTH
+                            len(fragment) >= self._min_text_fragment_length
                             and not fragment.startswith("\\")
                         ):
                             # Clean control characters

@@ -14,7 +14,7 @@ import logging
 import zipfile
 from typing import Any, NamedTuple
 
-from contextifier.pipeline.converter import BaseConverter
+from contextifier.pipeline.converter import BaseConverter, check_zip_bomb
 from contextifier.types import FileContext
 from contextifier.errors import ConversionError
 from contextifier.handlers.hwpx._constants import ZIP_MAGIC
@@ -69,7 +69,16 @@ class HwpxConverter(BaseConverter):
         data = file_context.get("file_data", b"")
         if len(data) < 4:
             return False
-        return data[:4] == ZIP_MAGIC
+        if data[:4] != ZIP_MAGIC:
+            return False
+
+        try:
+            with zipfile.ZipFile(io.BytesIO(data), "r") as zf:
+                check_zip_bomb(zf, handler="hwpx")
+        except (zipfile.BadZipFile, Exception):
+            return False
+
+        return True
 
     def close(self, converted_object: Any) -> None:
         if isinstance(converted_object, HwpxConvertedData):

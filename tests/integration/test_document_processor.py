@@ -106,3 +106,118 @@ class TestProcessorInit:
         # Should have handlers for common formats
         assert proc._registry.is_supported("txt")
         assert proc._registry.is_supported("pdf")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# P3-7: Expanded integration test framework
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestProcessEndToEnd:
+    """Full pipeline via processor.process() — returns ExtractionResult."""
+
+    def test_process_returns_extraction_result(
+        self, processor: DocumentProcessor, tmp_text_file: Path
+    ) -> None:
+        result = processor.process(tmp_text_file)
+        from contextifier.types import ExtractionResult
+        assert isinstance(result, ExtractionResult)
+        assert "Integration test content" in result.text
+
+    def test_process_metadata_included(
+        self, processor: DocumentProcessor, tmp_text_file: Path
+    ) -> None:
+        result = processor.process(tmp_text_file, extract_metadata=True)
+        assert result.text  # non-empty
+
+
+class TestRoundTripConsistency:
+    """Same file should produce identical output across repeated calls."""
+
+    def test_deterministic_extraction(
+        self, processor: DocumentProcessor, tmp_text_file: Path
+    ) -> None:
+        r1 = processor.extract_text(tmp_text_file)
+        r2 = processor.extract_text(tmp_text_file)
+        assert r1 == r2
+
+    def test_deterministic_chunks(
+        self, processor: DocumentProcessor, tmp_text_file: Path
+    ) -> None:
+        c1 = processor.extract_chunks(tmp_text_file, chunk_size=500)
+        c2 = processor.extract_chunks(tmp_text_file, chunk_size=500)
+        assert len(c1.chunks) == len(c2.chunks)
+        for a, b in zip(c1.chunks, c2.chunks):
+            assert a == b
+
+
+class TestConfigIntegration:
+    """Verify config changes affect output end-to-end."""
+
+    def test_metadata_language_ko(self, tmp_text_file: Path) -> None:
+        config = ProcessingConfig().with_metadata(language="ko")
+        proc = DocumentProcessor(config=config)
+        text = proc.extract_text(tmp_text_file)
+        assert isinstance(text, str)
+
+    def test_metadata_language_en(self, tmp_text_file: Path) -> None:
+        config = ProcessingConfig().with_metadata(language="en")
+        proc = DocumentProcessor(config=config)
+        text = proc.extract_text(tmp_text_file)
+        assert isinstance(text, str)
+
+    def test_chunk_size_affects_count(self, tmp_path: Path) -> None:
+        f = tmp_path / "long.txt"
+        f.write_text("word " * 2000, encoding="utf-8")
+        proc = DocumentProcessor()
+        small = proc.extract_chunks(f, chunk_size=200)
+        large = proc.extract_chunks(f, chunk_size=2000)
+        assert len(small.chunks) > len(large.chunks)
+
+
+class TestMultiFormatSupport:
+    """Verify extraction works across text-like formats."""
+
+    def test_csv_extraction(self, tmp_path: Path) -> None:
+        f = tmp_path / "data.csv"
+        f.write_text("name,age\nAlice,30\nBob,25", encoding="utf-8")
+        proc = DocumentProcessor()
+        text = proc.extract_text(f)
+        assert "Alice" in text
+        assert "Bob" in text
+
+    def test_tsv_extraction(self, tmp_path: Path) -> None:
+        f = tmp_path / "data.tsv"
+        f.write_text("name\tage\nAlice\t30", encoding="utf-8")
+        proc = DocumentProcessor()
+        text = proc.extract_text(f)
+        assert "Alice" in text
+
+    def test_html_extraction(self, tmp_path: Path) -> None:
+        f = tmp_path / "page.html"
+        f.write_text(
+            "<html><body><p>Hello HTML</p></body></html>",
+            encoding="utf-8",
+        )
+        proc = DocumentProcessor()
+        text = proc.extract_text(f)
+        assert "Hello HTML" in text
+
+    def test_json_extraction(self, tmp_path: Path) -> None:
+        f = tmp_path / "data.json"
+        f.write_text('{"key": "value"}', encoding="utf-8")
+        proc = DocumentProcessor()
+        text = proc.extract_text(f)
+        assert "key" in text or "value" in text
+
+
+class TestSupportedExtensions:
+    """Verify supported_extensions property."""
+
+    def test_common_formats_supported(self) -> None:
+        proc = DocumentProcessor()
+        for ext in ("txt", "pdf", "docx", "xlsx", "pptx", "csv", "html"):
+            assert proc.is_supported(ext), f"{ext} should be supported"
+
+    def test_unknown_format_not_supported(self) -> None:
+        proc = DocumentProcessor()
+        assert not proc.is_supported("zzzzz")

@@ -47,6 +47,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import logging
+import threading
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, FrozenSet, Optional, final
 
@@ -488,6 +489,12 @@ class BaseHandler(ABC):
     # Delegation Support (override _check_delegation in subclasses)
     # ═══════════════════════════════════════════════════════════════════════
 
+    # Maximum number of nested handler-to-handler delegations.
+    _MAX_DELEGATION_DEPTH: int = 3
+
+    # Thread-local delegation depth counter (shared across all handlers).
+    _delegation_state: threading.local = threading.local()
+
     def set_registry(self, registry: "HandlerRegistry") -> None:
         """
         Inject the handler registry (called by HandlerRegistry after construction).
@@ -569,10 +576,22 @@ class BaseHandler(ABC):
                 f"{self.handler_name}: Cannot delegate — no registry available",
                 context={"target_extension": extension},
             )
+
+        # Depth guard — prevent infinite delegation loops
+        state = BaseHandler._delegation_state
+        depth = getattr(state, "depth", 0)
+        if depth >= self._MAX_DELEGATION_DEPTH:
+            raise HandlerExecutionError(
+                f"Delegation depth limit ({self._MAX_DELEGATION_DEPTH}) exceeded: "
+                f"{self.handler_name} -> {extension}",
+                context={"depth": depth, "target_extension": extension},
+            )
+
         delegate = self._handler_registry.get_handler(extension)
         self._logger.info(
             f"{self.handler_name} -> delegating to {delegate.handler_name}"
         )
+        state.depth = depth + 1
         try:
             return delegate.process(
                 file_context,
@@ -591,6 +610,8 @@ class BaseHandler(ABC):
                 include_metadata=include_metadata,
                 **kwargs,
             )
+        finally:
+            state.depth = depth  # restore previous depth
 
     def __repr__(self) -> str:
         exts = ", ".join(sorted(self.supported_extensions))

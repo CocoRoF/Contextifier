@@ -19,7 +19,7 @@ from typing import Any, NamedTuple
 
 import openpyxl
 
-from contextifier.pipeline.converter import BaseConverter
+from contextifier.pipeline.converter import BaseConverter, check_zip_bomb
 from contextifier.types import FileContext
 from contextifier.errors import ConversionError
 
@@ -99,6 +99,7 @@ class XlsxConverter(BaseConverter):
             with zipfile.ZipFile(io.BytesIO(data)) as zf:
                 if "[Content_Types].xml" not in zf.namelist():
                     return False
+                check_zip_bomb(zf, handler="xlsx")
         except (zipfile.BadZipFile, Exception):
             return False
 

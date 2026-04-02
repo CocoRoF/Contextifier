@@ -51,26 +51,58 @@ def encode_image_base64(file_path: str) -> str:
 
 # ── Default prompts ───────────────────────────────────────────────────────
 
-DEFAULT_OCR_PROMPT: str = (
-    "Extract meaningful information from this image.\n\n"
-    "**If the image contains a TABLE:**\n"
-    "- Convert to HTML table format (<table>, <tr>, <td>, <th>)\n"
-    "- Use 'rowspan' and 'colspan' attributes for merged cells\n"
-    "- Preserve all cell content exactly as shown\n\n"
-    "**If the image contains TEXT (non-table):**\n"
-    "- Extract all text exactly as shown\n"
-    "- Keep layout, hierarchy, and structure\n\n"
-    "**If the image contains DATA (charts, graphs, diagrams):**\n"
-    "- Extract the data and its meaning\n"
-    "- Describe trends, relationships, or key insights\n\n"
-    "**If the image is decorative or has no semantic meaning:**\n"
-    "- Simply state what it is in one short sentence\n\n"
-    "**Rules:**\n"
-    "- Output in Korean (except HTML tags)\n"
-    "- Tables MUST use HTML format with proper rowspan/colspan\n"
-    "- Be concise - only include what is semantically meaningful\n"
-    "- No filler words or unnecessary descriptions"
-)
+_OCR_PROMPT_TEMPLATE: dict[str, str] = {
+    "ko": (
+        "Extract meaningful information from this image.\n\n"
+        "**If the image contains a TABLE:**\n"
+        "- Convert to HTML table format (<table>, <tr>, <td>, <th>)\n"
+        "- Use 'rowspan' and 'colspan' attributes for merged cells\n"
+        "- Preserve all cell content exactly as shown\n\n"
+        "**If the image contains TEXT (non-table):**\n"
+        "- Extract all text exactly as shown\n"
+        "- Keep layout, hierarchy, and structure\n\n"
+        "**If the image contains DATA (charts, graphs, diagrams):**\n"
+        "- Extract the data and its meaning\n"
+        "- Describe trends, relationships, or key insights\n\n"
+        "**If the image is decorative or has no semantic meaning:**\n"
+        "- Simply state what it is in one short sentence\n\n"
+        "**Rules:**\n"
+        "- Output in Korean (except HTML tags)\n"
+        "- Tables MUST use HTML format with proper rowspan/colspan\n"
+        "- Be concise - only include what is semantically meaningful\n"
+        "- No filler words or unnecessary descriptions"
+    ),
+    "en": (
+        "Extract meaningful information from this image.\n\n"
+        "**If the image contains a TABLE:**\n"
+        "- Convert to HTML table format (<table>, <tr>, <td>, <th>)\n"
+        "- Use 'rowspan' and 'colspan' attributes for merged cells\n"
+        "- Preserve all cell content exactly as shown\n\n"
+        "**If the image contains TEXT (non-table):**\n"
+        "- Extract all text exactly as shown\n"
+        "- Keep layout, hierarchy, and structure\n\n"
+        "**If the image contains DATA (charts, graphs, diagrams):**\n"
+        "- Extract the data and its meaning\n"
+        "- Describe trends, relationships, or key insights\n\n"
+        "**If the image is decorative or has no semantic meaning:**\n"
+        "- Simply state what it is in one short sentence\n\n"
+        "**Rules:**\n"
+        "- Output in English (except HTML tags)\n"
+        "- Tables MUST use HTML format with proper rowspan/colspan\n"
+        "- Be concise - only include what is semantically meaningful\n"
+        "- No filler words or unnecessary descriptions"
+    ),
+}
+
+DEFAULT_OCR_PROMPT: str = _OCR_PROMPT_TEMPLATE["ko"]
+
+
+def get_ocr_prompt(language: str = "ko") -> str:
+    """Return the default OCR prompt for the given language code.
+
+    Falls back to English if the language is not in the template map.
+    """
+    return _OCR_PROMPT_TEMPLATE.get(language, _OCR_PROMPT_TEMPLATE["en"])
 
 SIMPLE_OCR_PROMPT: str = "Describe the contents of this image."
 
@@ -188,6 +220,7 @@ __all__ = [
     "BaseOCREngine",
     "DEFAULT_OCR_PROMPT",
     "SIMPLE_OCR_PROMPT",
+    "get_ocr_prompt",
     "get_mime_type",
     "encode_image_base64",
 ]

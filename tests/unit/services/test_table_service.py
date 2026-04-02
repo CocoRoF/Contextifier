@@ -43,6 +43,14 @@ class TestFormatAsHtml:
         svc = TableService(ProcessingConfig())
         assert svc.format_as_html(TableData(rows=[], num_cols=0)) == ""
 
+    def test_escapes_html_special_chars(self) -> None:
+        """P0-1: format_as_html() must escape HTML-sensitive content."""
+        svc = TableService(ProcessingConfig())
+        result = svc.format_as_html(_table_with_special_chars())
+        assert "&lt;script&gt;" in result
+        assert "&amp;" in result
+        assert "<script>alert" not in result
+
 
 class TestFormatAsMarkdown:
     def test_basic(self) -> None:

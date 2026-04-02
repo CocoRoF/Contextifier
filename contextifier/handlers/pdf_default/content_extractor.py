@@ -129,6 +129,11 @@ class PdfDefaultContentExtractor(BaseContentExtractor):
         if doc is None:
             return ""
 
+        # If scan detected, render pages as images for OCR post-processing
+        needs_ocr = (preprocessed.properties or {}).get("needs_ocr", False)
+        if needs_ocr:
+            return self._extract_scan_pages(doc)
+
         page_count = doc.page_count
         processed_images: Set[int] = set()
         parts: list[str] = []
@@ -190,6 +195,57 @@ class PdfDefaultContentExtractor(BaseContentExtractor):
         if self._tag_service is not None:
             return self._tag_service.page_tag(page_number)
         return f"[Page Number: {page_number}]"
+
+    # ── Scan page rendering ──────────────────────────────────────────────
+
+    def _extract_scan_pages(self, doc: Any) -> str:
+        """Render each page as a PNG image and insert image tags.
+
+        This is the OCR bridge: the produced ``[Image: ...]`` tags are
+        later replaced by :class:`~contextifier.ocr.processor.OCRProcessor`
+        when ``ocr_processing=True`` is set on the calling
+        :meth:`DocumentProcessor.extract_text` invocation.
+        """
+        if self._image_service is None:
+            logger.warning(
+                "Scan PDF detected but no ImageService available — "
+                "returning empty text."
+            )
+            return ""
+
+        # DPI for page rendering (configurable via format_options)
+        render_dpi = 150
+        if self._config is not None:
+            render_dpi = self._config.get_format_option(
+                "pdf", "render_dpi", render_dpi,
+            )
+        zoom = render_dpi / 72.0
+        mat = fitz.Matrix(zoom, zoom)
+
+        parts: list[str] = []
+        for page_num in range(doc.page_count):
+            page_tag = self._make_page_tag(page_num + 1)
+
+            try:
+                pix = doc[page_num].get_pixmap(matrix=mat)
+                img_data = pix.tobytes("png")
+                pix = None  # release
+
+                tag = self._image_service.save_and_tag(
+                    img_data,
+                    custom_name=f"scan_page_{page_num + 1}.png",
+                    skip_duplicate=False,
+                )
+                if tag:
+                    parts.append(f"{page_tag}\n{tag}")
+                else:
+                    parts.append(f"{page_tag}\n[Image: scan_page_{page_num + 1}.png]")
+            except Exception as exc:
+                logger.warning(
+                    "Failed to render scan page %d: %s", page_num + 1, exc,
+                )
+
+        return "\n\n".join(parts)
 
     # ── Per-page processing ──────────────────────────────────────────────
 
@@ -299,6 +355,15 @@ class PdfDefaultContentExtractor(BaseContentExtractor):
         """Extract embedded images, save via image_service."""
         if self._image_service is None:
             return []
+
+        # Override defaults from format_options if available
+        if self._config is not None:
+            min_size = self._config.get_format_option(
+                "pdf", "min_image_size", min_size,
+            )
+            min_area = self._config.get_format_option(
+                "pdf", "min_image_area", min_area,
+            )
 
         elements: list[Tuple[float, str]] = []
         try:
