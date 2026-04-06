@@ -28,7 +28,7 @@ uv add contextifier
 ### 1. Basic Text Extraction
 
 ```python
-from contextifier_new import DocumentProcessor
+from contextifier import DocumentProcessor
 
 processor = DocumentProcessor()
 text = processor.extract_text("document.pdf")
@@ -38,7 +38,7 @@ print(text)
 ### 2. Extract + Chunk in One Step
 
 ```python
-from contextifier_new import DocumentProcessor
+from contextifier import DocumentProcessor
 
 processor = DocumentProcessor()
 result = processor.extract_chunks("document.pdf")
@@ -53,8 +53,8 @@ result.save_to_md("output/chunks")
 ### 3. Custom Configuration
 
 ```python
-from contextifier_new import DocumentProcessor
-from contextifier_new.config import ProcessingConfig, ChunkingConfig, TagConfig
+from contextifier import DocumentProcessor
+from contextifier.config import ProcessingConfig, ChunkingConfig, TagConfig
 
 config = ProcessingConfig(
     tags=TagConfig(page_prefix="<page>", page_suffix="</page>"),
@@ -68,8 +68,8 @@ text = processor.extract_text("report.xlsx")
 ### 4. OCR Integration
 
 ```python
-from contextifier_new import DocumentProcessor
-from contextifier_new.ocr.engines import OpenAIOCREngine
+from contextifier import DocumentProcessor
+from contextifier.ocr.engines import OpenAIOCREngine
 
 ocr = OpenAIOCREngine.from_api_key("sk-...", model="gpt-4o")
 processor = DocumentProcessor(ocr_engine=ocr)
@@ -93,7 +93,7 @@ text = processor.extract_text("scanned.pdf", ocr_processing=True)
 ## Architecture
 
 ```
-contextifier_new/
+contextifier/
 ├── document_processor.py     # Facade: single public entry point
 ├── config.py                 # Immutable config system (ProcessingConfig)
 ├── types.py                  # Shared types / Enums / TypedDicts
@@ -157,9 +157,14 @@ contextifier_new/
 |----------|----------|
 | [QUICKSTART.md](QUICKSTART.md) | Detailed usage guide & full API reference |
 | [Process Logic.md](Process%20Logic.md) | Handler processing flow diagrams |
-| [ARCHITECTURE.md](contextifier_new/ARCHITECTURE.md) | Internal architecture specification |
+| [ARCHITECTURE.md](contextifier/ARCHITECTURE.md) | Internal architecture specification |
 | [CHANGELOG.md](CHANGELOG.md) | Version history |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guidelines |
+| [Handler Comparison](docs/handler_comparison.md) | Handler feature support matrix |
+| [Configuration Reference](docs/configuration.md) | All config options, defaults & examples |
+| [Error Codes](docs/error_codes.md) | Exception hierarchy & troubleshooting |
+| [OCR Guide](docs/ocr_guide.md) | OCR engine setup & customization |
+| [Plugin Development](docs/plugin_development.md) | Custom handler development guide |
 
 ## License
 

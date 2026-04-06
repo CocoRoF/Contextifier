@@ -216,6 +216,7 @@ class DocumentProcessor:
         *,
         extract_metadata: bool = True,
         ocr_processing: bool = False,
+        password: Optional[str] = None,
         **kwargs: Any,
     ) -> str:
         """
@@ -226,6 +227,7 @@ class DocumentProcessor:
             file_extension: File extension override. If None, auto-detected.
             extract_metadata: Whether to include metadata in output.
             ocr_processing: Whether to perform OCR on image tags.
+            password: Password for encrypted MS Office files.
             **kwargs: Additional options passed to the handler pipeline.
 
         Returns:
@@ -251,6 +253,7 @@ class DocumentProcessor:
         # Build FileContext
         file_context = self._create_file_context(
             file_path_str, ext, max_file_size=self._MAX_FILE_SIZE,
+            password=password,
         )
 
         self._logger.info(f"Extracting text: {file_path_str} (ext={ext})")
@@ -282,6 +285,7 @@ class DocumentProcessor:
         *,
         extract_metadata: bool = True,
         ocr_processing: bool = False,
+        password: Optional[str] = None,
         **kwargs: Any,
     ) -> ExtractionResult:
         """
@@ -295,6 +299,7 @@ class DocumentProcessor:
             file_extension: File extension override.
             extract_metadata: Whether to extract metadata.
             ocr_processing: Whether to apply OCR.
+            password: Password for encrypted MS Office files.
             **kwargs: Additional options.
 
         Returns:
@@ -311,6 +316,7 @@ class DocumentProcessor:
         ext = self._resolve_extension(file_path_str, file_extension)
         file_context = self._create_file_context(
             file_path_str, ext, max_file_size=self._MAX_FILE_SIZE,
+            password=password,
         )
 
         # Reset per-file image deduplication state
@@ -374,6 +380,7 @@ class DocumentProcessor:
         *,
         extract_metadata: bool = True,
         ocr_processing: bool = False,
+        password: Optional[str] = None,
         chunk_size: Optional[int] = None,
         chunk_overlap: Optional[int] = None,
         preserve_tables: bool = True,
@@ -390,6 +397,7 @@ class DocumentProcessor:
             file_extension: File extension override.
             extract_metadata: Whether to include metadata in text.
             ocr_processing: Whether to apply OCR processing.
+            password: Password for encrypted MS Office files.
             chunk_size: Maximum characters per chunk.
             chunk_overlap: Overlap between chunks.
             preserve_tables: Whether to preserve table structures.
@@ -405,6 +413,7 @@ class DocumentProcessor:
             file_extension=file_extension,
             extract_metadata=extract_metadata,
             ocr_processing=ocr_processing,
+            password=password,
             **kwargs,
         )
 
@@ -522,6 +531,7 @@ class DocumentProcessor:
     @staticmethod
     def _create_file_context(
         file_path: str, extension: str, *, max_file_size: int = 0,
+        password: Optional[str] = None,
     ) -> FileContext:
         """Create a standardised FileContext dict from a file path.
 
@@ -543,6 +553,11 @@ class DocumentProcessor:
                          "max_file_size": max_file_size},
             )
         file_data = Path(file_path).read_bytes()
+
+        # Decrypt password-protected MS Office files
+        from contextifier.services.crypto_service import decrypt_if_encrypted
+        file_data = decrypt_if_encrypted(file_data, password=password)
+
         return FileContext(
             file_path=file_path,
             file_name=os.path.basename(file_path),

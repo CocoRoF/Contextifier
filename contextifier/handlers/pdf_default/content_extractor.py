@@ -20,7 +20,10 @@ import html as html_mod
 import logging
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-import fitz  # PyMuPDF
+try:
+    import fitz  # PyMuPDF (AGPL-3.0) — optional dependency
+except ImportError:
+    fitz = None  # type: ignore[assignment]
 
 from contextifier.pipeline.content_extractor import BaseContentExtractor
 from contextifier.types import (

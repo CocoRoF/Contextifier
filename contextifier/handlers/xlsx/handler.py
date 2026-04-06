@@ -46,7 +46,8 @@ class XLSXHandler(BaseHandler):
     def create_converter(self) -> BaseConverter:
         xlsx_opts = self._config.format_options.get("xlsx", {})
         data_only = xlsx_opts.get("data_only", True)
-        return XlsxConverter(data_only=data_only)
+        read_only = xlsx_opts.get("read_only", False)
+        return XlsxConverter(data_only=data_only, read_only=read_only)
 
     def create_preprocessor(self) -> BasePreprocessor:
         return XlsxPreprocessor()

@@ -135,6 +135,17 @@ class ImageService:
 
         self._ensure_state()
 
+        # Size limit check
+        max_mb = self._image_config.max_file_size_mb
+        if max_mb is not None and max_mb > 0:
+            size_mb = len(image_data) / (1024 * 1024)
+            if size_mb > max_mb:
+                self._logger.warning(
+                    "Image skipped: %.2f MB exceeds limit of %.2f MB",
+                    size_mb, max_mb,
+                )
+                return None
+
         should_skip = (
             skip_duplicate if skip_duplicate is not None
             else self._image_config.skip_duplicate

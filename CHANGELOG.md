@@ -7,6 +7,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.0] — 2025-07-19
+
+### Security (Phase 0)
+
+- **HTML Escape**: `TableService.format_as_html()` now escapes cell content (`html.escape()`) to prevent XSS
+- **Base64 Image Size Limit**: HTML handler limits base64 image decode to 50 MB (`MAX_IMAGE_DECODE_SIZE`)
+- **Path Traversal Defense**: `LocalStorageBackend` and `ImageService` validate output paths stay within base directory
+- **ZIP Bomb Defense**: DOCX/PPTX/XLSX/HWPX converters check decompressed size against 1 GB threshold
+
+### Fixed (Phase 1)
+
+- **PDF Scan OCR**: PDF default handler now renders scanned pages as images and inserts `[Image: ...]` tags for OCR pipeline
+- **DOC Native Parsing**: FIB + Piece Table based text extraction, Table Stream parsing for `extract_tables()`, OLE stream image extraction
+- **PPT Table/Chart Extraction**: OLE2 record-based table detection and chart extraction from PowerPoint binary format
+- **XLS Image/Chart Extraction**: OLE stream image signature scanning, BIFF chart record parsing
+- **Removed libreoffice.py**: Eliminated external tool dependency (133 LOC); all formats use native binary parsing
+- **Delegation Depth Limit**: `_delegate_to()` enforces max 3-level delegation depth to prevent infinite loops
+
+### Improved (Phase 2)
+
+- **RTF Merged Cell Verification**: `\clmgf`, `\clmrg`, `\clvmgf`, `\clvmrg` support verified and tested
+- **HWPX Chart Extraction**: OOXML chart XML parsed inline during `extract_text()`
+- **Image Handler OCR**: Integrated with OCR pipeline via `[Image: ...]` tag insertion
+- **Tesseract OCR Engine**: `TesseractOCREngine` implemented (`pytesseract` wrapper) — local OCR without LLM
+- **PPTX Group Shape Charts**: Recursive shape traversal includes chart extraction within group shapes
+- **XLSX Chart Extraction**: openpyxl chart API integration for `extract_charts()`
+- **OCR Prompt Language**: `OCRConfig.prompt_language` setting with `"ko"`/`"en"` prompt templates
+- **Configurable Thresholds**: `format_options` for `pdf.table_size`, `pptx.max_group_depth`, `csv.delimiter_candidates`, `doc.min_text_fragment_length`
+
+### Added (Phase 3 — Test Infrastructure)
+
+- **423 unit tests** covering all core components:
+  - `ImageService` (24 tests), `ChartService` (12 tests), `MetadataService` (10 tests)
+  - `CachedDocumentProcessor` (28 tests), `AsyncDocumentProcessor` (12 tests)
+  - Delegation path tests (14 tests), Security tests (16 tests)
+  - Integration test framework with `conftest.py`
+
+### Performance (Phase 4)
+
+- **CSV Streaming**: `max_rows` parameter limits in-memory row count; `truncated` flag in output
+- **XLSX Read-Only Mode**: `format_options["xlsx"]["read_only"]` for memory-efficient large file processing
+- **OCR Parallel Processing**: `OCRProcessor.max_workers` parameter enables `ThreadPoolExecutor`-based parallel OCR
+- **Shared ThreadPoolExecutor**: `BaseHandler._timeout_executor` is a class-level shared executor (lazy init, atexit cleanup)
+- **CachedProcessor Extension**: `process()` and `extract_chunks()` now cacheable with JSON serialization
+- **LRU Cache**: `MemoryCacheBackend` uses `OrderedDict`-based LRU eviction instead of FIFO
+- **Image Size Limit**: `ImageConfig.max_file_size_mb` skips oversized images with warning
+
+### Documentation (Phase 5)
+
+- **Handler Comparison Table**: `docs/handler_comparison.md` — feature matrix for all 15 handlers
+- **Configuration Reference**: `docs/configuration.md` — all config classes, options, defaults, examples
+- **Error Codes Reference**: `docs/error_codes.md` — exception hierarchy, error codes, troubleshooting
+- **OCR Setup Guide**: `docs/ocr_guide.md` — 6 engine setup, prompt customization, parallel processing
+- **Plugin Development Guide**: `docs/plugin_development.md` — BaseHandler extension, 5-stage pipeline, testing
+- **CHANGELOG v0.3.0**: This changelog entry
+
+### Ecosystem (Phase 6)
+
+- **LangChain Integration**: `ContextifierLoader(BaseLoader)` in `contextifier.integrations.langchain_loader`
+  - Single document / chunked mode, OCR support, lazy_load
+- **CI/CD Pipeline**: `.github/workflows/ci.yml` — lint, test matrix (Python 3.12/3.13), type-check, PyPI publish
+- **Docker Support**: Multi-stage `Dockerfile` with Tesseract OCR and Poppler
+- **Password-Protected Files**: `crypto_service.decrypt_if_encrypted()` via msoffcrypto-tool
+  - `extract_text(password=)`, `process(password=)`, `extract_chunks(password=)` API
+- **License Review**: PyMuPDF (AGPL-3.0) moved to optional `[pdf]` extra; guarded imports
+- **CSV Delimiter Confidence**: `_detect_delimiter()` returns `(delimiter, confidence)` tuple
+  - `CsvParsedData.delimiter_confidence` field, exposed in `PreprocessedData.properties`
+- **EncodingConfig**: New config class with `fallback_encodings`, `force_encoding`, `min_confidence`
+  - `ProcessingConfig.with_encoding()` fluent API; wired through CSV/TSV/Text converters
+
+---
+
 ## [2.0.0-alpha] — 2025-07-15
 
 ### Breaking Changes — Full Architecture Redesign

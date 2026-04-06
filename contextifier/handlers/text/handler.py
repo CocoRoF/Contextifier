@@ -99,7 +99,10 @@ class TextHandler(BaseHandler):
         """
         text_opts = self._config.format_options.get("text", {})
         encodings = text_opts.get("encodings", None)
-        return TextConverter(encodings=encodings)
+        return TextConverter(
+            encodings=encodings,
+            encoding_config=self._config.encoding,
+        )
 
     def create_preprocessor(self) -> BasePreprocessor:
         """Create TextPreprocessor for BOM strip and line ending normalization."""

@@ -63,7 +63,10 @@ class TSVHandler(BaseHandler):
         """BOM-aware converter with configurable encoding list."""
         tsv_opts = self._config.format_options.get("tsv", {})
         encodings = tsv_opts.get("encodings", None)
-        return CsvConverter(encodings=encodings)
+        return CsvConverter(
+            encodings=encodings,
+            encoding_config=self._config.encoding,
+        )
 
     def create_preprocessor(self) -> BasePreprocessor:
         """
@@ -71,7 +74,9 @@ class TSVHandler(BaseHandler):
 
         Skips csv.Sniffer detection — always uses ``\\t``.
         """
-        return CsvPreprocessor(default_delimiter="\t")
+        tsv_opts = self._config.format_options.get("tsv", {})
+        max_rows = tsv_opts.get("max_rows", None)
+        return CsvPreprocessor(default_delimiter="\t", max_rows=max_rows)
 
     def create_metadata_extractor(self) -> BaseMetadataExtractor:
         """Extracts TSV structural info into DocumentMetadata.custom."""

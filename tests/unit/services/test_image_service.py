@@ -199,6 +199,55 @@ class TestThreadIsolation:
         assert results["t1"] is not None
         assert results["t2"] is not None
 
+
+# ═══════════════ P4-7: Image size limit ═══════════════════════════════════════
+
+class TestImageSizeLimit:
+    """max_file_size_mb enforcement in ImageService.save()."""
+
+    def _make_service(self, max_mb: Optional[float]) -> ImageService:
+        config = ProcessingConfig().with_images(max_file_size_mb=max_mb)
+        storage = MagicMock()
+        storage.save = MagicMock()
+        tag_service = MagicMock()
+        tag_service.create_image_tag.side_effect = lambda p: f"[Image:{p}]"
+        return ImageService(config, storage_backend=storage, tag_service=tag_service)
+
+    def test_default_no_limit(self) -> None:
+        """Default: max_file_size_mb=None → no limit."""
+        from contextifier.config import ImageConfig
+        assert ImageConfig().max_file_size_mb is None
+
+    def test_within_limit_saves(self) -> None:
+        svc = self._make_service(max_mb=1.0)
+        # 100 bytes << 1 MB
+        path = svc.save(b"x" * 100, custom_name="small.png")
+        assert path is not None
+
+    def test_exceeds_limit_skipped(self) -> None:
+        svc = self._make_service(max_mb=0.001)  # 0.001 MB ≈ ~1 KB
+        # 2000 bytes > 1 KB
+        path = svc.save(b"x" * 2000, custom_name="big.png")
+        assert path is None
+
+    def test_exact_limit_saves(self) -> None:
+        limit_mb = 0.01  # 10,485 bytes
+        svc = self._make_service(max_mb=limit_mb)
+        limit_bytes = int(limit_mb * 1024 * 1024)
+        path = svc.save(b"x" * limit_bytes, custom_name="exact.png")
+        assert path is not None
+
+    def test_none_limit_saves_large(self) -> None:
+        svc = self._make_service(max_mb=None)
+        # Large data passes when no limit set
+        path = svc.save(b"x" * 50000, custom_name="nolimit.png")
+        assert path is not None
+
+    def test_save_and_tag_respects_limit(self) -> None:
+        svc = self._make_service(max_mb=0.001)
+        tag = svc.save_and_tag(b"x" * 2000, custom_name="big.png")
+        assert tag is None
+
     def test_thread_counter_independence(self) -> None:
         """Sequential counter is per-thread."""
         config = ProcessingConfig().with_images(naming_strategy=NamingStrategy.SEQUENTIAL)

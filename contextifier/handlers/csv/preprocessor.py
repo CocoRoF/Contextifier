@@ -66,6 +66,8 @@ class CsvParsedData(NamedTuple):
     encoding: str
     row_count: int
     col_count: int
+    truncated: bool = False
+    delimiter_confidence: float = 1.0
 
 
 # ── Preprocessor ─────────────────────────────────────────────────────────
@@ -86,10 +88,12 @@ class CsvPreprocessor(BasePreprocessor):
         self,
         default_delimiter: Optional[str] = None,
         delimiter_candidates: Optional[List[str]] = None,
+        max_rows: Optional[int] = None,
     ) -> None:
         super().__init__()
         self._default_delimiter = default_delimiter
         self._delimiter_candidates = delimiter_candidates
+        self._max_rows = max_rows if max_rows is not None else MAX_ROWS
 
     def preprocess(
         self,
@@ -120,11 +124,14 @@ class CsvPreprocessor(BasePreprocessor):
             kwargs.get("delimiter")
             or self._default_delimiter
         )
+        delimiter_confidence = 1.0  # forced delimiter = full confidence
         if delimiter is None:
-            delimiter = _detect_delimiter(text, self._delimiter_candidates)
+            delimiter, delimiter_confidence = _detect_delimiter(
+                text, self._delimiter_candidates
+            )
 
         # Parse CSV rows
-        rows = _parse_csv_content(text, delimiter)
+        rows, truncated = _parse_csv_content(text, delimiter, self._max_rows)
 
         # Detect header
         has_header = _detect_header(rows)
@@ -140,6 +147,8 @@ class CsvPreprocessor(BasePreprocessor):
             encoding=encoding,
             row_count=row_count,
             col_count=col_count,
+            truncated=truncated,
+            delimiter_confidence=delimiter_confidence,
         )
 
         return PreprocessedData(
@@ -150,9 +159,11 @@ class CsvPreprocessor(BasePreprocessor):
             properties={
                 "file_extension": file_extension,
                 "delimiter": delimiter,
+                "delimiter_confidence": delimiter_confidence,
                 "has_header": has_header,
                 "row_count": row_count,
                 "col_count": col_count,
+                "truncated": truncated,
             },
         )
 
@@ -193,14 +204,19 @@ _logger = logging.getLogger("contextifier.csv.preprocessor")
 def _detect_delimiter(
     content: str,
     candidates: Optional[List[str]] = None,
-) -> str:
+) -> tuple[str, float]:
     """
-    Auto-detect the CSV delimiter.
+    Auto-detect the CSV delimiter with a confidence score.
 
     Strategy:
     1. Use csv.Sniffer on the first 20 lines.
     2. If Sniffer fails, score each candidate delimiter by
        counting per-line consistency (same count on every line).
+
+    Confidence is calculated from row consistency:
+    - 1.0: Sniffer succeeded, or perfect manual consistency with ≥2 columns
+    - 0.5–0.99: Manual scoring with some variation
+    - 0.0: No delimiter found, fallback to comma
 
     Args:
         content: Decoded CSV text.
@@ -208,7 +224,7 @@ def _detect_delimiter(
             ``DELIMITER_CANDIDATES`` if not provided.
 
     Returns:
-        Detected delimiter character. Defaults to ``','``.
+        Tuple of (delimiter, confidence) where confidence is 0.0–1.0.
     """
     if candidates is None:
         candidates = DELIMITER_CANDIDATES
@@ -218,50 +234,75 @@ def _detect_delimiter(
     # Phase 1: csv.Sniffer
     try:
         dialect = csv.Sniffer().sniff(sample, delimiters=",\t;|")
-        return dialect.delimiter
+        # Sniffer succeeded — validate with consistency check
+        non_empty = [line for line in sample_lines if line.strip()]
+        if non_empty:
+            counts = [line.count(dialect.delimiter) for line in non_empty]
+            if len(set(counts)) == 1 and counts[0] > 0:
+                return dialect.delimiter, 1.0
+            elif max(counts) > 0:
+                avg = sum(counts) / len(counts)
+                std = (sum((c - avg) ** 2 for c in counts) / len(counts)) ** 0.5
+                consistency = max(0.0, 1.0 - (std / max(avg, 1.0)))
+                return dialect.delimiter, round(min(1.0, 0.7 + consistency * 0.3), 3)
+        return dialect.delimiter, 0.8
     except csv.Error:
         pass
 
     # Phase 2: Manual consistency scoring
     best_delimiter = ","
     best_score = 0.0
+    best_confidence = 0.0
 
     non_empty_lines = [line for line in sample_lines if line.strip()]
     if not non_empty_lines:
-        return ","
+        return ",", 0.0
 
     for delim in candidates:
         counts = [line.count(delim) for line in non_empty_lines]
         if not counts or max(counts) == 0:
             continue
 
+        avg = sum(counts) / len(counts)
+        std = (sum((c - avg) ** 2 for c in counts) / len(counts)) ** 0.5
+
         # Perfect consistency: same count on every line → high bonus
         if len(set(counts)) == 1 and counts[0] > 0:
             score = float(counts[0]) * 10.0
+            confidence = 1.0 if counts[0] >= 2 else 0.8
         else:
-            score = sum(counts) / len(counts)
+            score = avg
+            consistency = max(0.0, 1.0 - (std / max(avg, 1.0)))
+            confidence = round(consistency * 0.7, 3)
 
         if score > best_score:
             best_score = score
             best_delimiter = delim
+            best_confidence = confidence
 
-    return best_delimiter
+    return best_delimiter, best_confidence
 
 
-def _parse_csv_content(content: str, delimiter: str) -> List[List[str]]:
+def _parse_csv_content(
+    content: str,
+    delimiter: str,
+    max_rows: int = MAX_ROWS,
+) -> tuple[List[List[str]], bool]:
     """
     Parse CSV content into rows using csv.reader.
 
     Falls back to simple line-splitting on csv.Error.
-    Limits output to MAX_ROWS rows and MAX_COLS columns.
+    Limits output to *max_rows* rows and MAX_COLS columns.
     Skips completely empty rows.
 
     Args:
         content: Decoded CSV text (LF-normalized).
         delimiter: Column delimiter.
+        max_rows: Maximum number of rows to parse.
 
     Returns:
-        List of rows, each row a list of cell strings.
+        Tuple of (rows, truncated) where truncated indicates
+        whether parsing was stopped due to the row limit.
     """
     try:
         reader = csv.reader(
@@ -273,23 +314,31 @@ def _parse_csv_content(content: str, delimiter: str) -> List[List[str]]:
         )
 
         rows: List[List[str]] = []
+        truncated = False
         for i, row in enumerate(reader):
-            if i >= MAX_ROWS:
-                _logger.warning("CSV row limit reached: %d", MAX_ROWS)
+            if i >= max_rows:
+                _logger.warning(
+                    "CSV row limit reached: %d", max_rows,
+                )
+                truncated = True
                 break
             if len(row) > MAX_COLS:
                 row = row[:MAX_COLS]
             # Skip fully empty rows
             if any(cell.strip() for cell in row):
                 rows.append(row)
-        return rows
+        return rows, truncated
 
     except csv.Error as e:
         _logger.warning("csv.reader failed (%s), falling back to simple split", e)
-        return _parse_csv_simple(content, delimiter)
+        return _parse_csv_simple(content, delimiter, max_rows)
 
 
-def _parse_csv_simple(content: str, delimiter: str) -> List[List[str]]:
+def _parse_csv_simple(
+    content: str,
+    delimiter: str,
+    max_rows: int = MAX_ROWS,
+) -> tuple[List[List[str]], bool]:
     """
     Simple fallback CSV parser using str.split().
 
@@ -298,13 +347,16 @@ def _parse_csv_simple(content: str, delimiter: str) -> List[List[str]]:
     Args:
         content: Decoded CSV text.
         delimiter: Column delimiter.
+        max_rows: Maximum number of rows to parse.
 
     Returns:
-        List of rows.
+        Tuple of (rows, truncated).
     """
     rows: List[List[str]] = []
+    truncated = False
     for i, line in enumerate(content.split("\n")):
-        if i >= MAX_ROWS:
+        if i >= max_rows:
+            truncated = True
             break
         line = line.strip()
         if not line:
@@ -313,7 +365,7 @@ def _parse_csv_simple(content: str, delimiter: str) -> List[List[str]]:
         if len(cells) > MAX_COLS:
             cells = cells[:MAX_COLS]
         rows.append(cells)
-    return rows
+    return rows, truncated
 
 
 def _detect_header(rows: List[List[str]]) -> bool:

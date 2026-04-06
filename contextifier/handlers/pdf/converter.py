@@ -13,7 +13,10 @@ import logging
 from io import BytesIO
 from typing import Any, NamedTuple
 
-import fitz  # PyMuPDF
+try:
+    import fitz  # PyMuPDF (AGPL-3.0) — optional dependency
+except ImportError:
+    fitz = None  # type: ignore[assignment]
 
 from contextifier.pipeline.converter import BaseConverter
 from contextifier.types import FileContext
@@ -38,6 +41,14 @@ class PdfConverter(BaseConverter):
     """
 
     def convert(self, file_context: FileContext, **kwargs: Any) -> PdfConvertedData:
+        if fitz is None:
+            raise ConversionError(
+                "PyMuPDF is required for PDF processing. "
+                "Install it with: pip install contextifier[pdf]",
+                stage="convert",
+                handler="pdf",
+            )
+
         file_data: bytes = file_context.get("file_data", b"")
         if not file_data:
             raise ConversionError(

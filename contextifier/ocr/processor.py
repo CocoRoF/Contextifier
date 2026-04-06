@@ -15,6 +15,7 @@ BaseOCR.process_text() method — single source of truth.
 
 from __future__ import annotations
 
+import concurrent.futures
 import logging
 import os
 import re
@@ -68,6 +69,7 @@ class OCRProcessor:
         config: ProcessingConfig,
         *,
         image_pattern: Optional[Pattern[str]] = None,
+        max_workers: int = 1,
     ) -> None:
         """
         Args:
@@ -75,9 +77,12 @@ class OCRProcessor:
             config: Processing configuration.
             image_pattern: Custom regex pattern for image tags.
                            Must have exactly one capture group for the path.
+            max_workers: Number of parallel OCR threads.
+                         1 = sequential (default), >1 = parallel.
         """
         self._engine = engine
         self._config = config
+        self._max_workers = max(1, max_workers)
         if image_pattern is not None:
             self._pattern = image_pattern
         else:
@@ -100,6 +105,10 @@ class OCRProcessor:
         """
         Replace all image tags in text with OCR results.
 
+        When ``max_workers > 1``, OCR conversions run in parallel
+        via a ThreadPoolExecutor.  Tag replacements are always
+        applied sequentially in the original order.
+
         Args:
             text: Text containing image tags.
             progress_callback: Optional progress reporting function.
@@ -118,47 +127,16 @@ class OCRProcessor:
         total = len(image_paths)
         logger.info(f"Detected {total} image tag(s) for OCR processing")
 
+        # Phase 1: Run OCR for all images (parallel if max_workers > 1)
+        ocr_results = self._run_ocr_batch(image_paths, total, progress_callback)
+
+        # Phase 2: Apply replacements sequentially in order
         result = text
         success_count = 0
-
-        for idx, img_path in enumerate(image_paths):
-            # Notify: processing started
-            if progress_callback:
-                progress_callback(OCRProgressEvent(
-                    event_type="tag_processing",
-                    current_index=idx,
-                    total_count=total,
-                    image_path=img_path,
-                ))
-
-            # Resolve and convert
-            local_path = self._resolve_image_path(img_path)
-            if local_path is None:
-                logger.warning(f"Image not found, keeping original tag: {img_path}")
-                self._notify_failed(progress_callback, idx, total, img_path, "File not found")
-                continue
-
-            ocr_text = self._engine.convert_image_to_text(local_path)
-            if ocr_text is None or ocr_text.startswith("[Image conversion error:"):
-                logger.warning(f"OCR failed, keeping original tag: {img_path}")
-                self._notify_failed(
-                    progress_callback, idx, total, img_path,
-                    ocr_text or "OCR returned None",
-                )
-                continue
-
-            # Replace the tag
-            result = self._replace_tag(result, img_path, ocr_text)
-            success_count += 1
-
-            if progress_callback:
-                progress_callback(OCRProgressEvent(
-                    event_type="tag_processed",
-                    current_index=idx,
-                    total_count=total,
-                    image_path=img_path,
-                    status="success",
-                ))
+        for img_path, ocr_text in ocr_results:
+            if ocr_text is not None:
+                result = self._replace_tag(result, img_path, ocr_text)
+                success_count += 1
 
         # Final notification
         if progress_callback:
@@ -170,6 +148,93 @@ class OCRProcessor:
             ))
 
         return result
+
+    def _run_ocr_batch(
+        self,
+        image_paths: List[str],
+        total: int,
+        progress_callback: Optional[Callable[[OCRProgressEvent], Any]],
+    ) -> List[tuple[str, Optional[str]]]:
+        """
+        Run OCR on all images, returning results in original order.
+
+        Uses ThreadPoolExecutor when max_workers > 1.
+
+        Returns:
+            List of (image_path, ocr_text_or_None) tuples.
+        """
+        if self._max_workers <= 1:
+            return [
+                self._ocr_single(idx, img_path, total, progress_callback)
+                for idx, img_path in enumerate(image_paths)
+            ]
+
+        # Parallel execution — submit all, collect in order
+        results: List[tuple[str, Optional[str]]] = [("", None)] * total
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=self._max_workers,
+        ) as executor:
+            future_to_idx = {
+                executor.submit(
+                    self._ocr_single, idx, img_path, total, progress_callback,
+                ): idx
+                for idx, img_path in enumerate(image_paths)
+            }
+            for future in concurrent.futures.as_completed(future_to_idx):
+                idx = future_to_idx[future]
+                try:
+                    results[idx] = future.result()
+                except Exception as exc:
+                    logger.warning("OCR task %d failed: %s", idx, exc)
+                    results[idx] = (image_paths[idx], None)
+
+        return results
+
+    def _ocr_single(
+        self,
+        idx: int,
+        img_path: str,
+        total: int,
+        progress_callback: Optional[Callable[[OCRProgressEvent], Any]],
+    ) -> tuple[str, Optional[str]]:
+        """
+        OCR a single image. Returns (image_path, ocr_text_or_None).
+        """
+        # Notify: processing started
+        if progress_callback:
+            progress_callback(OCRProgressEvent(
+                event_type="tag_processing",
+                current_index=idx,
+                total_count=total,
+                image_path=img_path,
+            ))
+
+        # Resolve and convert
+        local_path = self._resolve_image_path(img_path)
+        if local_path is None:
+            logger.warning(f"Image not found, keeping original tag: {img_path}")
+            self._notify_failed(progress_callback, idx, total, img_path, "File not found")
+            return (img_path, None)
+
+        ocr_text = self._engine.convert_image_to_text(local_path)
+        if ocr_text is None or ocr_text.startswith("[Image conversion error:"):
+            logger.warning(f"OCR failed, keeping original tag: {img_path}")
+            self._notify_failed(
+                progress_callback, idx, total, img_path,
+                ocr_text or "OCR returned None",
+            )
+            return (img_path, None)
+
+        if progress_callback:
+            progress_callback(OCRProgressEvent(
+                event_type="tag_processed",
+                current_index=idx,
+                total_count=total,
+                image_path=img_path,
+                status="success",
+            ))
+
+        return (img_path, ocr_text)
 
     # ── Private helpers ───────────────────────────────────────────────────
 
@@ -193,10 +258,13 @@ class OCRProcessor:
         """Replace the image tag for the given path with OCR result."""
         escaped = re.escape(img_path)
         pattern_str = self._pattern.pattern
-        # Replace the capture group with the escaped literal path
-        tag_pattern_str = re.sub(r"\([^)]+\)", escaped, pattern_str, count=1)
+        # Replace the capture group with the escaped literal path.
+        # Use a lambda to avoid backslash interpretation in replacement strings.
+        tag_pattern_str = re.sub(
+            r"\([^)]+\)", lambda _: escaped, pattern_str, count=1,
+        )
         tag_re = re.compile(tag_pattern_str)
-        return tag_re.sub(replacement, text)
+        return tag_re.sub(lambda _: replacement, text)
 
     @staticmethod
     def _notify_failed(

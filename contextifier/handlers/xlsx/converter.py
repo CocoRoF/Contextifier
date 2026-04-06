@@ -43,8 +43,9 @@ class XlsxConverter(BaseConverter):
     overridden via ``format_options["xlsx"]["data_only"]``.
     """
 
-    def __init__(self, *, data_only: bool = True) -> None:
+    def __init__(self, *, data_only: bool = True, read_only: bool = False) -> None:
         self._data_only = data_only
+        self._read_only = read_only
 
     def convert(self, file_context: FileContext, **kwargs: Any) -> XlsxConvertedData:
         """
@@ -67,7 +68,11 @@ class XlsxConverter(BaseConverter):
         stream = io.BytesIO(file_data)
 
         try:
-            wb = openpyxl.load_workbook(stream, data_only=self._data_only)
+            wb = openpyxl.load_workbook(
+                stream,
+                data_only=self._data_only,
+                read_only=self._read_only,
+            )
         except Exception as exc:
             raise ConversionError(
                 f"Failed to open XLSX file: {exc}",

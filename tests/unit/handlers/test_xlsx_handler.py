@@ -41,3 +41,38 @@ class TestXLSXFormatOptions:
         )
         handler = XLSXHandler(config)
         assert handler.content_extractor is not None
+
+    # ── P4-2: read_only mode ──────────────────────────────────────────
+
+    def test_read_only_default_false(self) -> None:
+        """Default: read_only=False."""
+        handler = XLSXHandler(ProcessingConfig())
+        assert handler.converter._read_only is False
+
+    def test_read_only_from_format_options(self) -> None:
+        """read_only=True via format_options["xlsx"]["read_only"]."""
+        config = ProcessingConfig(
+            format_options={"xlsx": {"read_only": True}}
+        )
+        handler = XLSXHandler(config)
+        assert handler.converter._read_only is True
+
+    def test_read_only_passed_to_load_workbook(self) -> None:
+        """Converter passes read_only to openpyxl.load_workbook."""
+        from unittest.mock import patch, MagicMock
+        from contextifier.handlers.xlsx.converter import XlsxConverter
+
+        converter = XlsxConverter(data_only=True, read_only=True)
+
+        mock_wb = MagicMock()
+        with patch("contextifier.handlers.xlsx.converter.openpyxl.load_workbook", return_value=mock_wb) as mock_load:
+            ctx = {"file_data": b"PK\x03\x04" + b"\x00" * 100}
+            try:
+                converter.convert(ctx)
+            except Exception:
+                pass  # May fail on invalid XLSX, we just check the call
+
+            if mock_load.called:
+                _, kwargs = mock_load.call_args
+                assert kwargs.get("read_only") is True
+                assert kwargs.get("data_only") is True

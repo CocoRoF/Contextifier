@@ -73,12 +73,25 @@ class CsvConverter(BaseConverter):
     2. If no BOM, try each candidate encoding in order.
     3. Fallback: UTF-8 with ``errors='replace'``.
 
-    Encoding list can be customized via constructor or per-call kwargs.
+    Encoding list can be customized via constructor, per-call kwargs,
+    or the global EncodingConfig.
     """
 
-    def __init__(self, encodings: Optional[List[str]] = None) -> None:
+    def __init__(
+        self,
+        encodings: Optional[List[str]] = None,
+        encoding_config: Optional[Any] = None,
+    ) -> None:
         super().__init__()
-        self._encodings = encodings or list(DEFAULT_ENCODINGS)
+        # EncodingConfig.force_encoding takes top priority
+        if encoding_config is not None and encoding_config.force_encoding:
+            self._encodings = [encoding_config.force_encoding]
+        elif encodings is not None:
+            self._encodings = list(encodings)
+        elif encoding_config is not None:
+            self._encodings = list(encoding_config.fallback_encodings)
+        else:
+            self._encodings = list(DEFAULT_ENCODINGS)
 
     def convert(
         self,

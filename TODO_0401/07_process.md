@@ -7,6 +7,9 @@
 > Phase 1 완료 후: 172 tests passing (0.62s)
 > Phase 2 완료 후: 260 tests passing (1.31s)
 > Phase 3 완료 후: 374 tests passing (1.11s)
+> Phase 4 완료 후: 423 tests passing (1.68s)
+> Phase 5 완료 후: 423 tests passing (1.83s) — 문서화 단계, 테스트 변경 없음
+> Phase 6 완료 후: 476 tests passing (2.04s) — 에코시스템 & 미래 대응
 
 ---
 
@@ -159,6 +162,74 @@
   - 엔진 생성, provider, build_message_content raises, repr
   - convert_image (성공/빈문자열/import_error/runtime_error)
 
+### P2-5. PPTX 그룹 셰이프 재귀 추출 ✅
+- **상태**: ✅ 완료
+- **수정**: `contextifier/handlers/pptx/content_extractor.py`
+  - `extract_tables()` → `_collect_tables(shape, depth=0)` 재귀 헬퍼
+  - `extract_images()` → `_collect_images(shape, slide_idx, processed, depth=0)` 재귀 헬퍼
+  - `extract_charts()` → `_collect_charts(shape, depth=0)` 재귀 헬퍼
+  - 각 헬퍼: `hasattr(shape, "shapes")` 체크 → 그룹 내부 재귀, `_MAX_GROUP_DEPTH` 제한
+- **테스트**: `tests/unit/handlers/test_pptx_group_shapes.py` — 8개 테스트
+  - 테이블/이미지/차트: 최상위, 그룹 내부, 중첩 그룹, 깊이 제한
+
+### P2-6. XLSX 차트 추출 확인 ✅
+- **상태**: ✅ 완료 (이미 구현됨 확인 — 테스트만 추가)
+- **확인**: `contextifier/handlers/xlsx/content_extractor.py`
+  - `extract_charts()`: `preprocessed.resources["charts_by_sheet"]` 에서 차트 데이터 로드
+  - `preprocessor.py`에서 `openpyxl.chart` API로 사전 추출 → 리소스 맵핑
+- **테스트**: `tests/unit/handlers/test_xlsx_charts.py` — 7개 테스트
+  - 단일/다중 차트, 빈 리소스, 시리즈 데이터, 유효하지 않은 dict, 카테고리
+
+### P2-7. OCR 프롬프트 언어 설정화 ✅
+- **상태**: ✅ 완료
+- **수정**:
+  - `contextifier/ocr/base.py`
+    - `_OCR_PROMPT_TEMPLATE`: `{language_rule}` 플레이스홀더 기반 템플릿
+    - `OCR_LANGUAGE_RULES`: 언어별 규칙 dict (`ko`, `en`, `ja`)
+    - `get_ocr_prompt(language: str = "ko") -> str`: 언어 코드로 프롬프트 생성
+    - `DEFAULT_OCR_PROMPT` = `get_ocr_prompt("ko")` (하위 호환성 유지)
+  - `contextifier/config.py`
+    - `OCRConfig.prompt_language: str = "ko"` 필드 추가
+- **테스트**: `tests/unit/ocr/test_ocr_prompt_language.py` — 8개 테스트
+  - 한국어 기본, 영어, 일본어, 미지원 언어 폴백, 커스텀 프롬프트 우선
+  - OCRConfig.prompt_language, 하위 호환성, DEFAULT_OCR_PROMPT 값
+
+### P2-8. 하드코딩된 임계값 설정화 ✅
+- **상태**: ✅ 완료
+- **설계**: `BaseContentExtractor.__init__`에 `config: Optional[ProcessingConfig] = None` 파라미터 추가 (하위 호환)
+  - 핸들러의 `create_content_extractor()`에서 `config=self._config` 전달
+  - 각 추출기가 `self._config.get_format_option()` 으로 임계값 읽기, 기본값 폴백
+- **수정**:
+  - `contextifier/pipeline/content_extractor.py` — `config` 파라미터 추가
+  - `contextifier/handlers/pdf/handler.py` — 양쪽 모드에 `config=self._config` 전달
+  - `contextifier/handlers/pdf_default/content_extractor.py`
+    - `render_dpi`: `format_options["pdf"]["render_dpi"]` (기본 150)
+    - `min_image_size`: `format_options["pdf"]["min_image_size"]` (기본 50)
+    - `min_image_area`: `format_options["pdf"]["min_image_area"]` (기본 2500)
+  - `contextifier/handlers/pdf_plus/content_extractor.py` — `config` 파라미터 추가
+  - `contextifier/handlers/pptx/handler.py` + `content_extractor.py`
+    - `max_group_depth`: `format_options["pptx"]["max_group_depth"]` (기본 20)
+  - `contextifier/handlers/csv/handler.py` + `preprocessor.py`
+    - `delimiter_candidates`: `format_options["csv"]["delimiter_candidates"]` (기본 `[",", "\t", ";", "|"]`)
+    - `_detect_delimiter()` 에 `candidates` 파라미터 추가
+  - `contextifier/handlers/doc/handler.py` + `content_extractor.py`
+    - `min_text_fragment_length`: `format_options["doc"]["min_text_fragment_length"]` (기본 4)
+    - 인스턴스 변수 `_min_text_fragment_length`, `_min_unicode_bytes` 로 변환
+- **사용 예시**:
+  ```python
+  config = ProcessingConfig().with_format_option("pdf", render_dpi=200, min_image_size=30)
+  config = ProcessingConfig().with_format_option("pptx", max_group_depth=5)
+  config = ProcessingConfig().with_format_option("csv", delimiter_candidates=[",", ";", ":"])
+  config = ProcessingConfig().with_format_option("doc", min_text_fragment_length=8)
+  ```
+- **테스트**: `tests/unit/handlers/test_configurable_thresholds.py` — 22개 테스트
+  - BaseContentExtractor config 전파 (2개)
+  - PDF default: render_dpi, min_image_size, min_image_area, 스캔 DPI 적용, 필터링 (6개)
+  - PPTX: 기본값, config 오버라이드, None config (3개)
+  - CSV: 기본 후보, 커스텀 감지, 전처리기 저장, handler 전달 (5개)
+  - DOC: 기본값, config 오버라이드, None, handler 전달 (4개)
+  - PDF handler config 전파: default/plus 모드 (2개)
+
 ---
 
 ## Phase 3: 테스트 인프라 확장 ✅ DONE
@@ -242,72 +313,234 @@
   - `TestPathTraversalDefense` (4): dotdot, absolute path, nested dotdot, normal subdir allowed
   - `TestDelegationDepthSecurity` (2): reasonable constant, overflow prevented
   - `TestInputBoundary` (4): null bytes, empty file rejected, binary garbage, nonexistent file
-  - custom lang, custom cmd, image handler 태그 생성/fallback, 엔진 등록
 
-### P2-5. PPTX 그룹 셰이프 재귀 추출 ✅
+---
+
+## Phase 4: 성능 & 안정성 ✅ DONE
+
+> Phase 3 완료 후: 374 tests → Phase 4 완료 후: 423 tests (1.68s)
+> 신규 테스트: 49개 추가
+
+### P4-1. 대형 CSV 스트리밍 처리 ✅
 - **상태**: ✅ 완료
-- **수정**: `contextifier/handlers/pptx/content_extractor.py`
-  - `extract_tables()` → `_collect_tables(shape, depth=0)` 재귀 헬퍼
-  - `extract_images()` → `_collect_images(shape, slide_idx, processed, depth=0)` 재귀 헬퍼
-  - `extract_charts()` → `_collect_charts(shape, depth=0)` 재귀 헬퍼
-  - 각 헬퍼: `hasattr(shape, "shapes")` 체크 → 그룹 내부 재귀, `_MAX_GROUP_DEPTH` 제한
-- **테스트**: `tests/unit/handlers/test_pptx_group_shapes.py` — 8개 테스트
-  - 테이블/이미지/차트: 최상위, 그룹 내부, 중첩 그룹, 깊이 제한
+- **수정**: `contextifier/handlers/csv/preprocessor.py`
+  - `CsvParsedData`: `truncated: bool = False` 필드 추가
+  - `CsvPreprocessor.__init__()`: `max_rows` 매개변수 추가 (기본값 = `MAX_ROWS`)
+  - `_parse_csv_content()`: `max_rows` 매개변수 추가, `(rows, truncated)` 튜플 반환
+  - `_parse_csv_simple()`: 동일 변경
+  - `preprocess()`: `truncated` 플래그를 `CsvParsedData` 및 `properties`에 전파
+- **수정**: `contextifier/handlers/csv/handler.py` — `format_options["csv"]["max_rows"]` 읽기
+- **수정**: `contextifier/handlers/tsv/handler.py` — `format_options["tsv"]["max_rows"]` 읽기
+- **테스트**: `tests/unit/handlers/test_csv_streaming.py` — 15 테스트
+  - `TestParseMaxRows` (4): no truncation, truncation at limit, exact limit, default constant
+  - `TestParseSimpleMaxRows` (2): truncation, no truncation
+  - `TestCsvPreprocessorMaxRows` (4): default, custom, preprocess truncates, preprocess no truncation
+  - `TestCsvHandlerMaxRowsOption` (2): handler passes max_rows, handler default
+  - `TestTsvHandlerMaxRowsOption` (1): TSV handler passes max_rows
+  - `TestCsvParsedDataTruncated` (2): default false, explicit true
 
-### P2-6. XLSX 차트 추출 확인 ✅
-- **상태**: ✅ 완료 (이미 구현됨 확인 — 테스트만 추가)
-- **확인**: `contextifier/handlers/xlsx/content_extractor.py`
-  - `extract_charts()`: `preprocessed.resources["charts_by_sheet"]` 에서 차트 데이터 로드
-  - `preprocessor.py`에서 `openpyxl.chart` API로 사전 추출 → 리소스 맵핑
-- **테스트**: `tests/unit/handlers/test_xlsx_charts.py` — 7개 테스트
-  - 단일/다중 차트, 빈 리소스, 시리즈 데이터, 유효하지 않은 dict, 카테고리
-
-### P2-7. OCR 프롬프트 언어 설정화 ✅
+### P4-2. XLSX read_only 모드 옵션 ✅
 - **상태**: ✅ 완료
-- **수정**:
-  - `contextifier/ocr/base.py`
-    - `_OCR_PROMPT_TEMPLATE`: `{language_rule}` 플레이스홀더 기반 템플릿
-    - `OCR_LANGUAGE_RULES`: 언어별 규칙 dict (`ko`, `en`, `ja`)
-    - `get_ocr_prompt(language: str = "ko") -> str`: 언어 코드로 프롬프트 생성
-    - `DEFAULT_OCR_PROMPT` = `get_ocr_prompt("ko")` (하위 호환성 유지)
-  - `contextifier/config.py`
-    - `OCRConfig.prompt_language: str = "ko"` 필드 추가
-- **테스트**: `tests/unit/ocr/test_ocr_prompt_language.py` — 8개 테스트
-  - 한국어 기본, 영어, 일본어, 미지원 언어 폴백, 커스텀 프롬프트 우선
-  - OCRConfig.prompt_language, 하위 호환성, DEFAULT_OCR_PROMPT 값
+- **수정**: `contextifier/handlers/xlsx/converter.py`
+  - `XlsxConverter.__init__()`: `read_only: bool = False` 매개변수 추가
+  - `convert()`: `openpyxl.load_workbook(stream, data_only=..., read_only=...)` 전달
+- **수정**: `contextifier/handlers/xlsx/handler.py` — `format_options["xlsx"]["read_only"]` 읽기
+- **테스트**: `tests/unit/handlers/test_xlsx_handler.py` — 3 테스트 추가
+  - `test_read_only_default_false`, `test_read_only_from_format_options`, `test_read_only_passed_to_load_workbook`
 
-### P2-8. 하드코딩된 임계값 설정화 ✅
+### P4-3. OCR 병렬 처리 ✅
 - **상태**: ✅ 완료
-- **설계**: `BaseContentExtractor.__init__`에 `config: Optional[ProcessingConfig] = None` 파라미터 추가 (하위 호환)
-  - 핸들러의 `create_content_extractor()`에서 `config=self._config` 전달
-  - 각 추출기가 `self._config.get_format_option()` 으로 임계값 읽기, 기본값 폴백
-- **수정**:
-  - `contextifier/pipeline/content_extractor.py` — `config` 파라미터 추가
-  - `contextifier/handlers/pdf/handler.py` — 양쪽 모드에 `config=self._config` 전달
-  - `contextifier/handlers/pdf_default/content_extractor.py`
-    - `render_dpi`: `format_options["pdf"]["render_dpi"]` (기본 150)
-    - `min_image_size`: `format_options["pdf"]["min_image_size"]` (기본 50)
-    - `min_image_area`: `format_options["pdf"]["min_image_area"]` (기본 2500)
-  - `contextifier/handlers/pdf_plus/content_extractor.py` — `config` 파라미터 추가
-  - `contextifier/handlers/pptx/handler.py` + `content_extractor.py`
-    - `max_group_depth`: `format_options["pptx"]["max_group_depth"]` (기본 20)
-  - `contextifier/handlers/csv/handler.py` + `preprocessor.py`
-    - `delimiter_candidates`: `format_options["csv"]["delimiter_candidates"]` (기본 `[",", "\t", ";", "|"]`)
-    - `_detect_delimiter()` 에 `candidates` 파라미터 추가
-  - `contextifier/handlers/doc/handler.py` + `content_extractor.py`
-    - `min_text_fragment_length`: `format_options["doc"]["min_text_fragment_length"]` (기본 4)
-    - 인스턴스 변수 `_min_text_fragment_length`, `_min_unicode_bytes` 로 변환
-- **사용 예시**:
-  ```python
-  config = ProcessingConfig().with_format_option("pdf", render_dpi=200, min_image_size=30)
-  config = ProcessingConfig().with_format_option("pptx", max_group_depth=5)
-  config = ProcessingConfig().with_format_option("csv", delimiter_candidates=[",", ";", ":"])
-  config = ProcessingConfig().with_format_option("doc", min_text_fragment_length=8)
-  ```
-- **테스트**: `tests/unit/handlers/test_configurable_thresholds.py` — 22개 테스트
-  - BaseContentExtractor config 전파 (2개)
-  - PDF default: render_dpi, min_image_size, min_image_area, 스캔 DPI 적용, 필터링 (6개)
-  - PPTX: 기본값, config 오버라이드, None config (3개)
-  - CSV: 기본 후보, 커스텀 감지, 전처리기 저장, handler 전달 (5개)
-  - DOC: 기본값, config 오버라이드, None, handler 전달 (4개)
-  - PDF handler config 전파: default/plus 모드 (2개)
+- **수정**: `contextifier/ocr/processor.py`
+  - `OCRProcessor.__init__()`: `max_workers: int = 1` 매개변수 추가
+  - `process()`: 2-phase 구조 개편 (Phase 1: 병렬 OCR → Phase 2: 순차 교체)
+  - `_run_ocr_batch()`: `ThreadPoolExecutor` 기반 병렬 실행 (max_workers > 1일 때)
+  - `_ocr_single()`: 개별 이미지 OCR + 진행률 콜백
+  - `_replace_tag()`: Windows 경로 역슬래시 regex 버그 수정 (lambda 사용)
+- **테스트**: `tests/unit/ocr/test_ocr_parallel.py` — 9 테스트
+  - `TestOCRProcessorMaxWorkers` (3): default 1, custom, minimum 1
+  - `TestOCRSequentialMode` (2): empty text, no tags
+  - `TestOCRParallelMode` (3): same result as sequential, progress callbacks, handles failures
+  - `TestOCRBatchRun` (1): sequential ordered
+
+### P4-4. ThreadPoolExecutor 재사용 ✅
+- **상태**: ✅ 완료
+- **수정**: `contextifier/handlers/base.py`
+  - `_timeout_executor`: `ClassVar` 공유 `ThreadPoolExecutor` (max_workers=4)
+  - `_get_timeout_executor()`: 더블 체크 락킹 패턴으로 지연 생성
+  - `_shutdown_timeout_executor()`: `atexit` 등록, 프로세스 종료 시 정리
+  - `_process_with_timeout()`: 공유 executor 사용 (매번 생성 → 재사용)
+- **테스트**: `tests/unit/handlers/test_tpe_reuse.py` — 6 테스트
+  - `TestSharedTimeoutExecutor` (6): lazy init, creates executor, same instance, shutdown clears, recreated after shutdown, handler uses shared
+
+### P4-5. CachedDocumentProcessor 확장 ✅
+- **상태**: ✅ 완료
+- **수정**: `contextifier/cached_processor.py`
+  - `process()`: `ExtractionResult` 캐싱 (JSON 직렬화/역직렬화)
+  - `extract_chunks()`: `ChunkResult` 캐싱 (JSON 직렬화/역직렬화)
+  - `_make_key()`: `suffix` 매개변수 추가 (text/process/chunks 구분)
+  - 직렬화 헬퍼: `_serialize/deserialize_extraction_result`, `_serialize/deserialize_chunk_result`
+  - `_table_to_dict/_dict_to_table`, `_chart_to_dict/_dict_to_chart` 보조 함수
+- **테스트**: `tests/unit/test_cached_processor.py` — 8 테스트 추가 (18 → 28)
+  - `TestCachedProcess` (3): returns ExtractionResult, cache hit, custom backend
+  - `TestCachedExtractChunks` (2): returns ChunkResult, cache hit
+  - `TestSerializationRoundTrip` (3): ExtractionResult round-trip, ChunkResult round-trip, no metadata
+
+### P4-6. MemoryCacheBackend LRU 전환 ✅
+- **상태**: ✅ 완료
+- **수정**: `contextifier/cached_processor.py`
+  - `MemoryCacheBackend._store`: `dict` → `collections.OrderedDict`
+  - `get()`: `move_to_end(key)` 호출로 LRU 위치 갱신
+  - `put()`: 기존 키 갱신 시 `move_to_end()`, 초과 시 `popitem(last=False)` (LRU 제거)
+- **테스트**: `tests/unit/test_cached_processor.py` — 2 테스트 추가
+  - `test_lru_eviction`: 접근한 항목 보존 확인
+  - `test_lru_put_update_refreshes`: 덮어쓰기 시 LRU 위치 갱신 확인
+
+### P4-7. ImageService 크기 제한 ✅
+- **상태**: ✅ 완료
+- **수정**: `contextifier/config.py`
+  - `ImageConfig`: `max_file_size_mb: Optional[float] = None` 필드 추가
+- **수정**: `contextifier/services/image_service.py`
+  - `save()`: 크기 제한 체크 로직 추가 (초과 시 경고 + `None` 반환)
+- **테스트**: `tests/unit/services/test_image_service.py` — 6 테스트 추가 (24 → 30)
+  - `TestImageSizeLimit` (6): default no limit, within limit, exceeds limit, exact limit, None limit, save_and_tag respects
+
+---
+
+## Phase 5: 문서화 & DX ✅ DONE
+
+> Phase 4 완료 후: 423 tests → Phase 5 완료 후: 423 tests (변경 없음)
+> 신규 문서: 5개 생성, README.md·CHANGELOG.md 업데이트
+
+### P5-1. 핸들러 기능 비교표 문서 ✅
+- **상태**: ✅ 완료
+- **생성**: `docs/handler_comparison.md`
+  - 15개 핸들러의 텍스트/테이블/이미지/차트/메타데이터 지원 매트릭스
+  - 추출 아키텍처 비교 (분리형/인라인형/하이브리드)
+  - 위임(Delegation) 관계도
+  - `format_options` 지원 옵션 전체 목록
+
+### P5-2. 설정 옵션 레퍼런스 문서 ✅
+- **상태**: ✅ 완료
+- **생성**: `docs/configuration.md`
+  - 8개 Config 클래스 전체 필드·타입·기본값·설명
+  - ProcessingConfig fluent API (`with_*()` 메서드)
+  - `format_options` 핸들러별 세부 설정 (PDF, PPTX, DOC, CSV, TSV, XLSX)
+  - 직렬화/역직렬화 (`to_dict()`, `from_dict()`)
+  - 설정 조합 예시 (고성능, AI/LLM, 최소 출력)
+
+### P5-3. 에러 코드 레퍼런스 문서 ✅
+- **상태**: ✅ 완료
+- **생성**: `docs/error_codes.md`
+  - 19개 예외 클래스의 에러 코드·원인·해결법
+  - 예외 계층 트리 다이어그램
+  - 에러 처리 패턴 (기본, 컨텍스트 추가, 파이프라인 에러)
+
+### P5-4. OCR 설정 가이드 ✅
+- **상태**: ✅ 완료
+- **생성**: `docs/ocr_guide.md`
+  - 6개 엔진별 설치·설정 예시 (OpenAI, Anthropic, Gemini, Bedrock, vLLM, Tesseract)
+  - 프롬프트 커스터마이징 (언어 설정, 커스텀 프롬프트)
+  - OCR 병렬 처리 (`max_workers`)
+  - OCR 동작 원리 (이미지 태그 → OCR → 치환)
+  - 트러블슈팅 (Tesseract 미발견, API 인증, Rate Limit)
+
+### P5-5. 플러그인 개발 가이드 ✅
+- **상태**: ✅ 완료
+- **생성**: `docs/plugin_development.md`
+  - 5단계 파이프라인 컴포넌트 구현 가이드 (Converter → Preprocessor → MetadataExtractor → ContentExtractor → Postprocessor)
+  - 핸들러 조립 (BaseHandler 상속)
+  - 등록 방법 (직접 등록, entry_points)
+  - 규칙 및 제약 (하나의 확장자, process() 오버라이드 금지, 균일한 생성자)
+  - 테스트 작성 예시
+
+### P5-6. CHANGELOG v0.3.0 업데이트 ✅
+- **상태**: ✅ 완료
+- **수정**: `CHANGELOG.md`
+  - Phase 0 (Security), Phase 1 (Fixed), Phase 2 (Improved), Phase 3 (Added), Phase 4 (Performance), Phase 5 (Documentation) 전체 반영
+- **수정**: `README.md`
+  - Documentation 테이블에 5개 신규 문서 링크 추가
+  - `contextifier_new` → `contextifier` 임포트 경로 7건 수정
+  - ARCHITECTURE.md 링크 경로 수정
+
+---
+
+## Phase 6: 에코시스템 & 미래 ✅ DONE
+
+> Phase 5 완료 후: 423 tests → Phase 6 완료 후: 476 tests (2.04s)
+> 신규 테스트: 53개 추가 (LangChain 12 + Crypto 10 + Delimiter 14 + Encoding 17)
+
+### P6-1. LangChain Document Loader ✅
+- **상태**: ✅ 완료
+- **생성**: `contextifier/integrations/__init__.py`, `contextifier/integrations/langchain_loader.py`
+  - `ContextifierLoader(BaseLoader)` — LangChain 문서 로더
+  - `lazy_load()` — 단일 문서 모드 / 청크 모드 (chunk=True)
+  - 메타데이터: source, file_name, file_extension, chunk_index, page_number
+  - OCR 통합 지원 (ocr_engine, ocr_processing 매개변수)
+- **테스트**: `tests/unit/integrations/test_langchain_loader.py` (12 tests)
+  - TestSingleDocument (5), TestChunkedDocument (3), TestWithConfig (2), TestOCRIntegration (2)
+
+### P6-2. CI/CD 파이프라인 ✅
+- **상태**: ✅ 완료
+- **생성**: `.github/workflows/ci.yml`
+  - lint (ruff check + format), test (Python 3.12/3.13 매트릭스)
+  - type-check (mypy, continue-on-error), publish (PyPI trusted publishing)
+
+### P6-3. Dockerfile ✅
+- **상태**: ✅ 완료
+- **생성**: `Dockerfile`
+  - Multi-stage 빌드 (builder → runtime)
+  - python:3.12-slim + tesseract-ocr + tesseract-ocr-kor + poppler-utils
+  - Non-root user (`contextifier`), WORKDIR /data
+
+### P6-4. 암호화 파일 지원 ✅
+- **상태**: ✅ 완료
+- **생성**: `contextifier/services/crypto_service.py`
+  - `is_encrypted(file_data) -> bool` — msoffcrypto로 암호화 여부 확인
+  - `decrypt_if_encrypted(file_data, password=None) -> bytes` — 복호화
+  - msoffcrypto 미설치 시 graceful fallback (원본 데이터 반환)
+- **수정**: `contextifier/document_processor.py`
+  - `_create_file_context()`: `password` 매개변수 추가 + `decrypt_if_encrypted()` 호출
+  - `extract_text()`, `process()`, `extract_chunks()`: `password` kwarg 전달
+- **테스트**: `tests/unit/services/test_crypto_service.py` (10 tests)
+  - TestIsEncrypted (4), TestDecryptIfEncrypted (6)
+- **의존성**: `msoffcrypto-tool>=6.0.0` (pip install)
+
+### P6-5. PyMuPDF AGPL 라이선스 검토 ✅
+- **상태**: ✅ 완료
+- **생성**: `docs/license_review.md`
+  - AGPL-3.0 vs Apache-2.0 비호환성 분석
+  - 영향받는 파일 목록 (pdf/converter.py, pdf_default, pdf_plus)
+  - 조치: pymupdf를 optional dependency (`pip install contextifier[pdf]`)로 전환
+- **수정**: `pyproject.toml`
+  - `pymupdf>=1.24.0`를 `dependencies`에서 `[project.optional-dependencies].pdf`로 이동
+  - `all` extra에 `pdf` 포함
+- **수정**: `contextifier/handlers/pdf/converter.py`
+  - `import fitz` → try/except 가드 + fitz 미설치 시 ConversionError
+- **수정**: `contextifier/handlers/pdf_default/content_extractor.py`
+  - `import fitz` → try/except 가드
+
+### P6-6. CSV 구분자 신뢰도 점수 ✅
+- **상태**: ✅ 완료
+- **수정**: `contextifier/handlers/csv/preprocessor.py`
+  - `_detect_delimiter()` 반환값: `str` → `tuple[str, float]` (delimiter, confidence)
+  - Sniffer 성공: 행 일관성 검증 후 0.7~1.0 신뢰도
+  - 수동 스코어링: 완벽 일관성 1.0, 변동 시 0.0~0.7
+  - `CsvParsedData`: `delimiter_confidence: float = 1.0` 필드 추가
+  - `preprocess()`: `delimiter_confidence`를 `properties`에 포함
+- **테스트**: `tests/unit/handlers/test_csv_delimiter_confidence.py` (14 tests)
+  - TestDelimiterConfidence (10), TestCsvParsedDataConfidence (2), TestPreprocessorConfidenceOutput (2)
+
+### P6-7. 인코딩 감지 설정 통합 ✅
+- **상태**: ✅ 완료
+- **생성**: `contextifier/config.py`에 `EncodingConfig` 추가
+  - `fallback_encodings`: 인코딩 시도 순서 (기본: utf-8, utf-8-sig, cp949, euc-kr, latin-1, ascii)
+  - `force_encoding`: 강제 인코딩 지정 (감지 건너뜀)
+  - `min_confidence`: chardet 최소 신뢰도 (향후 통합용, 기본 0.7)
+- **수정**: `ProcessingConfig`에 `encoding: EncodingConfig` 필드 + `with_encoding()` 메서드
+  - `to_dict()` / `from_dict()` 직렬화 지원
+- **수정**: CSV/TSV/Text 핸들러 컨버터
+  - `CsvConverter(encoding_config=)`, `TextConverter(encoding_config=)` 지원
+  - `force_encoding` 최우선 → `encodings` 명시 → `fallback_encodings` 순
+  - CSVHandler, TSVHandler, TextHandler: `create_converter()`에서 `self._config.encoding` 전달
+- **테스트**: `tests/unit/test_encoding_config.py` (17 tests)
+  - TestEncodingConfigDefaults (4), TestEncodingConfigCustom (3), TestProcessingConfigEncoding (4), TestConverterEncodingConfig (6)

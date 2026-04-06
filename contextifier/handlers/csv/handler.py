@@ -61,7 +61,10 @@ class CSVHandler(BaseHandler):
         """BOM-aware converter with configurable encoding list."""
         csv_opts = self._config.format_options.get("csv", {})
         encodings = csv_opts.get("encodings", None)
-        return CsvConverter(encodings=encodings)
+        return CsvConverter(
+            encodings=encodings,
+            encoding_config=self._config.encoding,
+        )
 
     def create_preprocessor(self) -> BasePreprocessor:
         """
@@ -72,9 +75,11 @@ class CSVHandler(BaseHandler):
         """
         csv_opts = self._config.format_options.get("csv", {})
         candidates = csv_opts.get("delimiter_candidates", None)
+        max_rows = csv_opts.get("max_rows", None)
         return CsvPreprocessor(
             default_delimiter=None,
             delimiter_candidates=candidates,
+            max_rows=max_rows,
         )
 
     def create_metadata_extractor(self) -> BaseMetadataExtractor:

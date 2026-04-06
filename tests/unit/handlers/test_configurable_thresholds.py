@@ -205,12 +205,13 @@ class TestCsvDelimiterCandidatesConfig(unittest.TestCase):
         # Data where ':' is the consistent delimiter
         data = "a:b:c\n1:2:3\n4:5:6"
         # Default candidates won't detect ':'
-        result_default = _detect_delimiter(data)
-        self.assertNotEqual(result_default, ":")
+        delim_default, _ = _detect_delimiter(data)
+        self.assertNotEqual(delim_default, ":")
 
         # Custom candidates including ':' should detect it
-        result_custom = _detect_delimiter(data, candidates=[":", ","])
-        self.assertEqual(result_custom, ":")
+        delim_custom, confidence = _detect_delimiter(data, candidates=[":", ","])
+        self.assertEqual(delim_custom, ":")
+        self.assertGreater(confidence, 0.0)
 
     def test_preprocessor_stores_candidates(self):
         """CsvPreprocessor stores delimiter_candidates."""

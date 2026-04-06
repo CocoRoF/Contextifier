@@ -85,6 +85,7 @@ class ImageConfig:
     quality: int = 95
     skip_duplicate: bool = True
     storage_type: StorageType = StorageType.LOCAL
+    max_file_size_mb: Optional[float] = None
 
 
 # ─── Chart Configuration ──────────────────────────────────────────────────────
@@ -159,6 +160,32 @@ class OCRConfig:
     prompt_language: str = "ko"       # Prompt output language: "ko", "en", etc.
 
 
+# ─── Encoding Configuration ──────────────────────────────────────────────────
+
+@dataclass(frozen=True)
+class EncodingConfig:
+    """
+    Configuration for encoding detection across text-based handlers.
+
+    Controls how CSV, TSV, Text, HTML, and RTF handlers detect and
+    handle character encodings.
+
+    Attributes:
+        fallback_encodings: Ordered list of encodings to try when
+            auto-detection fails. Tried sequentially until one succeeds.
+        force_encoding: If set, skip all detection and use this encoding.
+            Errors='replace' is still applied as a safety net.
+        min_confidence: Minimum confidence threshold for chardet-based
+            detection. If confidence is below this, fallback_encodings
+            are tried instead. (Reserved for future chardet integration.)
+    """
+    fallback_encodings: tuple[str, ...] = (
+        "utf-8", "utf-8-sig", "cp949", "euc-kr", "latin-1", "ascii",
+    )
+    force_encoding: Optional[str] = None
+    min_confidence: float = 0.7
+
+
 # ─── Root Configuration ──────────────────────────────────────────────────────
 
 @dataclass(frozen=True)
@@ -190,6 +217,7 @@ class ProcessingConfig:
     tables: TableConfig = field(default_factory=TableConfig)
     chunking: ChunkingConfig = field(default_factory=ChunkingConfig)
     ocr: OCRConfig = field(default_factory=OCRConfig)
+    encoding: EncodingConfig = field(default_factory=EncodingConfig)
 
     # Format-specific overrides (handler implementations access these)
     format_options: Dict[str, Dict[str, Any]] = field(default_factory=dict)
@@ -232,6 +260,10 @@ class ProcessingConfig:
     def with_ocr(self, **kwargs: Any) -> "ProcessingConfig":
         """Return new config with modified OCR settings."""
         return replace(self, ocr=replace(self.ocr, **kwargs))
+
+    def with_encoding(self, **kwargs: Any) -> "ProcessingConfig":
+        """Return new config with modified encoding settings."""
+        return replace(self, encoding=replace(self.encoding, **kwargs))
 
     def with_format_option(self, format_name: str, **kwargs: Any) -> "ProcessingConfig":
         """Return new config with added format-specific options."""
@@ -283,6 +315,10 @@ class ProcessingConfig:
         tables = TableConfig(**tables_data) if "tables" in data else TableConfig()
         chunking = ChunkingConfig(**data.get("chunking", {})) if "chunking" in data else ChunkingConfig()
         ocr = OCRConfig(**data.get("ocr", {})) if "ocr" in data else OCRConfig()
+        encoding_data = data.get("encoding", {})
+        if "fallback_encodings" in encoding_data and isinstance(encoding_data["fallback_encodings"], list):
+            encoding_data = {**encoding_data, "fallback_encodings": tuple(encoding_data["fallback_encodings"])}
+        encoding = EncodingConfig(**encoding_data) if "encoding" in data else EncodingConfig()
         fmt_opts = data.get("format_options", {})
 
         return cls(
@@ -293,6 +329,7 @@ class ProcessingConfig:
             tables=tables,
             chunking=chunking,
             ocr=ocr,
+            encoding=encoding,
             format_options=fmt_opts,
         )
 
@@ -305,5 +342,6 @@ __all__ = [
     "TableConfig",
     "ChunkingConfig",
     "OCRConfig",
+    "EncodingConfig",
     "ProcessingConfig",
 ]

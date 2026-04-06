@@ -45,11 +45,12 @@ Differences from old BaseHandler:
 
 from __future__ import annotations
 
+import atexit
 import concurrent.futures
 import logging
 import threading
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, FrozenSet, Optional, final
+from typing import TYPE_CHECKING, Any, ClassVar, FrozenSet, Optional, final
 
 from contextifier.config import ProcessingConfig
 from contextifier.types import (
@@ -112,6 +113,11 @@ class BaseHandler(ABC):
                 return self._delegate_to("rtf", file_context, **kwargs)
             return None
     """
+
+    # Shared executor for timeout-guarded pipeline calls.
+    # Avoids creating a new ThreadPoolExecutor per process() invocation.
+    _timeout_executor: ClassVar[Optional[concurrent.futures.ThreadPoolExecutor]] = None
+    _timeout_executor_lock: ClassVar[threading.Lock] = threading.Lock()
 
     def __init__(
         self,
@@ -303,23 +309,44 @@ class BaseHandler(ABC):
         **kwargs: Any,
     ) -> ExtractionResult:
         """Run the pipeline in a worker thread with a timeout guard."""
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(
-                self._execute_pipeline,
-                file_context,
-                include_metadata=include_metadata,
-                **kwargs,
+        executor = self._get_timeout_executor()
+        future = executor.submit(
+            self._execute_pipeline,
+            file_context,
+            include_metadata=include_metadata,
+            **kwargs,
+        )
+        try:
+            return future.result(timeout=timeout)
+        except concurrent.futures.TimeoutError:
+            raise HandlerExecutionError(
+                f"Processing timed out after {timeout}s",
+                context={
+                    "file": file_context.get("file_name", "unknown"),
+                    "timeout": timeout,
+                },
             )
-            try:
-                return future.result(timeout=timeout)
-            except concurrent.futures.TimeoutError:
-                raise HandlerExecutionError(
-                    f"Processing timed out after {timeout}s",
-                    context={
-                        "file": file_context.get("file_name", "unknown"),
-                        "timeout": timeout,
-                    },
-                )
+
+    @classmethod
+    def _get_timeout_executor(cls) -> concurrent.futures.ThreadPoolExecutor:
+        """Return the shared ThreadPoolExecutor, creating it lazily."""
+        if BaseHandler._timeout_executor is None:
+            with BaseHandler._timeout_executor_lock:
+                if BaseHandler._timeout_executor is None:
+                    BaseHandler._timeout_executor = concurrent.futures.ThreadPoolExecutor(
+                        max_workers=4,
+                        thread_name_prefix="handler-timeout",
+                    )
+                    atexit.register(BaseHandler._shutdown_timeout_executor)
+        return BaseHandler._timeout_executor
+
+    @classmethod
+    def _shutdown_timeout_executor(cls) -> None:
+        """Shut down the shared executor (called at process exit)."""
+        executor = BaseHandler._timeout_executor
+        if executor is not None:
+            executor.shutdown(wait=False)
+            BaseHandler._timeout_executor = None
 
     def _execute_pipeline(
         self,
