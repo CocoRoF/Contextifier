@@ -106,7 +106,9 @@ class BaseConverter(ABC):
         Pre-check whether the binary data is valid for this format.
 
         Override in subclasses for format-specific header/magic-byte checks.
-        Default implementation always returns True.
+        Default implementation returns True for any data, including empty.
+        Empty file handling is deferred to the convert() stage which may
+        return an empty result gracefully.
 
         Args:
             file_context: File information to validate.
@@ -114,8 +116,7 @@ class BaseConverter(ABC):
         Returns:
             True if data appears valid, False otherwise.
         """
-        file_data = file_context.get("file_data", b"")
-        return len(file_data) > 0
+        return True
 
     def close(self, converted_object: Any) -> None:
         """

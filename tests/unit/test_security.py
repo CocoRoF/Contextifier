@@ -174,13 +174,14 @@ class TestInputBoundary:
         text = proc.extract_text(str(f))
         assert isinstance(text, str)
 
-    def test_empty_file_rejected(self, tmp_path: Path) -> None:
-        """Empty files are rejected at validation stage."""
+    def test_empty_file_returns_empty_text(self, tmp_path: Path) -> None:
+        """Empty files return empty text instead of crashing."""
         f = tmp_path / "empty.txt"
         f.write_bytes(b"")
         proc = DocumentProcessor()
-        with pytest.raises(ConversionError):
-            proc.extract_text(str(f))
+        text = proc.extract_text(str(f))
+        assert isinstance(text, str)
+        assert text.strip() == ""
 
     def test_binary_garbage_as_txt(self, tmp_path: Path) -> None:
         """Random binary data with .txt extension should not crash."""

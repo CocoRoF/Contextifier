@@ -1,0 +1,27 @@
+{
+  "name": "Contextify Test",
+  "version": "1.0.0",
+  "settings": {
+    "chunk_size": 1000,
+    "overlap": 200,
+    "formats": [
+      "pdf",
+      "docx",
+      "xlsx"
+    ]
+  },
+  "data": [
+    {
+      "id": 1,
+      "value": "first"
+    },
+    {
+      "id": 2,
+      "value": "second"
+    },
+    {
+      "id": 3,
+      "value": "third"
+    }
+  ]
+}

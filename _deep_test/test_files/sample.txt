@@ -1,0 +1,5 @@
+This is a sample text file for testing.
+It has multiple lines.
+Third line with special chars: é, ñ, ü, 한글, 日本語
+Fourth line with numbers: 12345
+Fifth line: end of file.

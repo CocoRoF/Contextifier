@@ -35,13 +35,13 @@ class TestChunkerInit:
 
 
 class TestChunkEmptyInput:
-    def test_empty_string_returns_single_chunk(self, chunker: TextChunker) -> None:
+    def test_empty_string_returns_empty_list(self, chunker: TextChunker) -> None:
         result = chunker.chunk("")
-        assert result == [""]
+        assert result == []
 
-    def test_whitespace_only_returns_single_chunk(self, chunker: TextChunker) -> None:
+    def test_whitespace_only_returns_empty_list(self, chunker: TextChunker) -> None:
         result = chunker.chunk("   \n  ")
-        assert result == [""]
+        assert result == []
 
 
 class TestChunkPlainText:

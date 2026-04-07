@@ -92,6 +92,7 @@ class ChunkResult:
     chunks: List[str] = field(default_factory=list)
     chunks_with_metadata: Optional[List[Chunk]] = None
     source_file: Optional[str] = None
+    strategy: Optional[str] = None
 
     @property
     def has_metadata(self) -> bool:
@@ -240,15 +241,22 @@ class DocumentProcessor:
         """
         file_path_str = str(file_path)
 
-        # Validate file
+        # Determine extension first (before file existence check)
+        ext = self._resolve_extension(file_path_str, file_extension)
+
+        # Check format support before file existence
+        if not self._registry.is_supported(ext):
+            raise UnsupportedFormatError(
+                f"Unsupported file format: .{ext}",
+                context={"file_path": file_path_str, "extension": ext},
+            )
+
+        # Validate file existence
         if not os.path.exists(file_path_str):
             raise ContextifyFileNotFoundError(
                 f"File not found: {file_path_str}",
                 context={"file_path": file_path_str},
             )
-
-        # Determine extension
-        ext = self._resolve_extension(file_path_str, file_extension)
 
         # Build FileContext
         file_context = self._create_file_context(
@@ -307,13 +315,20 @@ class DocumentProcessor:
         """
         file_path_str = str(file_path)
 
+        ext = self._resolve_extension(file_path_str, file_extension)
+
+        if not self._registry.is_supported(ext):
+            raise UnsupportedFormatError(
+                f"Unsupported file format: .{ext}",
+                context={"file_path": file_path_str, "extension": ext},
+            )
+
         if not os.path.exists(file_path_str):
             raise ContextifyFileNotFoundError(
                 f"File not found: {file_path_str}",
                 context={"file_path": file_path_str},
             )
 
-        ext = self._resolve_extension(file_path_str, file_extension)
         file_context = self._create_file_context(
             file_path_str, ext, max_file_size=self._MAX_FILE_SIZE,
             password=password,
@@ -431,16 +446,19 @@ class DocumentProcessor:
         )
 
         # Build ChunkResult
+        strategy_name = self._chunker.last_strategy_name
         if include_position_metadata and raw_chunks and isinstance(raw_chunks[0], Chunk):
             return ChunkResult(
                 chunks=[c.text for c in raw_chunks],  # type: ignore
                 chunks_with_metadata=raw_chunks,  # type: ignore
                 source_file=str(file_path),
+                strategy=strategy_name,
             )
         else:
             return ChunkResult(
                 chunks=raw_chunks,  # type: ignore
                 source_file=str(file_path),
+                strategy=strategy_name,
             )
 
     # ═══════════════════════════════════════════════════════════════════════

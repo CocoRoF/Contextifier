@@ -115,10 +115,11 @@ class CsvConverter(BaseConverter):
         file_ext: str = file_context.get("file_extension", "")
 
         if not file_data:
-            raise ConversionError(
-                "Empty file data — nothing to decode",
-                stage="convert",
-                handler="CsvConverter",
+            self._logger.debug("Empty file data — returning empty text")
+            return CsvConvertedData(
+                text="",
+                encoding="utf-8",
+                file_extension=file_ext,
             )
 
         # Phase 1: BOM detection
@@ -172,8 +173,8 @@ class CsvConverter(BaseConverter):
         return "csv"
 
     def validate(self, file_context: FileContext) -> bool:
-        """Validate that file data exists and is non-empty."""
-        return len(file_context.get("file_data", b"")) > 0
+        """Validate that file data is present (empty files are valid)."""
+        return True
 
 
 def _deduplicate(encodings: List[str]) -> List[str]:

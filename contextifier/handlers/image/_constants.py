@@ -42,7 +42,8 @@ MAGIC_TABLE: list[tuple[int, bytes, str]] = [
 
 IMAGE_EXTENSIONS: frozenset[str] = frozenset({
     "jpg", "jpeg", "png", "gif", "bmp", "webp",
-    "tiff", "tif", "svg", "ico", "heic", "heif",
+    "tiff", "tif", "ico", "heic", "heif",
+    # Note: SVG is handled by TextHandler as it is XML-based text.
 })
 
 # Subset for which we can validate magic bytes

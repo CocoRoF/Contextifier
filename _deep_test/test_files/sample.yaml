@@ -1,0 +1,14 @@
+# Sample YAML Configuration
+name: Contextify Test
+version: 1.0.0
+database:
+  host: localhost
+  port: 5432
+  name: testdb
+features:
+  - chunking
+  - ocr
+  - metadata
+settings:
+  chunk_size: 1000
+  overlap: 200

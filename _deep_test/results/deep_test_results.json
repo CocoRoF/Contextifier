@@ -1,0 +1,1902 @@
+[
+  {
+    "name": "extract_text: TXT",
+    "category": "extract_text",
+    "status": "PASS",
+    "duration_ms": 2.7187999803572893,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "sample.txt",
+      "text_length": 167,
+      "line_count": 5,
+      "preview": "This is a sample text file for testing.\\nIt has multiple lines.\\nThird line with special chars: é, ñ, ü, 한글, 日本語\\nFourth line with numbers: 12345\\nFifth line: end of file.",
+      "empty": false
+    }
+  },
+  {
+    "name": "extract_text: Markdown",
+    "category": "extract_text",
+    "status": "PASS",
+    "duration_ms": 0.5260000471025705,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "sample.md",
+      "text_length": 375,
+      "line_count": 29,
+      "preview": "# Test Markdown Document\\n\\n## Section 1: Introduction\\n\\nThis is a **bold** and *italic* test document.\\n\\n### Subsection 1.1\\n\\n- Item 1\\n- Item 2\\n- Item 3\\n\\n## Section 2: Code\\n\\n```python\\ndef hello():\\n    print('Hello World')\\n```\\n\\n## Section 3: Table\\n\\n| Name | Age | City |\\n|------|-----|------|\\n| Alice | 30 | Seoul |\\n| Bob | 25 | Tokyo |\\n\\n## Section 4: Conclusion\\n\\nEnd of document.",
+      "empty": false
+    }
+  },
+  {
+    "name": "extract_text: Python",
+    "category": "extract_text",
+    "status": "PASS",
+    "duration_ms": 0.2395000192336738,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "sample.py",
+      "text_length": 619,
+      "line_count": 23,
+      "preview": "\"\"\"Sample Python module for testing.\"\"\"\\n\\nimport os\\nimport sys\\n\\nclass DataProcessor:\\n    \"\"\"Process data from various sources.\"\"\"\\n\\n    def __init__(self, config: dict):\\n        self.config = config\\n        self._cache = {}\\n\\n    def process(self, data: list) -> list:\\n        \"\"\"Process a list of data items.\"\"\"\\n        results = []\\n        for item in data:\\n            if item not in self._cache:\\n                self._cache[item] = self._transform(item)\\n            results.append(self._cache[item])",
+      "empty": false
+    }
+  },
+  {
+    "name": "extract_text: JSON",
+    "category": "extract_text",
+    "status": "PASS",
+    "duration_ms": 0.1585999852977693,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "sample.json",
+      "text_length": 351,
+      "line_count": 27,
+      "preview": "{\\n  \"name\": \"Contextify Test\",\\n  \"version\": \"1.0.0\",\\n  \"settings\": {\\n    \"chunk_size\": 1000,\\n    \"overlap\": 200,\\n    \"formats\": [\\n      \"pdf\",\\n      \"docx\",\\n      \"xlsx\"\\n    ]\\n  },\\n  \"data\": [\\n    {\\n      \"id\": 1,\\n      \"value\": \"first\"\\n    },\\n    {\\n      \"id\": 2,\\n      \"value\": \"second\"\\n    },\\n    {\\n      \"id\": 3,\\n      \"value\": \"third\"\\n    }\\n  ]\\n}",
+      "empty": false
+    }
+  },
+  {
+    "name": "extract_text: YAML",
+    "category": "extract_text",
+    "status": "PASS",
+    "duration_ms": 0.2688000095076859,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "sample.yaml",
+      "text_length": 208,
+      "line_count": 14,
+      "preview": "# Sample YAML Configuration\\nname: Contextify Test\\nversion: 1.0.0\\ndatabase:\\n  host: localhost\\n  port: 5432\\n  name: testdb\\nfeatures:\\n  - chunking\\n  - ocr\\n  - metadata\\nsettings:\\n  chunk_size: 1000\\n  overlap: 200",
+      "empty": false
+    }
+  },
+  {
+    "name": "extract_text: XML",
+    "category": "extract_text",
+    "status": "PASS",
+    "duration_ms": 0.15469995560124516,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "sample.xml",
+      "text_length": 277,
+      "line_count": 11,
+      "preview": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\\n<root>\\n  <item id=\"1\">\\n    <name>First Item</name>\\n    <description>Description of first item</description>\\n  </item>\\n  <item id=\"2\">\\n    <name>Second Item</name>\\n    <description>Description of second item</description>\\n  </item>\\n</root>",
+      "empty": false
+    }
+  },
+  {
+    "name": "extract_text: INI",
+    "category": "extract_text",
+    "status": "PASS",
+    "duration_ms": 0.16870000399649143,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "sample.ini",
+      "text_length": 123,
+      "line_count": 11,
+      "preview": "[general]\\nname = Contextify\\nversion = 0.2.6\\n\\n[database]\\nhost = localhost\\nport = 5432\\n\\n[logging]\\nlevel = INFO\\nfile = app.log",
+      "empty": false
+    }
+  },
+  {
+    "name": "extract_text: LOG",
+    "category": "extract_text",
+    "status": "PASS",
+    "duration_ms": 0.4932999727316201,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "sample.log",
+      "text_length": 321,
+      "line_count": 6,
+      "preview": "2024-01-01 10:00:00 INFO Starting application\\n2024-01-01 10:00:01 INFO Loading configuration\\n2024-01-01 10:00:02 WARNING Config file not found, using defaults\\n2024-01-01 10:00:05 INFO Server started on port 8080\\n2024-01-01 10:01:00 ERROR Connection timeout to database\\n2024-01-01 10:01:05 INFO Retry connection successful",
+      "empty": false
+    }
+  },
+  {
+    "name": "extract_text: CSV",
+    "category": "extract_text",
+    "status": "PASS",
+    "duration_ms": 1.1041999678127468,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "sample.csv",
+      "text_length": 555,
+      "line_count": 17,
+      "preview": "[Document-Metadata]\\n  encoding: utf-8\\n  delimiter: Comma (,)\\n  row_count: 6\\n  col_count: 4\\n  has_header: Yes\\n  columns: Name, Age, City, Score\\n[/Document-Metadata]\\n\\n<table>\\n<tr><th>Name</th><th>Age</th><th>City</th><th>Score</th></tr>\\n<tr><td>Alice</td><td>30</td><td>Seoul</td><td>95.5</td></tr>\\n<tr><td>Bob</td><td>25</td><td>Tokyo</td><td>88.3</td></tr>\\n<tr><td>Charlie</td><td>35</td><td>New York</td><td>92.1</td></tr>\\n<tr><td>Diana</td><td>28</td><td>London</td><td>97.8</td></tr>\\n<tr><td>Eve</",
+      "empty": false
+    }
+  },
+  {
+    "name": "extract_text: TSV",
+    "category": "extract_text",
+    "status": "PASS",
+    "duration_ms": 0.5050000036135316,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "sample.tsv",
+      "text_length": 457,
+      "line_count": 15,
+      "preview": "[Document-Metadata]\\n  encoding: utf-8\\n  delimiter: Tab (\\t)\\n  row_count: 4\\n  col_count: 4\\n  has_header: Yes\\n  columns: Product, Quantity, Price, Total\\n[/Document-Metadata]\\n\\n<table>\\n<tr><th>Product</th><th>Quantity</th><th>Price</th><th>Total</th></tr>\\n<tr><td>Laptop</td><td>2</td><td>1200.00</td><td>2400.00</td></tr>\\n<tr><td>Mouse</td><td>10</td><td>25.99</td><td>259.90</td></tr>\\n<tr><td>Keyboard</td><td>5</td><td>75.00</td><td>375.00</td></tr>\\n</table>",
+      "empty": false
+    }
+  },
+  {
+    "name": "extract_text: HTML",
+    "category": "extract_text",
+    "status": "PASS",
+    "duration_ms": 2.7188999811187387,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "sample.html",
+      "text_length": 458,
+      "line_count": 39,
+      "preview": "[Document-Metadata]\\n  제목: Test HTML Document\\n[/Document-Metadata]\\n\\n# Main Title\\n\\nThis is a paragraph with\\n\\nbold\\n\\nand\\n\\nitalic\\n\\ntext.\\n\\n## Section 1\\n\\nContent of section 1.\\n\\n- Item A\\n- Item B\\n- Item C\\n\\n## Section 2: Table\\n\\n<table>\\n<tr><th>Name</th><th>Age</th><th>City</th></tr>\\n<tr><td>Alice</td><td>30</td><td>Seoul</td></tr>\\n<tr><td>Bob</td><td>25</td><td>Tokyo</td></tr>\\n</table>\\n\\n## Section 3: Code\\n\\n```\\nfunction hello() {\r\\n    console.log(\"Hello!\");\r\\n}\\n```",
+      "empty": false
+    }
+  },
+  {
+    "name": "extract_text: RTF",
+    "category": "extract_text",
+    "status": "PASS",
+    "duration_ms": 4.518400004599243,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "sample.rtf",
+      "text_length": 111,
+      "line_count": 2,
+      "preview": "This is a sample RTF document.has multiple paragraphs.\\nBold text and italic text.paragraph with numbers: 12345.",
+      "empty": false
+    }
+  },
+  {
+    "name": "extract_text: RTF (table)",
+    "category": "extract_text",
+    "status": "PASS",
+    "duration_ms": 1.1242000036872923,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "table.rtf",
+      "text_length": 199,
+      "line_count": 9,
+      "preview": "Document with Table\\n\\n<table>\\n<tr><td>Name</td><td>Age</td><td>City</td></tr>\\n<tr><td>Alice</td><td>30</td><td>Seoul</td></tr>\\n<tr><td>Bob</td><td>25</td><td>Tokyo</td></tr>\\n</table>\\n\\nAfter the table.",
+      "empty": false
+    }
+  },
+  {
+    "name": "extract_text: DOCX",
+    "category": "extract_text",
+    "status": "PASS",
+    "duration_ms": 51.81219999212772,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "sample.docx",
+      "text_length": 790,
+      "line_count": 40,
+      "preview": "[Document-Metadata]\\n  제목: Deep Test Document\\n  주제: Deep Testing\\n  작성자: Contextify Tester\\n  설명: generated by python-docx\\n  작성일: 2013-12-23 23:15:00\\n  최종 수정일: 2013-12-23 23:15:00\\n  버전: 1\\n[/Document-Metadata]\\n\\nTest Document\\n\\nThis is a test DOCX document created for deep testing of Contextify.\\n\\nSection 1: Text Content\\n\\nRegular paragraph with normal text. This paragraph tests basic text extraction.\\n\\nBold text and italic text\\n\\nSection 2: Lists\\n\\nFirst item\\n\\nSecond item\\n\\nThird item\\n\\nSection 3: Table\\n\\n<t",
+      "empty": false
+    }
+  },
+  {
+    "name": "extract_text: PPTX",
+    "category": "extract_text",
+    "status": "PASS",
+    "duration_ms": 134.4754000310786,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "sample.pptx",
+      "text_length": 656,
+      "line_count": 38,
+      "preview": "[Document-Metadata]\\n  설명: generated using python-pptx\\n  최종 수정자: Steve Canny\\n  작성일: 2013-01-27 09:14:16\\n  최종 수정일: 2013-01-27 09:15:58\\n  페이지 수: 4\\n  버전: 1\\n[/Document-Metadata]\\n\\n[Slide:1]\\n\\nTest Presentation\\nCreated for Contextify Deep Testing\\n\\n[Slide:2]\\n\\nContent Slide\\nFirst bullet point\\nSecond bullet point\\nThird bullet point with 한글\\n\\n[Slide:3]\\n\\nTable Slide\\n\\n<table>\\n<tr><th>Product</th><th>Qty</th><th>Price</th></tr>\\n<tr><td>Laptop</td><td>5</td><td>$1200</td></tr>\\n<tr><td>Mouse</td><td>20</td><td>$2",
+      "empty": false
+    }
+  },
+  {
+    "name": "extract_text: XLSX",
+    "category": "extract_text",
+    "status": "PASS",
+    "duration_ms": 520.594000001438,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "sample.xlsx",
+      "text_length": 916,
+      "line_count": 39,
+      "preview": "[Document-Metadata]\\n  작성자: openpyxl\\n  작성일: 2026-04-06 09:31:25\\n  최종 수정일: 2026-04-06 09:31:25\\n  페이지 수: 3\\n[/Document-Metadata]\\n\\n[Sheet: Sales Data]\\n\\n| Product | Q1 | Q2 | Q3 | Q4 | Total |\\n| --- | --- | --- | --- | --- | --- |\\n| Laptop | 100 | 120 | 110 | 130 |  |\\n| Phone | 200 | 180 | 220 | 250 |  |\\n| Tablet | 50 | 60 | 55 | 70 |  |\\n| Monitor | 30 | 35 | 40 | 45 |  |\\n\\n[chart]\\nChart Type: Bar Chart\\nTitle: Quarterly Sales\\n<table>\\n<tr><th>Category</th><th>Series</th><th>Series</th><th>Series</th><th",
+      "empty": false
+    }
+  },
+  {
+    "name": "extract_text: XLS",
+    "category": "extract_text",
+    "status": "PASS",
+    "duration_ms": 9.686400007922202,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "sample.xls",
+      "text_length": 155,
+      "line_count": 10,
+      "preview": "[Document-Metadata]\\n  페이지 수: 1\\n[/Document-Metadata]\\n\\n[Sheet: Sheet1]\\n\\n| Name | Age | City |\\n| --- | --- | --- |\\n| Alice | 30 | Seoul |\\n| Bob | 25 | Tokyo |",
+      "empty": false
+    }
+  },
+  {
+    "name": "extract_text: PDF",
+    "category": "extract_text",
+    "status": "PASS",
+    "duration_ms": 128.35259997518733,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "sample.pdf",
+      "text_length": 919,
+      "line_count": 54,
+      "preview": "[Document-Metadata]\\n  제목: (anonymous)\\n  주제: (unspecified)\\n  작성자: (anonymous)\\n  작성일: 2026-04-06 18:31:26\\n  최종 수정일: 2026-04-06 18:31:26\\n  페이지 수: 1\\n  creator: (unspecified)\\n  producer: ReportLab PDF Library - (opensource)\\n  format: PDF 1.4\\n[/Document-Metadata]\\n\\n[Page 1]\\nTest PDF Document\\n\\nThis is a test PDF document created for deep testing of the Contextify library.\\n\\nSection 1: Introduction\\n\\nContextify processes documents into AI-ready structured text chunks. This test validates that PDF\\nextractio",
+      "empty": false
+    }
+  },
+  {
+    "name": "process: DOCX",
+    "category": "process",
+    "status": "PASS",
+    "duration_ms": 11.19940000353381,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "sample.docx",
+      "text_length": 790,
+      "has_metadata": true,
+      "metadata_keys": [
+        "title",
+        "subject",
+        "author",
+        "comments",
+        "create_time",
+        "last_saved_time",
+        "revision"
+      ],
+      "table_count": 1,
+      "image_count": 0,
+      "chart_count": 0,
+      "text_preview": "[Document-Metadata]\\n  제목: Deep Test Document\\n  주제: Deep Testing\\n  작성자: Contextify Tester\\n  설명: generated by python-docx\\n  작성일: 2013-12-23 23:15:00\\n  최종 수정일: 2013-12-23 23:15:00\\n  버전: 1\\n[/Document-Metadata]\\n\\nTest Document\\n\\nThis is a test DOCX document created for deep testing of Contextify.\\n\\nSection ",
+      "metadata_sample": {
+        "title": "Deep Test Document",
+        "subject": "Deep Testing",
+        "author": "Contextify Tester",
+        "comments": "generated by python-docx",
+        "create_time": "2013-12-23T23:15:00+00:00"
+      },
+      "first_table_preview": "TableData(rows=[[TableCell(content='Name', row_span=1, col_span=1, is_header=True, row_index=0, col_index=0, nested_table=None), TableCell(content='Age', row_span=1, col_span=1, is_header=True, row_in"
+    }
+  },
+  {
+    "name": "process: PPTX",
+    "category": "process",
+    "status": "PASS",
+    "duration_ms": 37.343200005125254,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "sample.pptx",
+      "text_length": 656,
+      "has_metadata": true,
+      "metadata_keys": [
+        "comments",
+        "last_saved_by",
+        "create_time",
+        "last_saved_time",
+        "page_count",
+        "revision"
+      ],
+      "table_count": 1,
+      "image_count": 0,
+      "chart_count": 0,
+      "text_preview": "[Document-Metadata]\\n  설명: generated using python-pptx\\n  최종 수정자: Steve Canny\\n  작성일: 2013-01-27 09:14:16\\n  최종 수정일: 2013-01-27 09:15:58\\n  페이지 수: 4\\n  버전: 1\\n[/Document-Metadata]\\n\\n[Slide:1]\\n\\nTest Presentation\\nCreated for Contextify Deep Testing\\n\\n[Slide:2]\\n\\nContent Slide\\nFirst bullet point\\nSecond bullet po",
+      "metadata_sample": {
+        "comments": "generated using python-pptx",
+        "last_saved_by": "Steve Canny",
+        "create_time": "2013-01-27T09:14:16",
+        "last_saved_time": "2013-01-27T09:15:58",
+        "page_count": "4"
+      },
+      "first_table_preview": "TableData(rows=[[TableCell(content='Product', row_span=1, col_span=1, is_header=True, row_index=0, col_index=0, nested_table=None), TableCell(content='Qty', row_span=1, col_span=1, is_header=True, row"
+    }
+  },
+  {
+    "name": "process: XLSX",
+    "category": "process",
+    "status": "PASS",
+    "duration_ms": 594.9095000396483,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "sample.xlsx",
+      "text_length": 916,
+      "has_metadata": true,
+      "metadata_keys": [
+        "author",
+        "create_time",
+        "last_saved_time",
+        "page_count"
+      ],
+      "table_count": 3,
+      "image_count": 0,
+      "chart_count": 1,
+      "text_preview": "[Document-Metadata]\\n  작성자: openpyxl\\n  작성일: 2026-04-06 09:31:25\\n  최종 수정일: 2026-04-06 09:31:25\\n  페이지 수: 3\\n[/Document-Metadata]\\n\\n[Sheet: Sales Data]\\n\\n| Product | Q1 | Q2 | Q3 | Q4 | Total |\\n| --- | --- | --- | --- | --- | --- |\\n| Laptop | 100 | 120 | 110 | 130 |  |\\n| Phone | 200 | 180 | 220 | 250 |  |\\n",
+      "metadata_sample": {
+        "author": "openpyxl",
+        "create_time": "2026-04-06T09:31:25",
+        "last_saved_time": "2026-04-06T09:31:25",
+        "page_count": "3"
+      },
+      "first_table_preview": "TableData(rows=[[TableCell(content='Product', row_span=1, col_span=1, is_header=True, row_index=0, col_index=0, nested_table=None), TableCell(content='Q1', row_span=1, col_span=1, is_header=True, row_"
+    }
+  },
+  {
+    "name": "process: XLS",
+    "category": "process",
+    "status": "PASS",
+    "duration_ms": 1.7493999912403524,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "sample.xls",
+      "text_length": 155,
+      "has_metadata": true,
+      "metadata_keys": [
+        "page_count"
+      ],
+      "table_count": 1,
+      "image_count": 0,
+      "chart_count": 0,
+      "text_preview": "[Document-Metadata]\\n  페이지 수: 1\\n[/Document-Metadata]\\n\\n[Sheet: Sheet1]\\n\\n| Name | Age | City |\\n| --- | --- | --- |\\n| Alice | 30 | Seoul |\\n| Bob | 25 | Tokyo |",
+      "metadata_sample": {
+        "page_count": "1"
+      },
+      "first_table_preview": "TableData(rows=[[TableCell(content='Name', row_span=1, col_span=1, is_header=True, row_index=0, col_index=0, nested_table=None), TableCell(content='Age', row_span=1, col_span=1, is_header=True, row_in"
+    }
+  },
+  {
+    "name": "process: PDF",
+    "category": "process",
+    "status": "PASS",
+    "duration_ms": 62.074200017377734,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "sample.pdf",
+      "text_length": 919,
+      "has_metadata": true,
+      "metadata_keys": [
+        "title",
+        "subject",
+        "author",
+        "create_time",
+        "last_saved_time",
+        "page_count",
+        "custom"
+      ],
+      "table_count": 1,
+      "image_count": 0,
+      "chart_count": 0,
+      "text_preview": "[Document-Metadata]\\n  제목: (anonymous)\\n  주제: (unspecified)\\n  작성자: (anonymous)\\n  작성일: 2026-04-06 18:31:26\\n  최종 수정일: 2026-04-06 18:31:26\\n  페이지 수: 1\\n  creator: (unspecified)\\n  producer: ReportLab PDF Library - (opensource)\\n  format: PDF 1.4\\n[/Document-Metadata]\\n\\n[Page 1]\\nTest PDF Document\\n\\nThis is a tes",
+      "metadata_sample": {
+        "title": "(anonymous)",
+        "subject": "(unspecified)",
+        "author": "(anonymous)",
+        "create_time": "2026-04-06 18:31:26",
+        "last_saved_time": "2026-04-06 18:31:26"
+      },
+      "first_table_preview": "TableData(rows=[['Name', 'Age', 'City', 'Score'], ['Alice', '30', 'Seoul', '95.5'], ['Bob', '25', 'Tokyo', '88.3'], ['Charlie', '35', 'New York', '92.1']], num_rows=4, num_cols=4, has_header=False, co"
+    }
+  },
+  {
+    "name": "process: HTML",
+    "category": "process",
+    "status": "PASS",
+    "duration_ms": 1.4877000357955694,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "sample.html",
+      "text_length": 458,
+      "has_metadata": true,
+      "metadata_keys": [
+        "title"
+      ],
+      "table_count": 1,
+      "image_count": 0,
+      "chart_count": 0,
+      "text_preview": "[Document-Metadata]\\n  제목: Test HTML Document\\n[/Document-Metadata]\\n\\n# Main Title\\n\\nThis is a paragraph with\\n\\nbold\\n\\nand\\n\\nitalic\\n\\ntext.\\n\\n## Section 1\\n\\nContent of section 1.\\n\\n- Item A\\n- Item B\\n- Item C\\n\\n## Section 2: Table\\n\\n<table>\\n<tr><th>Name</th><th>Age</th><th>City</th></tr>\\n<tr><td>Alice</td><td>30<",
+      "metadata_sample": {
+        "title": "Test HTML Document"
+      },
+      "first_table_preview": "TableData(rows=[[TableCell(content='Name', row_span=1, col_span=1, is_header=True, row_index=0, col_index=0, nested_table=None), TableCell(content='Age', row_span=1, col_span=1, is_header=True, row_in"
+    }
+  },
+  {
+    "name": "process: CSV",
+    "category": "process",
+    "status": "PASS",
+    "duration_ms": 0.7027999963611364,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "sample.csv",
+      "text_length": 555,
+      "has_metadata": true,
+      "metadata_keys": [
+        "custom"
+      ],
+      "table_count": 1,
+      "image_count": 0,
+      "chart_count": 0,
+      "text_preview": "[Document-Metadata]\\n  encoding: utf-8\\n  delimiter: Comma (,)\\n  row_count: 6\\n  col_count: 4\\n  has_header: Yes\\n  columns: Name, Age, City, Score\\n[/Document-Metadata]\\n\\n<table>\\n<tr><th>Name</th><th>Age</th><th>City</th><th>Score</th></tr>\\n<tr><td>Alice</td><td>30</td><td>Seoul</td><td>95.5</td></tr>\\n<tr",
+      "metadata_sample": {
+        "custom": "{'encoding': 'utf-8', 'delimiter': 'Comma (,)', 'row_count': 6, 'col_count': 4, 'has_header': 'Yes',"
+      },
+      "first_table_preview": "TableData(rows=[[TableCell(content='Name', row_span=1, col_span=1, is_header=True, row_index=0, col_index=0, nested_table=None), TableCell(content='Age', row_span=1, col_span=1, is_header=True, row_in"
+    }
+  },
+  {
+    "name": "process: RTF (table)",
+    "category": "process",
+    "status": "PASS",
+    "duration_ms": 0.6918000290170312,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "table.rtf",
+      "text_length": 199,
+      "has_metadata": false,
+      "metadata_keys": [],
+      "table_count": 1,
+      "image_count": 0,
+      "chart_count": 0,
+      "text_preview": "Document with Table\\n\\n<table>\\n<tr><td>Name</td><td>Age</td><td>City</td></tr>\\n<tr><td>Alice</td><td>30</td><td>Seoul</td></tr>\\n<tr><td>Bob</td><td>25</td><td>Tokyo</td></tr>\\n</table>\\n\\nAfter the table.",
+      "first_table_preview": "TableData(rows=[[TableCell(content='Name', row_span=1, col_span=1, is_header=False, row_index=0, col_index=0, nested_table=None), TableCell(content='Age', row_span=1, col_span=1, is_header=False, row_"
+    }
+  },
+  {
+    "name": "extract_chunks: DOCX",
+    "category": "extract_chunks",
+    "status": "PASS",
+    "duration_ms": 7.642300042789429,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "sample.docx",
+      "chunk_count": 2,
+      "strategy": "protected",
+      "chunk_sizes": [
+        496,
+        492
+      ],
+      "total_chars": 988,
+      "first_chunk_preview": "[Document-Metadata]\\n  제목: Deep Test Document\\n  주제: Deep Testing\\n  작성자: Contextify Tester\\n  설명: generated by python-docx\\n  작성일: 2013-12-23 23:15:00\\n  최종 수정일: 2013-12-23 23:15:00\\n  버전: 1\\n[/Document-Meta"
+    }
+  },
+  {
+    "name": "extract_chunks: DOCX (long)",
+    "category": "extract_chunks",
+    "status": "PASS",
+    "duration_ms": 10.750100016593933,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "long.docx",
+      "chunk_count": 249,
+      "strategy": "protected",
+      "chunk_sizes": [
+        499,
+        389,
+        365,
+        376,
+        366,
+        366,
+        365,
+        365,
+        376,
+        367
+      ],
+      "total_chars": 92448,
+      "first_chunk_preview": "[Document-Metadata]\\n  작성자: python-docx\\n  설명: generated by python-docx\\n  작성일: 2013-12-23 23:15:00\\n  최종 수정일: 2013-12-23 23:15:00\\n  버전: 1\\n[/Document-Metadata]\\n\\nLong Document Test\\n\\nChapter 1\\n\\nThis is para"
+    }
+  },
+  {
+    "name": "extract_chunks: PPTX",
+    "category": "extract_chunks",
+    "status": "PASS",
+    "duration_ms": 32.69149997504428,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "sample.pptx",
+      "chunk_count": 2,
+      "strategy": "protected",
+      "chunk_sizes": [
+        354,
+        482
+      ],
+      "total_chars": 836,
+      "first_chunk_preview": "[Document-Metadata]\\n  설명: generated using python-pptx\\n  최종 수정자: Steve Canny\\n  작성일: 2013-01-27 09:14:16\\n  최종 수정일: 2013-01-27 09:15:58\\n  페이지 수: 4\\n  버전: 1\\n[/Document-Metadata]\\n\\n[Slide:1]\\n\\nTest Presentati"
+    }
+  },
+  {
+    "name": "extract_chunks: XLSX",
+    "category": "extract_chunks",
+    "status": "PASS",
+    "duration_ms": 675.8924000314437,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "sample.xlsx",
+      "chunk_count": 4,
+      "strategy": "table",
+      "chunk_sizes": [
+        367,
+        311,
+        314,
+        313
+      ],
+      "total_chars": 1305,
+      "first_chunk_preview": "[Document-Metadata]\\n  작성자: openpyxl\\n  작성일: 2026-04-06 09:31:25\\n  최종 수정일: 2026-04-06 09:31:25\\n  페이지 수: 3\\n[/Document-Metadata]\\n\\n[Sheet: Sales Data]\\n| Product | Q1 | Q2 | Q3 | Q4 | Total |\\n| --- | --- | "
+    }
+  },
+  {
+    "name": "extract_chunks: PDF",
+    "category": "extract_chunks",
+    "status": "PASS",
+    "duration_ms": 141.5813000057824,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "sample.pdf",
+      "chunk_count": 4,
+      "strategy": "protected",
+      "chunk_sizes": [
+        500,
+        241,
+        499,
+        87
+      ],
+      "total_chars": 1327,
+      "first_chunk_preview": "[Document-Metadata]\\n  제목: (anonymous)\\n  주제: (unspecified)\\n  작성자: (anonymous)\\n  작성일: 2026-04-06 18:31:26\\n  최종 수정일: 2026-04-06 18:31:26\\n  페이지 수: 1\\n  creator: (unspecified)\\n  producer: ReportLab PDF Libr"
+    }
+  },
+  {
+    "name": "extract_chunks: PDF (multipage)",
+    "category": "extract_chunks",
+    "status": "PASS",
+    "duration_ms": 1199.8956000315957,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "multipage.pdf",
+      "chunk_count": 80,
+      "strategy": "protected",
+      "chunk_sizes": [
+        499,
+        336,
+        370,
+        370,
+        370,
+        370,
+        370,
+        402,
+        371,
+        370
+      ],
+      "total_chars": 30009,
+      "first_chunk_preview": "[Document-Metadata]\\n  제목: (anonymous)\\n  주제: (unspecified)\\n  작성자: (anonymous)\\n  작성일: 2026-04-06 18:31:26\\n  최종 수정일: 2026-04-06 18:31:26\\n  페이지 수: 10\\n  creator: (unspecified)\\n  producer: ReportLab PDF Lib"
+    }
+  },
+  {
+    "name": "extract_chunks: HTML",
+    "category": "extract_chunks",
+    "status": "PASS",
+    "duration_ms": 1.416600018274039,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "sample.html",
+      "chunk_count": 1,
+      "strategy": "protected",
+      "chunk_sizes": [
+        458
+      ],
+      "total_chars": 458,
+      "first_chunk_preview": "[Document-Metadata]\\n  제목: Test HTML Document\\n[/Document-Metadata]\\n\\n# Main Title\\n\\nThis is a paragraph with\\n\\nbold\\n\\nand\\n\\nitalic\\n\\ntext.\\n\\n## Section 1\\n\\nContent of section 1.\\n\\n- Item A\\n- Item B\\n- Item C\\n\\n##"
+    }
+  },
+  {
+    "name": "extract_chunks: CSV",
+    "category": "extract_chunks",
+    "status": "PASS",
+    "duration_ms": 1.1020000092685223,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "sample.csv",
+      "chunk_count": 2,
+      "strategy": "table",
+      "chunk_sizes": [
+        448,
+        382
+      ],
+      "total_chars": 830,
+      "first_chunk_preview": "[Document-Metadata]\\n  encoding: utf-8\\n  delimiter: Comma (,)\\n  row_count: 6\\n  col_count: 4\\n  has_header: Yes\\n  columns: Name, Age, City, Score\\n[/Document-Metadata][Table Chunk 1/2]\\n<table>\\n<tr><th>Nam"
+    }
+  },
+  {
+    "name": "extract_chunks: CSV (large)",
+    "category": "extract_chunks",
+    "status": "PASS",
+    "duration_ms": 17.746400029864162,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "large.csv",
+      "chunk_count": 500,
+      "strategy": "table",
+      "chunk_sizes": [
+        459,
+        459,
+        459,
+        460,
+        461,
+        465,
+        465,
+        465,
+        465,
+        466
+      ],
+      "total_chars": 236431,
+      "first_chunk_preview": "[Document-Metadata]\\n  encoding: utf-8\\n  delimiter: Comma (,)\\n  row_count: 1001\\n  col_count: 5\\n  has_header: Yes\\n  columns: ID, Name, Value, Category, Timestamp\\n[/Document-Metadata][Table Chunk 1/500]\\n"
+    }
+  },
+  {
+    "name": "extract_chunks: TXT",
+    "category": "extract_chunks",
+    "status": "PASS",
+    "duration_ms": 1.1186000192537904,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "sample.txt",
+      "chunk_count": 1,
+      "strategy": "plain",
+      "chunk_sizes": [
+        167
+      ],
+      "total_chars": 167,
+      "first_chunk_preview": "This is a sample text file for testing.\\nIt has multiple lines.\\nThird line with special chars: é, ñ, ü, 한글, 日本語\\nFourth line with numbers: 12345\\nFifth line: end of file."
+    }
+  },
+  {
+    "name": "extract_chunks: Markdown",
+    "category": "extract_chunks",
+    "status": "PASS",
+    "duration_ms": 0.3749000024981797,
+    "details": "",
+    "error": "",
+    "data": {
+      "file": "sample.md",
+      "chunk_count": 1,
+      "strategy": "plain",
+      "chunk_sizes": [
+        375
+      ],
+      "total_chars": 375,
+      "first_chunk_preview": "# Test Markdown Document\\n\\n## Section 1: Introduction\\n\\nThis is a **bold** and *italic* test document.\\n\\n### Subsection 1.1\\n\\n- Item 1\\n- Item 2\\n- Item 3\\n\\n## Section 2: Code\\n\\n```python\\ndef hello():\\n    pri"
+    }
+  },
+  {
+    "name": "Chunking: Plain text splitting",
+    "category": "chunking",
+    "status": "PASS",
+    "duration_ms": 0.3038000431843102,
+    "details": "",
+    "error": "",
+    "data": {
+      "input_len": 2600,
+      "chunk_count": 7,
+      "chunk_sizes": [
+        499,
+        499,
+        499,
+        499,
+        499,
+        499,
+        181
+      ]
+    }
+  },
+  {
+    "name": "Chunking: Page-based splitting",
+    "category": "chunking",
+    "status": "PASS",
+    "duration_ms": 0.20640000002458692,
+    "details": "",
+    "error": "",
+    "data": {
+      "input_len": 3438,
+      "chunk_count": 5,
+      "has_page_markers": true,
+      "chunk_sizes": [
+        685,
+        685,
+        685,
+        685,
+        685
+      ]
+    }
+  },
+  {
+    "name": "Chunking: Table/Sheet-based splitting",
+    "category": "chunking",
+    "status": "PASS",
+    "duration_ms": 15.505500021390617,
+    "details": "",
+    "error": "",
+    "data": {
+      "input_len": 1380,
+      "chunk_count": 3,
+      "chunk_sizes": [
+        458,
+        458,
+        458
+      ]
+    }
+  },
+  {
+    "name": "Chunking: Protected region preservation",
+    "category": "chunking",
+    "status": "PASS",
+    "duration_ms": 0.1577000366523862,
+    "details": "",
+    "error": "",
+    "data": {
+      "input_len": 921,
+      "chunk_count": 2,
+      "table_preserved": true,
+      "chunk_sizes": [
+        866,
+        35
+      ]
+    }
+  },
+  {
+    "name": "Chunking: Overlap verification",
+    "category": "chunking",
+    "status": "PASS",
+    "duration_ms": 0.728700018953532,
+    "details": "",
+    "error": "",
+    "data": {
+      "chunk_count": 26,
+      "chunk_sizes": [
+        199,
+        195,
+        195,
+        195,
+        193,
+        199,
+        199,
+        199,
+        199,
+        199,
+        199,
+        199,
+        199,
+        199,
+        199,
+        199,
+        199,
+        199,
+        199,
+        199,
+        199,
+        199,
+        199,
+        199,
+        199,
+        111
+      ],
+      "overlap_detected": true
+    }
+  },
+  {
+    "name": "Chunking: Empty text",
+    "category": "chunking",
+    "status": "PASS",
+    "duration_ms": 0.004300032742321491,
+    "details": "",
+    "error": "",
+    "data": {
+      "chunk_count": 0,
+      "result": "empty list"
+    }
+  },
+  {
+    "name": "Chunking: Very small chunk_size=10",
+    "category": "chunking",
+    "status": "PASS",
+    "duration_ms": 0.07209996692836285,
+    "details": "",
+    "error": "",
+    "data": {
+      "chunk_count": 4,
+      "chunk_sizes": [
+        5,
+        6,
+        9,
+        7
+      ]
+    }
+  },
+  {
+    "name": "Chunking: Position metadata",
+    "category": "chunking",
+    "status": "PASS",
+    "duration_ms": 14.345699979458004,
+    "details": "",
+    "error": "",
+    "data": {
+      "chunk_count": 8,
+      "has_metadata": true,
+      "metadata_fields": {
+        "chunk_index": 0,
+        "page_number": null,
+        "line_start": 0,
+        "line_end": 0
+      }
+    }
+  },
+  {
+    "name": "Tables: DOCX extraction",
+    "category": "tables",
+    "status": "PASS",
+    "duration_ms": 7.768500014208257,
+    "details": "",
+    "error": "",
+    "data": {
+      "table_count": 1,
+      "table_previews": [
+        "TableData(rows=[[TableCell(content='Name', row_span=1, col_span=1, is_header=True, row_index=0, col_index=0, nested_table=None), TableCell(content='Age', row_span=1, col_span=1, is_header=True, row_in"
+      ]
+    }
+  },
+  {
+    "name": "Tables: DOCX merged cells",
+    "category": "tables",
+    "status": "PASS",
+    "duration_ms": 7.656400033738464,
+    "details": "",
+    "error": "",
+    "data": {
+      "table_count": 1,
+      "text_has_merged": true,
+      "text_preview": "[Document-Metadata]\\n  작성자: python-docx\\n  설명: generated by python-docx\\n  작성일: 2013-12-23 23:15:00\\n  최종 수정일: 2013-12-23 23:15:00\\n  버전: 1\\n[/Document-Metadata]\\n\\nMerged Cell Test\\n\\n<table>\\n<tr><th colspan=\"3\">Merged Header</th></tr>\\n<tr><td>Region</td><td>Q1</td><td>Q2</td></tr>\\n<tr><td>Asia</td><td>100</td><td>120</td></tr>\\n<tr><td>Europe</td><td>200</td><td>210</td></tr>\\n</table>"
+    }
+  },
+  {
+    "name": "Tables: HTML extraction",
+    "category": "tables",
+    "status": "PASS",
+    "duration_ms": 1.1947000166401267,
+    "details": "",
+    "error": "",
+    "data": {
+      "table_count": 1,
+      "text_preview": "[Document-Metadata]\\n  제목: Test HTML Document\\n[/Document-Metadata]\\n\\n# Main Title\\n\\nThis is a paragraph with\\n\\nbold\\n\\nand\\n\\nitalic\\n\\ntext.\\n\\n## Section 1\\n\\nContent of section 1.\\n\\n- Item A\\n- Item B\\n- Item C\\n\\n## Section 2: Table\\n\\n<table>\\n<tr><th>Name</th><th>Age</th><th>City</th></tr>\\n<tr><td>Alice</td><td>30</td><td>Seoul</td></tr>\\n<tr><td>Bob</td><td>25</td><td>Tokyo</td></tr>\\n</table>\\n\\n## Section 3: Code\\n\\n```\\nfunction hello() {\r\\n    console.log(\"Hello!\");\r\\n}\\n```"
+    }
+  },
+  {
+    "name": "Tables: HTML colspan/rowspan",
+    "category": "tables",
+    "status": "PASS",
+    "duration_ms": 1.1836999910883605,
+    "details": "",
+    "error": "",
+    "data": {
+      "table_count": 1,
+      "text_contains_quarterly": true,
+      "text_preview": "# Complex Table Test\\n\\n<table>\\n<tr><th colspan=\"3\">Quarterly Report</th></tr>\\n<tr><th>Region</th><th>Q1</th><th>Q2</th></tr>\\n<tr><td rowspan=\"2\">Asia</td><td>100</td><td>120</td></tr>\\n<tr><td>110</td><td>130</td></tr>\\n<tr><td>Europe</td><td>200</td><td>210</td></tr>\\n</table>"
+    }
+  },
+  {
+    "name": "Tables: XLSX multi-sheet",
+    "category": "tables",
+    "status": "PASS",
+    "duration_ms": 533.4355999948457,
+    "details": "",
+    "error": "",
+    "data": {
+      "table_count": 3,
+      "text_length": 916,
+      "has_sales_data": true,
+      "has_regions": true,
+      "text_preview": "[Document-Metadata]\\n  작성자: openpyxl\\n  작성일: 2026-04-06 09:31:25\\n  최종 수정일: 2026-04-06 09:31:25\\n  페이지 수: 3\\n[/Document-Metadata]\\n\\n[Sheet: Sales Data]\\n\\n| Product | Q1 | Q2 | Q3 | Q4 | Total |\\n| --- | --- | --- | --- | --- | --- |\\n| Laptop | 100 | 120 | 110 | 130 |  |\\n| Phone | 200 | 180 | 220 | 250 |  |\\n| Tablet | 50 | 60 | 55 | 70 |  |\\n| Monitor | 30 | 35 | 40 | 45 |  |\\n\\n[chart]\\nChart Type: Bar Chart\\nTitle: Quarterly Sales\\n<table>\\n<tr><th>Category</th><th>Series</th><th>Series</th><th>Series</th><th>Series</th></tr>\\n</table>\\n[/chart]\\n\\n[Sheet: Regions]\\n\\n| Region | Revenue | Expenses | Profit |\\n| --- | --- | --- | --- |\\n| Asia | 50000 | 30000 | 20000 |\\n| Europe | 45000 | 28000 | 17000 |\\n| Americas | 60000 | 35000 | 25000 |\\n\\n[Sheet: Merged]\\n\\n<table>\\n<tr><th colspan=\"3\">Merged Header Row</th></tr>"
+    }
+  },
+  {
+    "name": "Tables: CSV extraction",
+    "category": "tables",
+    "status": "PASS",
+    "duration_ms": 1.020599971525371,
+    "details": "",
+    "error": "",
+    "data": {
+      "table_count": 1,
+      "text_has_data": true,
+      "text_preview": "[Document-Metadata]\\n  encoding: utf-8\\n  delimiter: Comma (,)\\n  row_count: 6\\n  col_count: 4\\n  has_header: Yes\\n  columns: Name, Age, City, Score\\n[/Document-Metadata]\\n\\n<table>\\n<tr><th>Name</th><th>Age</th><th>City</th><th>Score</th></tr>\\n<tr><td>Alice</td><td>30</td><td>Seoul</td><td>95.5</td></tr>\\n<tr><td>Bob</td><td>25</td><td>Tokyo</td><td>88.3</td></tr>\\n<tr><td>Charlie</td><td>35</td><td>New York</td><td>92.1</td></tr>\\n<tr><td>Diana</td><td>28</td><td>London</td><td>97.8</td></tr>\\n<tr><td>Eve</"
+    }
+  },
+  {
+    "name": "Tables: HTML format output",
+    "category": "tables",
+    "status": "PASS",
+    "duration_ms": 772.7614999748766,
+    "details": "",
+    "error": "",
+    "data": {
+      "format": "HTML",
+      "has_html_tags": true,
+      "text_len": 916
+    }
+  },
+  {
+    "name": "Tables: Markdown format output",
+    "category": "tables",
+    "status": "PASS",
+    "duration_ms": 671.2080999859609,
+    "details": "",
+    "error": "",
+    "data": {
+      "format": "MARKDOWN",
+      "has_markdown_pipes": true,
+      "text_len": 916
+    }
+  },
+  {
+    "name": "Tables: Text format output",
+    "category": "tables",
+    "status": "PASS",
+    "duration_ms": 882.4094000156038,
+    "details": "",
+    "error": "",
+    "data": {
+      "format": "TEXT",
+      "text_len": 916,
+      "preview": "[Document-Metadata]\\n  작성자: openpyxl\\n  작성일: 2026-04-06 09:31:25\\n  최종 수정일: 2026-04-06 09:31:25\\n  페이지 수: 3\\n[/Document-Metadata]\\n\\n[Sheet: Sales Data]\\n\\n| Product | Q1 | Q2 | Q3 | Q4 | Total |\\n| --- | --- | --- | --- | --- | --- |\\n| Laptop | 100 | 120 | 110 | 130 |  |\\n| Phone | 200 | 180 | 220 | 250 |  |\\n| Tablet | 50 | 60 | 55 | 70 |  |\\n| Monitor | 30 | 35 | 40 | 45 |  |\\n\\n[chart]\\nChart Type: Bar Chart\\nTitle: Quarterly Sales\\n<table>\\n<tr><th>Category</th><th>Series</th><th>Series</th><th>Series</th><th"
+    }
+  },
+  {
+    "name": "Metadata: DOCX",
+    "category": "metadata",
+    "status": "PASS",
+    "duration_ms": 14.053500024601817,
+    "details": "",
+    "error": "",
+    "data": {
+      "metadata_keys": [
+        "title",
+        "subject",
+        "author",
+        "comments",
+        "create_time",
+        "last_saved_time",
+        "revision"
+      ],
+      "has_title": true,
+      "has_author": true,
+      "title": "Deep Test Document",
+      "author": "Contextify Tester",
+      "metadata_values": {
+        "title": "Deep Test Document",
+        "subject": "Deep Testing",
+        "author": "Contextify Tester",
+        "comments": "generated by python-docx",
+        "create_time": "2013-12-23T23:15:00+00:00",
+        "last_saved_time": "2013-12-23T23:15:00+00:00",
+        "revision": "1"
+      }
+    }
+  },
+  {
+    "name": "Metadata: PDF",
+    "category": "metadata",
+    "status": "PASS",
+    "duration_ms": 108.46090002451092,
+    "details": "",
+    "error": "",
+    "data": {
+      "metadata_keys": [
+        "title",
+        "subject",
+        "author",
+        "create_time",
+        "last_saved_time",
+        "page_count",
+        "custom"
+      ],
+      "metadata_values": {
+        "title": "(anonymous)",
+        "subject": "(unspecified)",
+        "author": "(anonymous)",
+        "create_time": "2026-04-06 18:31:26",
+        "last_saved_time": "2026-04-06 18:31:26",
+        "page_count": "1",
+        "custom": "{'creator': '(unspecified)', 'producer': 'ReportLab PDF Library - (opensource)', 'format': 'PDF 1.4'"
+      }
+    }
+  },
+  {
+    "name": "Metadata: PPTX",
+    "category": "metadata",
+    "status": "PASS",
+    "duration_ms": 49.505800008773804,
+    "details": "",
+    "error": "",
+    "data": {
+      "metadata_keys": [
+        "comments",
+        "last_saved_by",
+        "create_time",
+        "last_saved_time",
+        "page_count",
+        "revision"
+      ],
+      "metadata_values": {
+        "comments": "generated using python-pptx",
+        "last_saved_by": "Steve Canny",
+        "create_time": "2013-01-27T09:14:16",
+        "last_saved_time": "2013-01-27T09:15:58",
+        "page_count": "4",
+        "revision": "1"
+      }
+    }
+  },
+  {
+    "name": "Metadata: Korean language",
+    "category": "metadata",
+    "status": "PASS",
+    "duration_ms": 24.453599995467812,
+    "details": "",
+    "error": "",
+    "data": {
+      "text_preview": "[Document-Metadata]\\n  제목: Deep Test Document\\n  주제: Deep Testing\\n  작성자: Contextify Tester\\n  설명: generated by python-docx\\n  작성일: 2013-12-23 23:15:00\\n  최종 수정일: 2013-12-23 23:15:00\\n  버전: 1\\n[/Document-Metadata]\\n\\nTest Document\\n\\nThis is a test DOCX document created for deep testing of Contextify.\\n\\nSection 1: Text Content\\n\\nRegular paragraph with normal text. This paragraph tests basic text extraction.\\n\\nBold text and italic text\\n\\nSection 2: Lists\\n\\nFirst item\\n\\nSecond item\\n\\nThird item\\n\\nSection 3: Table\\n\\n<t",
+      "has_korean_labels": true
+    }
+  },
+  {
+    "name": "Metadata: English language",
+    "category": "metadata",
+    "status": "PASS",
+    "duration_ms": 26.17239998653531,
+    "details": "",
+    "error": "",
+    "data": {
+      "text_preview": "[Document-Metadata]\\n  Title: Deep Test Document\\n  Subject: Deep Testing\\n  Author: Contextify Tester\\n  Comments: generated by python-docx\\n  Created: 2013-12-23 23:15:00\\n  Last Modified: 2013-12-23 23:15:00\\n  Revision: 1\\n[/Document-Metadata]\\n\\nTest Document\\n\\nThis is a test DOCX document created for deep testing of Contextify.\\n\\nSection 1: Text Content\\n\\nRegular paragraph with normal text. This paragraph tests basic text extraction.\\n\\nBold text and italic text\\n\\nSection 2: Lists\\n\\nFirst item\\n\\nSecond item"
+    }
+  },
+  {
+    "name": "Tags: Custom page tags",
+    "category": "tags",
+    "status": "PASS",
+    "duration_ms": 1227.628700027708,
+    "details": "",
+    "error": "",
+    "data": {
+      "has_custom_page_tags": false,
+      "page_tag_count": 0,
+      "text_preview": "[Document-Metadata]\\n  제목: (anonymous)\\n  주제: (unspecified)\\n  작성자: (anonymous)\\n  작성일: 2026-04-06 18:31:26\\n  최종 수정일: 2026-04-06 18:31:26\\n  페이지 수: 10\\n  creator: (unspecified)\\n  producer: ReportLab PDF Library - (opensource)\\n  format: PDF 1.4\\n[/Document-Metadata]\\n\\n[Page 1]\\nPage 1: Chapter Title\\n\\nParagraph 1 on page 1. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod\\ntempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.\\n\\nParagraph 2 on page 1. Lorem ipsum "
+    }
+  },
+  {
+    "name": "Tags: Default PDF page tags",
+    "category": "tags",
+    "status": "PASS",
+    "duration_ms": 1022.3417000379413,
+    "details": "",
+    "error": "",
+    "data": {
+      "has_page_markers": true,
+      "text_preview": "[Document-Metadata]\\n  제목: (anonymous)\\n  주제: (unspecified)\\n  작성자: (anonymous)\\n  작성일: 2026-04-06 18:31:26\\n  최종 수정일: 2026-04-06 18:31:26\\n  페이지 수: 10\\n  creator: (unspecified)\\n  producer: ReportLab PDF Library - (opensource)\\n  format: PDF 1.4\\n[/Document-Metadata]\\n\\n[Page 1]\\nPage 1: Chapter Title\\n\\nParagraph 1 on page 1. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod\\ntempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.\\n\\nParagraph 2 on page 1. Lorem ipsum "
+    }
+  },
+  {
+    "name": "Tags: PPTX slide tags",
+    "category": "tags",
+    "status": "PASS",
+    "duration_ms": 33.89449999667704,
+    "details": "",
+    "error": "",
+    "data": {
+      "has_slide_markers": true,
+      "text_preview": "[Document-Metadata]\\n  설명: generated using python-pptx\\n  최종 수정자: Steve Canny\\n  작성일: 2013-01-27 09:14:16\\n  최종 수정일: 2013-01-27 09:15:58\\n  페이지 수: 4\\n  버전: 1\\n[/Document-Metadata]\\n\\n[Slide:1]\\n\\nTest Presentation\\nCreated for Contextify Deep Testing\\n\\n[Slide:2]\\n\\nContent Slide\\nFirst bullet point\\nSecond bullet point\\nThird bullet point with 한글\\n\\n[Slide:3]\\n\\nTable Slide\\n\\n<table>\\n<tr><th>Product</th><th>Qty</th><th>Price</th></tr>\\n<tr><td>Laptop</td><td>5</td><td>$1200</td></tr>\\n<tr><td>Mouse</td><td>20</td><td>$2"
+    }
+  },
+  {
+    "name": "Tags: XLSX sheet tags",
+    "category": "tags",
+    "status": "PASS",
+    "duration_ms": 477.83559997333214,
+    "details": "",
+    "error": "",
+    "data": {
+      "has_sheet_markers": true,
+      "text_preview": "[Document-Metadata]\\n  작성자: openpyxl\\n  작성일: 2026-04-06 09:31:25\\n  최종 수정일: 2026-04-06 09:31:25\\n  페이지 수: 3\\n[/Document-Metadata]\\n\\n[Sheet: Sales Data]\\n\\n| Product | Q1 | Q2 | Q3 | Q4 | Total |\\n| --- | --- | --- | --- | --- | --- |\\n| Laptop | 100 | 120 | 110 | 130 |  |\\n| Phone | 200 | 180 | 220 | 250 |  |\\n| Tablet | 50 | 60 | 55 | 70 |  |\\n| Monitor | 30 | 35 | 40 | 45 |  |\\n\\n[chart]\\nChart Type: Bar Chart\\nTitle: Quarterly Sales\\n<table>\\n<tr><th>Category</th><th>Series</th><th>Series</th><th>Series</th><th>Series</th></tr>\\n</table>\\n[/chart]\\n\\n[Sheet: Regions]\\n\\n| Region | Revenue | Expenses | Profit |\\n| --- | --- | --- | --- |\\n| Asia | 50000 | 30000 | 20000 |\\n| Europe | 45000 | 28000 | 17000 |\\n| Americas | 60000 | 35000 | 25000 |\\n\\n[Sheet: Merged]\\n\\n<table>\\n<tr><th colspan=\"3\">Merged Header Row</th></tr>"
+    }
+  },
+  {
+    "name": "Edge: Empty TXT file",
+    "category": "edge_cases",
+    "status": "PASS",
+    "duration_ms": 0.23900001542642713,
+    "details": "",
+    "error": "",
+    "data": {
+      "text_length": 0,
+      "is_empty": true
+    }
+  },
+  {
+    "name": "Edge: Empty CSV file",
+    "category": "edge_cases",
+    "status": "PASS",
+    "duration_ms": 0.20140002015978098,
+    "details": "",
+    "error": "",
+    "data": {
+      "text_length": 128,
+      "is_empty": false
+    }
+  },
+  {
+    "name": "Edge: Empty XLSX file",
+    "category": "edge_cases",
+    "status": "PASS",
+    "duration_ms": 180.73329998878762,
+    "details": "",
+    "error": "",
+    "data": {
+      "text_length": 140,
+      "preview": "[Document-Metadata]\\n  작성자: openpyxl\\n  작성일: 2026-04-06 09:31:25\\n  최종 수정일: 2026-04-06 09:31:25\\n  페이지 수: 1\\n[/Document-Metadata]\\n\\n[Sheet: Sheet]"
+    }
+  },
+  {
+    "name": "Edge: Header-only CSV",
+    "category": "edge_cases",
+    "status": "PASS",
+    "duration_ms": 0.4466000245884061,
+    "details": "",
+    "error": "",
+    "data": {
+      "text_length": 194,
+      "has_headers": true,
+      "preview": "[Document-Metadata]\n  encoding: utf-8\n  delimiter: Comma (,)\n  row_count: 1\n  col_count: 3\n  has_header: No\n[/Document-Metadata]\n\n<table>\n<tr><td>Name</td><td>Age</td><td>City</td></tr>\n</table>"
+    }
+  },
+  {
+    "name": "Edge: 100K char single line",
+    "category": "edge_cases",
+    "status": "PASS",
+    "duration_ms": 1.691600016783923,
+    "details": "",
+    "error": "",
+    "data": {
+      "text_length": 100000,
+      "original_length": 100002
+    }
+  },
+  {
+    "name": "Edge: Whitespace-only file",
+    "category": "edge_cases",
+    "status": "PASS",
+    "duration_ms": 0.1976999919861555,
+    "details": "",
+    "error": "",
+    "data": {
+      "text_length": 0,
+      "stripped_length": 0
+    }
+  },
+  {
+    "name": "Edge: UTF-8 BOM handling",
+    "category": "edge_cases",
+    "status": "PASS",
+    "duration_ms": 0.1784000196494162,
+    "details": "",
+    "error": "",
+    "data": {
+      "text_length": 31,
+      "has_bom_in_output": false,
+      "preview": "'UTF-8 BOM test file\\nSecond line'"
+    }
+  },
+  {
+    "name": "Edge: EUC-KR encoding detection",
+    "category": "edge_cases",
+    "status": "PASS",
+    "duration_ms": 0.4217000096105039,
+    "details": "",
+    "error": "",
+    "data": {
+      "text_length": 38,
+      "has_korean": true,
+      "preview": "한글 테스트 파일입니다.\n두번째 줄입니다.\n세번째 줄: 가나다라마바사"
+    }
+  },
+  {
+    "name": "Edge: Deeply nested JSON",
+    "category": "edge_cases",
+    "status": "PASS",
+    "duration_ms": 0.31289999606087804,
+    "details": "",
+    "error": "",
+    "data": {
+      "text_length": 1744,
+      "preview": "{\\n  \"level\": 0,\\n  \"child\": {\\n    \"level\": 1,\\n    \"child\": {\\n      \"level\": 2,\\n      \"child\": {\\n        \"level\": 3,\\n        \"child\": {\\n          \"level\": 4,\\n          \"child\": {\\n            \"level\": 5,\\n            \"child\": {\\n              \"level\": 6,\\n              \"child\": {\\n                \"level\": "
+    }
+  },
+  {
+    "name": "Edge: Wide CSV (100 columns)",
+    "category": "edge_cases",
+    "status": "PASS",
+    "duration_ms": 3.1442000181414187,
+    "details": "",
+    "error": "",
+    "data": {
+      "text_length": 16741,
+      "has_col_99": true,
+      "preview": "[Document-Metadata]\\n  encoding: utf-8\\n  delimiter: Comma (,)\\n  row_count: 11\\n  col_count: 100\\n  has_header: Yes\\n  columns: Col_0, Col_1, Col_2, Col_3, Col_4, Col_5, Col_6, Col_7, Col_8, Col_9 (+90 more)\\n[/Document-Metadata]\\n\\n<table>\\n<tr><th>Col_0</th><th>Col_1</th><th>Col_2</th><th>Col_3</th><th>Col"
+    }
+  },
+  {
+    "name": "Edge: Large CSV (1000 rows)",
+    "category": "edge_cases",
+    "status": "PASS",
+    "duration_ms": 10.801299999002367,
+    "details": "",
+    "error": "",
+    "data": {
+      "text_length": 86320,
+      "has_first_row": true,
+      "has_last_row": true
+    }
+  },
+  {
+    "name": "Edge: Large XLSX (500 rows)",
+    "category": "edge_cases",
+    "status": "PASS",
+    "duration_ms": 197.88430002517998,
+    "details": "",
+    "error": "",
+    "data": {
+      "text_length": 23554,
+      "has_data": true
+    }
+  },
+  {
+    "name": "Edge: CSV with special chars",
+    "category": "edge_cases",
+    "status": "PASS",
+    "duration_ms": 0.6072999676689506,
+    "details": "",
+    "error": "",
+    "data": {
+      "text_length": 523,
+      "has_quotes": true,
+      "has_korean": true,
+      "preview": "[Document-Metadata]\\n  encoding: utf-8\\n  delimiter: Comma (,)\\n  row_count: 5\\n  col_count: 3\\n  has_header: Yes\\n  columns: Name, Description, Price\\n[/Document-Metadata]\\n\\n<table>\\n<tr><th>Name</th><th>Description</th><th>Price</th></tr>\\n<tr><td>Widget A</td><td>A small, compact widget</td><td>$10.99</td></tr>\\n<tr><td>Widget B</td><td>Contains \"quotes\" inside</td><td>$25.50</td></tr>\\n<tr><td>Widget C</td><td>Multi line description</td><td>$15.00</td></tr>\\n<tr><td>한글 제품</td><td>한글 설명, 쉼표 포함</td><td>₩15"
+    }
+  },
+  {
+    "name": "Edge: Semicolon-delimited CSV",
+    "category": "edge_cases",
+    "status": "PASS",
+    "duration_ms": 0.3776000230573118,
+    "details": "",
+    "error": "",
+    "data": {
+      "text_length": 322,
+      "has_data": true,
+      "preview": "[Document-Metadata]\\n  encoding: utf-8\\n  delimiter: Semicolon (;)\\n  row_count: 3\\n  col_count: 3\\n  has_header: Yes\\n  columns: Name, Age, City\\n[/Document-Metadata]\\n\\n<table>\\n<tr><th>Name</th><th>Age</th><th>City</th></tr>\\n<tr><td>Alice</td><td>30</td><td>Seoul</td></tr>\\n<tr><td>Bob</td><td>25</td><td>To"
+    }
+  },
+  {
+    "name": "Edge: Deeply nested HTML",
+    "category": "edge_cases",
+    "status": "PASS",
+    "duration_ms": 1.0214000358246267,
+    "details": "",
+    "error": "",
+    "data": {
+      "text_length": 21,
+      "has_content": true,
+      "preview": "Deeply nested content"
+    }
+  },
+  {
+    "name": "Edge: HTML XSS safety",
+    "category": "edge_cases",
+    "status": "PASS",
+    "duration_ms": 0.7993999752216041,
+    "details": "",
+    "error": "",
+    "data": {
+      "text_length": 166,
+      "has_raw_script_tag": false,
+      "security_ok": true,
+      "preview": "# Security Test\\n\\nNormal content here.\\n\\n<table>\\n<tr><td>&lt;script&gt;alert(\"xss\")&lt;/script&gt;</td><td>safe</td></tr>\\n<tr><td>normal</td><td>data</td></tr>\\n</table>"
+    }
+  },
+  {
+    "name": "Edge: Unsupported format",
+    "category": "edge_cases",
+    "status": "PASS",
+    "duration_ms": 0.023600005079060793,
+    "details": "",
+    "error": "",
+    "data": {
+      "raised": true,
+      "error_type": "UnsupportedFormatError",
+      "message": "[E_UNSUPPORTED_FORMAT] Unsupported file format: .zzz\n  file_path: nonexistent.zzz\n  extension: zzz"
+    }
+  },
+  {
+    "name": "Edge: Non-existent file",
+    "category": "edge_cases",
+    "status": "PASS",
+    "duration_ms": 0.048600020818412304,
+    "details": "",
+    "error": "",
+    "data": {
+      "raised": true,
+      "error_type": "FileNotFoundError"
+    }
+  },
+  {
+    "name": "Edge: Korean HTML",
+    "category": "edge_cases",
+    "status": "PASS",
+    "duration_ms": 0.9197999606840312,
+    "details": "",
+    "error": "",
+    "data": {
+      "text_length": 238,
+      "has_korean": true,
+      "preview": "[Document-Metadata]\\n  제목: 한글 문서\\n[/Document-Metadata]\\n\\n# 한글 테스트 문서\\n\\n이것은 한글로 작성된 테스트 문서입니다.\\n\\n<table>\\n<tr><th>이름</th><th>나이</th><th>도시</th></tr>\\n<tr><td>홍길동</td><td>30</td><td>서울</td></tr>\\n<tr><td>김철수</td><td>25</td><td>부산</td></tr>\\n</table>"
+    }
+  },
+  {
+    "name": "Edge: Long DOCX (50 chapters)",
+    "category": "edge_cases",
+    "status": "PASS",
+    "duration_ms": 9.23790002707392,
+    "details": "",
+    "error": "",
+    "data": {
+      "text_length": 43361,
+      "has_chapter_1": true,
+      "has_chapter_50": true
+    }
+  },
+  {
+    "name": "Config: Default values",
+    "category": "config",
+    "status": "PASS",
+    "duration_ms": 0.026799971237778664,
+    "details": "",
+    "error": "",
+    "data": {
+      "chunk_size": 1000,
+      "chunk_overlap": 200,
+      "table_format": "OutputFormat.HTML",
+      "metadata_language": "ko",
+      "ocr_enabled": false
+    }
+  },
+  {
+    "name": "Config: Fluent API immutability",
+    "category": "config",
+    "status": "PASS",
+    "duration_ms": 0.021799991372972727,
+    "details": "",
+    "error": "",
+    "data": {
+      "original_chunk_size": 1000,
+      "new_chunk_size": 2000,
+      "immutable": true
+    }
+  },
+  {
+    "name": "Config: Serialization round-trip",
+    "category": "config",
+    "status": "PASS",
+    "duration_ms": 0.08899997919797897,
+    "details": "",
+    "error": "",
+    "data": {
+      "chunk_size_match": true,
+      "table_format_match": true,
+      "dict_keys": [
+        "tags",
+        "images",
+        "charts",
+        "metadata",
+        "tables",
+        "chunking",
+        "ocr",
+        "encoding",
+        "format_options"
+      ]
+    }
+  },
+  {
+    "name": "Config: format_options (CSV delimiter)",
+    "category": "config",
+    "status": "PASS",
+    "duration_ms": 9.734199964441359,
+    "details": "",
+    "error": "",
+    "data": {
+      "text_length": 322,
+      "has_alice": true,
+      "preview": "[Document-Metadata]\\n  encoding: utf-8\\n  delimiter: Semicolon (;)\\n  row_count: 3\\n  col_count: 3\\n  has_header: Yes\\n  columns: Name, Age, City\\n[/Document-Metadata]\\n\\n<table>\\n<tr><th>Name</th><th>Age</th><th>City</th></tr>\\n<tr><td>Alice</td><td>30</td><td>Seoul</td></tr>\\n<tr><td>Bob</td><td>25</td><td>To"
+    }
+  },
+  {
+    "name": "Config: EncodingConfig",
+    "category": "config",
+    "status": "PASS",
+    "duration_ms": 9.581000020261854,
+    "details": "",
+    "error": "",
+    "data": {
+      "text_length": 38,
+      "has_korean": true,
+      "preview": "한글 테스트 파일입니다.\n두번째 줄입니다.\n세번째 줄: 가나다라마바사"
+    }
+  },
+  {
+    "name": "Config: ImageConfig",
+    "category": "config",
+    "status": "PASS",
+    "duration_ms": 16.95659995311871,
+    "details": "",
+    "error": "",
+    "data": {
+      "images_extracted": 0
+    }
+  },
+  {
+    "name": "Async: extract_text",
+    "category": "async",
+    "status": "PASS",
+    "duration_ms": 18.20430002408102,
+    "details": "",
+    "error": "",
+    "data": {
+      "text_length": 790,
+      "has_content": true
+    }
+  },
+  {
+    "name": "Async: process",
+    "category": "async",
+    "status": "PASS",
+    "duration_ms": 23.337799997534603,
+    "details": "",
+    "error": "",
+    "data": {
+      "text_length": 790,
+      "has_tables": true,
+      "has_metadata": true
+    }
+  },
+  {
+    "name": "Async: extract_chunks",
+    "category": "async",
+    "status": "PASS",
+    "duration_ms": 17.234999977517873,
+    "details": "",
+    "error": "",
+    "data": {
+      "chunk_count": 2
+    }
+  },
+  {
+    "name": "Async: batch processing",
+    "category": "async",
+    "status": "PASS",
+    "duration_ms": 13.228999974671751,
+    "details": "",
+    "error": "",
+    "data": {
+      "result_count": 3,
+      "result_keys": [
+        "C:\\local_workspace\\2026_blog\\Contextify\\_deep_test\\test_files\\sample.txt",
+        "C:\\local_workspace\\2026_blog\\Contextify\\_deep_test\\test_files\\sample.csv",
+        "C:\\local_workspace\\2026_blog\\Contextify\\_deep_test\\test_files\\sample.html"
+      ],
+      "all_success": true
+    }
+  },
+  {
+    "name": "Cache: Hit verification",
+    "category": "cache",
+    "status": "PASS",
+    "duration_ms": 7.9203000059351325,
+    "details": "",
+    "error": "",
+    "data": {
+      "texts_match": true,
+      "first_call_ms": 0.29,
+      "cached_call_ms": 0.07,
+      "cache_faster": true
+    }
+  },
+  {
+    "name": "Cache: Config isolation",
+    "category": "cache",
+    "status": "PASS",
+    "duration_ms": 16.07389998389408,
+    "details": "",
+    "error": "",
+    "data": {
+      "text1_len": 167,
+      "text2_len": 167
+    }
+  },
+  {
+    "name": "Integrity: CSV data completeness",
+    "category": "integrity",
+    "status": "PASS",
+    "duration_ms": 0.7754999678581953,
+    "details": "",
+    "error": "",
+    "data": {
+      "all_found": true,
+      "missing": [],
+      "text_preview": "[Document-Metadata]\\n  encoding: utf-8\\n  delimiter: Comma (,)\\n  row_count: 6\\n  col_count: 4\\n  has_header: Yes\\n  columns: Name, Age, City, Score\\n[/Document-Metadata]\\n\\n<table>\\n<tr><th>Name</th><th>Age</th><th>City</th><th>Score</th></tr>\\n<tr><td>Alice</td><td>30</td><td>Seoul</td><td>95.5</td></tr>\\n<tr><td>Bob</td><td>25</td><td>Tokyo</td><td>88.3</td></tr>\\n<tr><td>Charlie</td><td>35</td><td>New York</td><td>92.1</td></tr>\\n<tr><td>Diana</td><td>28</td><td>London</td><td>97.8</td></tr>\\n<tr><td>Eve</"
+    }
+  },
+  {
+    "name": "Integrity: DOCX content preservation",
+    "category": "integrity",
+    "status": "PASS",
+    "duration_ms": 7.2898000362329185,
+    "details": "",
+    "error": "",
+    "data": {
+      "all_found": true,
+      "missing": [],
+      "text_length": 790
+    }
+  },
+  {
+    "name": "Integrity: PPTX all slides + notes",
+    "category": "integrity",
+    "status": "PASS",
+    "duration_ms": 30.608000000938773,
+    "details": "",
+    "error": "",
+    "data": {
+      "all_found": true,
+      "missing": [],
+      "text_preview": "[Document-Metadata]\\n  설명: generated using python-pptx\\n  최종 수정자: Steve Canny\\n  작성일: 2013-01-27 09:14:16\\n  최종 수정일: 2013-01-27 09:15:58\\n  페이지 수: 4\\n  버전: 1\\n[/Document-Metadata]\\n\\n[Slide:1]\\n\\nTest Presentation\\nCreated for Contextify Deep Testing\\n\\n[Slide:2]\\n\\nContent Slide\\nFirst bullet point\\nSecond bullet point\\nThird bullet point with 한글\\n\\n[Slide:3]\\n\\nTable Slide\\n\\n<table>\\n<tr><th>Product</th><th>Qty</th><th>Price</th></tr>\\n<tr><td>Laptop</td><td>5</td><td>$1200</td></tr>\\n<tr><td>Mouse</td><td>20</td><td>$25</td></tr>\\n</table>\\n\\n[Slide:4]\\n\\nSlide with Notes\\nThis slide has speaker notes.\\n\\n[Notes]\\nThese are speaker notes for slide 4. Important talking points here."
+    }
+  },
+  {
+    "name": "Integrity: HTML content preservation",
+    "category": "integrity",
+    "status": "PASS",
+    "duration_ms": 1.1520000407472253,
+    "details": "",
+    "error": "",
+    "data": {
+      "all_found": true,
+      "missing": [],
+      "text_preview": "[Document-Metadata]\\n  제목: Test HTML Document\\n[/Document-Metadata]\\n\\n# Main Title\\n\\nThis is a paragraph with\\n\\nbold\\n\\nand\\n\\nitalic\\n\\ntext.\\n\\n## Section 1\\n\\nContent of section 1.\\n\\n- Item A\\n- Item B\\n- Item C\\n\\n## Section 2: Table\\n\\n<table>\\n<tr><th>Name</th><th>Age</th><th>City</th></tr>\\n<tr><td>Alice</td><td>30</td><td>Seoul</td></tr>\\n<tr><td>Bob</td><td>25</td><td>Tokyo</td></tr>\\n</table>\\n\\n## Section 3: Code\\n\\n```\\nfunction hello() {\r\\n    console.log(\"Hello!\");\r\\n}\\n```"
+    }
+  },
+  {
+    "name": "Integrity: Multi-page PDF",
+    "category": "integrity",
+    "status": "PASS",
+    "duration_ms": 1272.4282999988645,
+    "details": "",
+    "error": "",
+    "data": {
+      "text_length": 14428,
+      "has_multiple_pages": true,
+      "page_count_estimate": 100,
+      "text_preview": "[Document-Metadata]\\n  제목: (anonymous)\\n  주제: (unspecified)\\n  작성자: (anonymous)\\n  작성일: 2026-04-06 18:31:26\\n  최종 수정일: 2026-04-06 18:31:26\\n  페이지 수: 10\\n  creator: (unspecified)\\n  producer: ReportLab PDF Library - (opensource)\\n  format: PDF 1.4\\n[/Document-Metadata]\\n\\n[Page 1]\\nPage 1: Chapter Title\\n\\nParagraph 1 on page 1. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod\\ntempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.\\n\\nParagraph 2 on page 1. Lorem ipsum "
+    }
+  },
+  {
+    "name": "Integrity: RTF table content",
+    "category": "integrity",
+    "status": "PASS",
+    "duration_ms": 1.6739999991841614,
+    "details": "",
+    "error": "",
+    "data": {
+      "text_length": 199,
+      "has_alice": true,
+      "has_bob": true,
+      "has_table_header": true,
+      "preview": "Document with Table\\n\\n<table>\\n<tr><td>Name</td><td>Age</td><td>City</td></tr>\\n<tr><td>Alice</td><td>30</td><td>Seoul</td></tr>\\n<tr><td>Bob</td><td>25</td><td>Tokyo</td></tr>\\n</table>\\n\\nAfter the table."
+    }
+  },
+  {
+    "name": "Integrity: XLS content",
+    "category": "integrity",
+    "status": "PASS",
+    "duration_ms": 3.11140000121668,
+    "details": "",
+    "error": "",
+    "data": {
+      "text_length": 155,
+      "has_alice": true,
+      "has_bob": true,
+      "preview": "[Document-Metadata]\\n  페이지 수: 1\\n[/Document-Metadata]\\n\\n[Sheet: Sheet1]\\n\\n| Name | Age | City |\\n| --- | --- | --- |\\n| Alice | 30 | Seoul |\\n| Bob | 25 | Tokyo |"
+    }
+  },
+  {
+    "name": "Integrity: Chunking content preservation",
+    "category": "integrity",
+    "status": "PASS",
+    "duration_ms": 29.203000012785196,
+    "details": "",
+    "error": "",
+    "data": {
+      "original_len": 790,
+      "chunks_total_len": 989,
+      "missing_after_chunking": [],
+      "integrity_ok": true
+    }
+  },
+  {
+    "name": "Registry: Supported extensions",
+    "category": "registry",
+    "status": "PASS",
+    "duration_ms": 0.047900015488266945,
+    "details": "",
+    "error": "",
+    "data": {
+      "total_supported": 83,
+      "expected_found": 0,
+      "missing": [
+        ".pdf",
+        ".docx",
+        ".doc",
+        ".pptx",
+        ".ppt",
+        ".xlsx",
+        ".xls",
+        ".csv",
+        ".tsv",
+        ".html",
+        ".htm",
+        ".rtf",
+        ".txt",
+        ".md",
+        ".py",
+        ".json",
+        ".yaml",
+        ".yml",
+        ".xml",
+        ".ini",
+        ".log",
+        ".hwp",
+        ".hwpx",
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".gif",
+        ".bmp"
+      ],
+      "all_extensions": [
+        "bash",
+        "bat",
+        "bmp",
+        "c",
+        "cfg",
+        "cmd",
+        "conf",
+        "cpp",
+        "cs",
+        "css",
+        "csv",
+        "dart",
+        "doc",
+        "dockerignore",
+        "docx",
+        "editorconfig",
+        "env",
+        "fish",
+        "gif",
+        "gitignore",
+        "go",
+        "h",
+        "heic",
+        "heif",
+        "hpp",
+        "htm",
+        "html",
+        "hwp",
+        "hwpx",
+        "ico",
+        "ini",
+        "java",
+        "jpeg",
+        "jpg",
+        "js",
+        "json",
+        "jsx",
+        "kt",
+        "less",
+        "log",
+        "lua",
+        "m",
+        "markdown",
+        "md",
+        "pdf",
+        "php",
+        "pl",
+        "pm",
+        "png",
+        "ppt",
+        "pptx",
+        "properties",
+        "ps1",
+        "py",
+        "r",
+        "rb",
+        "rs",
+        "rst",
+        "rtf",
+        "sass",
+        "scala",
+        "scss",
+        "sh",
+        "sql",
+        "svelte",
+        "svg",
+        "swift",
+        "tif",
+        "tiff",
+        "toml",
+        "ts",
+        "tsv",
+        "tsx",
+        "txt",
+        "vue",
+        "webp",
+        "xhtml",
+        "xls",
+        "xlsx",
+        "xml",
+        "yaml",
+        "yml",
+        "zsh"
+      ]
+    }
+  },
+  {
+    "name": "Registry: is_supported()",
+    "category": "registry",
+    "status": "PASS",
+    "duration_ms": 0.008899951353669167,
+    "details": "",
+    "error": "",
+    "data": {
+      ".pdf": true,
+      ".docx": true,
+      ".csv": true,
+      ".html": true,
+      ".xyz": false,
+      ".zzz": false
+    }
+  },
+  {
+    "name": "Performance: Large CSV (1000 rows)",
+    "category": "performance",
+    "status": "PASS",
+    "duration_ms": 60.35320000955835,
+    "details": "",
+    "error": "",
+    "data": {
+      "elapsed_ms": 60.32,
+      "text_length": 86320,
+      "chars_per_ms": 1430.97
+    }
+  },
+  {
+    "name": "Performance: Large XLSX (500 rows)",
+    "category": "performance",
+    "status": "PASS",
+    "duration_ms": 377.0189000060782,
+    "details": "",
+    "error": "",
+    "data": {
+      "elapsed_ms": 376.99,
+      "text_length": 23554
+    }
+  },
+  {
+    "name": "Performance: Long DOCX (50 chapters)",
+    "category": "performance",
+    "status": "PASS",
+    "duration_ms": 19.591100048273802,
+    "details": "",
+    "error": "",
+    "data": {
+      "elapsed_ms": 19.57,
+      "text_length": 43361
+    }
+  },
+  {
+    "name": "Performance: Multi-page PDF (10 pages)",
+    "category": "performance",
+    "status": "PASS",
+    "duration_ms": 1539.268099993933,
+    "details": "",
+    "error": "",
+    "data": {
+      "elapsed_ms": 1539.26,
+      "text_length": 14428
+    }
+  },
+  {
+    "name": "Performance: Chunking 140K chars",
+    "category": "performance",
+    "status": "PASS",
+    "duration_ms": 16.449299990199506,
+    "details": "",
+    "error": "",
+    "data": {
+      "elapsed_ms": 16.36,
+      "input_chars": 140000,
+      "chunk_count": 176
+    }
+  }
+]

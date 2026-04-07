@@ -78,6 +78,12 @@ class TextChunker:
 
         # Sort by priority (lower = higher priority)
         self._strategies.sort(key=lambda s: s.priority)
+        self._last_strategy_name: Optional[str] = None
+
+    @property
+    def last_strategy_name(self) -> Optional[str]:
+        """Name of the strategy used in the most recent chunk() call."""
+        return self._last_strategy_name
 
     def chunk(
         self,
@@ -109,7 +115,8 @@ class TextChunker:
             ChunkingError: If all strategies fail.
         """
         if not text or not text.strip():
-            return [""]
+            self._last_strategy_name = None
+            return []
 
         # Build effective config with overrides
         effective_config = self._apply_overrides(
@@ -129,6 +136,7 @@ class TextChunker:
 
         # Select strategy
         strategy = self._select_strategy(text, effective_config, ext, **kwargs)
+        self._last_strategy_name = strategy.strategy_name
         self._logger.debug(f"Selected chunking strategy: {strategy.strategy_name}")
 
         # Execute

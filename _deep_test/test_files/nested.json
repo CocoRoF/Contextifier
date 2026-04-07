@@ -1,0 +1,61 @@
+{
+  "level": 0,
+  "child": {
+    "level": 1,
+    "child": {
+      "level": 2,
+      "child": {
+        "level": 3,
+        "child": {
+          "level": 4,
+          "child": {
+            "level": 5,
+            "child": {
+              "level": 6,
+              "child": {
+                "level": 7,
+                "child": {
+                  "level": 8,
+                  "child": {
+                    "level": 9,
+                    "child": {
+                      "level": 10,
+                      "child": {
+                        "level": 11,
+                        "child": {
+                          "level": 12,
+                          "child": {
+                            "level": 13,
+                            "child": {
+                              "level": 14,
+                              "child": {
+                                "level": 15,
+                                "child": {
+                                  "level": 16,
+                                  "child": {
+                                    "level": 17,
+                                    "child": {
+                                      "level": 18,
+                                      "child": {
+                                        "level": 19,
+                                        "data": "deepest value"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -119,10 +119,12 @@ class TextConverter(BaseConverter):
         file_cat: str = file_context.get("file_category", "")
 
         if not file_data:
-            raise ConversionError(
-                "Empty file data — nothing to decode",
-                stage="convert",
-                handler="TextConverter",
+            self._logger.debug("Empty file data — returning empty text")
+            return TextConvertedData(
+                text="",
+                encoding="utf-8",
+                file_extension=file_ext,
+                file_category=file_cat,
             )
 
         # Merge per-call encodings (prepend) with instance defaults
@@ -162,9 +164,8 @@ class TextConverter(BaseConverter):
         return "text"
 
     def validate(self, file_context: FileContext) -> bool:
-        """Validate that file data exists and is non-empty."""
-        file_data = file_context.get("file_data", b"")
-        return len(file_data) > 0
+        """Validate that file data is present (empty files are valid)."""
+        return True
 
     # ── Internal ──────────────────────────────────────────────────────────
 
