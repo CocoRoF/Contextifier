@@ -21,17 +21,16 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional
 
 from contextifier.pipeline.content_extractor import BaseContentExtractor
 from contextifier.services.table_service import TableService
 from contextifier.types import (
-    ChartData,
     PreprocessedData,
     TableData,
 )
 
-from contextifier.handlers.docx._constants import NAMESPACES, ElementType
+from contextifier.handlers.docx._constants import NAMESPACES
 from contextifier.handlers.docx._paragraph import (
     process_paragraph,
     extract_diagram_text,
@@ -123,8 +122,12 @@ class DocxContentExtractor(BaseContentExtractor):
                 # Process drawings (images, charts, diagrams)
                 for drawing in drawings:
                     content = self._process_drawing(
-                        drawing, doc, charts_by_rel, positional_charts,
-                        chart_index, processed_images,
+                        drawing,
+                        doc,
+                        charts_by_rel,
+                        positional_charts,
+                        chart_index,
+                        processed_images,
                     )
                     if drawing.kind == DrawingKind.CHART:
                         chart_index += 1
@@ -212,15 +215,11 @@ class DocxContentExtractor(BaseContentExtractor):
                 _, drawings, picts, _ = process_paragraph(element)
                 for drawing in drawings:
                     if drawing.kind == DrawingKind.IMAGE:
-                        tag = self._extract_image_by_rel(
-                            drawing.rel_id, doc, processed
-                        )
+                        tag = self._extract_image_by_rel(drawing.rel_id, doc, processed)
                         if tag:
                             tags.append(tag)
                 for pict in picts:
-                    tag = self._extract_image_by_rel(
-                        pict.rel_id, doc, processed
-                    )
+                    tag = self._extract_image_by_rel(pict.rel_id, doc, processed)
                     if tag:
                         tags.append(tag)
 
@@ -243,9 +242,7 @@ class DocxContentExtractor(BaseContentExtractor):
         """Process a drawing element → return content string."""
 
         if drawing.kind == DrawingKind.IMAGE:
-            tag = self._extract_image_by_rel(
-                drawing.rel_id, doc, processed_images
-            )
+            tag = self._extract_image_by_rel(drawing.rel_id, doc, processed_images)
             return tag or ""
 
         if drawing.kind == DrawingKind.CHART:
@@ -422,7 +419,10 @@ class DocxContentExtractor(BaseContentExtractor):
             if fn_part is not None:
                 fn_element = fn_part.element
                 for fn in fn_element:
-                    fn_type = fn.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}type", "")
+                    fn_type = fn.get(
+                        "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}type",
+                        "",
+                    )
                     if fn_type in ("separator", "continuationSeparator"):
                         continue
                     paras = fn.findall(
@@ -444,9 +444,8 @@ class DocxContentExtractor(BaseContentExtractor):
 
         if footnotes:
             sections.append(
-                "[Footnotes]\n" + "\n".join(
-                    f"[{i}] {fn}" for i, fn in enumerate(footnotes, 1)
-                )
+                "[Footnotes]\n"
+                + "\n".join(f"[{i}] {fn}" for i, fn in enumerate(footnotes, 1))
             )
 
         return "\n\n".join(sections)

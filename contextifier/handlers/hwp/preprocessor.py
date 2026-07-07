@@ -52,7 +52,8 @@ class HwpPreprocessor(BasePreprocessor):
 
         # Count sections
         sections = [
-            e for e in ole.listdir()
+            e
+            for e in ole.listdir()
             if len(e) >= 2 and e[0] == STREAM_BODY_TEXT and e[1].startswith("Section")
         ]
 

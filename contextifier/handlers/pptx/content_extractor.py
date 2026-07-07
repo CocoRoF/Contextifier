@@ -55,7 +55,9 @@ class PptxContentExtractor(BaseContentExtractor):
         super().__init__(**kwargs)
         if self._config is not None:
             depth = self._config.get_format_option(
-                "pptx", "max_group_depth", self._MAX_GROUP_DEPTH,
+                "pptx",
+                "max_group_depth",
+                self._MAX_GROUP_DEPTH,
             )
             self._MAX_GROUP_DEPTH = int(depth)
 
@@ -201,25 +203,33 @@ class PptxContentExtractor(BaseContentExtractor):
         if shape.has_table:
             content = self._format_table_shape(shape.table)
             if content:
-                etype = ElementType.TEXT if is_simple_table(shape.table) else ElementType.TABLE
-                elements.append(SlideElement(
-                    element_type=etype,
-                    content=content,
-                    position=position,
-                    shape_id=shape_id,
-                ))
+                etype = (
+                    ElementType.TEXT
+                    if is_simple_table(shape.table)
+                    else ElementType.TABLE
+                )
+                elements.append(
+                    SlideElement(
+                        element_type=etype,
+                        content=content,
+                        position=position,
+                        shape_id=shape_id,
+                    )
+                )
             return elements, chart_ptr
 
         # Picture (image)
         if _is_picture(shape):
             tag = self._save_image_shape(shape, slide_idx, processed_images)
             if tag:
-                elements.append(SlideElement(
-                    element_type=ElementType.IMAGE,
-                    content=tag,
-                    position=position,
-                    shape_id=shape_id,
-                ))
+                elements.append(
+                    SlideElement(
+                        element_type=ElementType.IMAGE,
+                        content=tag,
+                        position=position,
+                        shape_id=shape_id,
+                    )
+                )
             return elements, chart_ptr
 
         # Chart
@@ -227,30 +237,38 @@ class PptxContentExtractor(BaseContentExtractor):
             content = self._format_chart(chart_queue, chart_ptr)
             chart_ptr += 1
             if content:
-                elements.append(SlideElement(
-                    element_type=ElementType.CHART,
-                    content=content,
-                    position=position,
-                    shape_id=shape_id,
-                ))
+                elements.append(
+                    SlideElement(
+                        element_type=ElementType.CHART,
+                        content=content,
+                        position=position,
+                        shape_id=shape_id,
+                    )
+                )
             return elements, chart_ptr
 
         # Text frame (with bullets)
         if hasattr(shape, "text_frame") and shape.text_frame:
             text = extract_text_with_bullets(shape.text_frame)
             if text.strip():
-                elements.append(SlideElement(
-                    element_type=ElementType.TEXT,
-                    content=text,
-                    position=position,
-                    shape_id=shape_id,
-                ))
+                elements.append(
+                    SlideElement(
+                        element_type=ElementType.TEXT,
+                        content=text,
+                        position=position,
+                        shape_id=shape_id,
+                    )
+                )
             return elements, chart_ptr
 
         # Group shape (recursive)
         if hasattr(shape, "shapes"):
             group_elems, chart_ptr = self._process_group(
-                shape, slide_idx, chart_queue, chart_ptr, processed_images,
+                shape,
+                slide_idx,
+                chart_queue,
+                chart_ptr,
+                processed_images,
                 depth=depth,
             )
             elements.extend(group_elems)
@@ -258,12 +276,14 @@ class PptxContentExtractor(BaseContentExtractor):
 
         # Fallback: plain text
         if hasattr(shape, "text") and shape.text.strip():
-            elements.append(SlideElement(
-                element_type=ElementType.TEXT,
-                content=shape.text.strip(),
-                position=position,
-                shape_id=shape_id,
-            ))
+            elements.append(
+                SlideElement(
+                    element_type=ElementType.TEXT,
+                    content=shape.text.strip(),
+                    position=position,
+                    shape_id=shape_id,
+                )
+            )
 
         return elements, chart_ptr
 
@@ -281,7 +301,8 @@ class PptxContentExtractor(BaseContentExtractor):
         if depth >= self._MAX_GROUP_DEPTH:
             logger.warning(
                 "Group shape nesting depth %d exceeds limit %d, skipping",
-                depth, self._MAX_GROUP_DEPTH,
+                depth,
+                self._MAX_GROUP_DEPTH,
             )
             return [], chart_ptr
 
@@ -289,8 +310,12 @@ class PptxContentExtractor(BaseContentExtractor):
         try:
             for sub_shape in group_shape.shapes:
                 sub_elems, chart_ptr = self._process_shape(
-                    sub_shape, slide_idx, chart_queue, chart_ptr,
-                    processed_images, depth=depth + 1,
+                    sub_shape,
+                    slide_idx,
+                    chart_queue,
+                    chart_ptr,
+                    processed_images,
+                    depth=depth + 1,
                 )
                 elements.extend(sub_elems)
         except Exception as exc:
@@ -300,7 +325,10 @@ class PptxContentExtractor(BaseContentExtractor):
     # ── Recursive collection helpers (for extract_tables/images/charts) ──
 
     def _collect_tables(
-        self, shape: Any, tables: List[TableData], depth: int = 0,
+        self,
+        shape: Any,
+        tables: List[TableData],
+        depth: int = 0,
     ) -> None:
         """Recursively collect tables from shape and nested groups."""
         if hasattr(shape, "has_table") and shape.has_table:
@@ -328,7 +356,10 @@ class PptxContentExtractor(BaseContentExtractor):
                 self._collect_images(sub, slide_idx, processed, tags, depth + 1)
 
     def _collect_charts(
-        self, shape: Any, charts: List[ChartData], depth: int = 0,
+        self,
+        shape: Any,
+        charts: List[ChartData],
+        depth: int = 0,
     ) -> None:
         """Recursively collect charts from shape and nested groups."""
         cd = self._try_extract_chart_data(shape)
@@ -358,8 +389,7 @@ class PptxContentExtractor(BaseContentExtractor):
         # Single-column collapse
         if table_data.num_cols == 1:
             items = [
-                row[0].content for row in table_data.rows
-                if row and row[0].content
+                row[0].content for row in table_data.rows if row and row[0].content
             ]
             return "\n\n".join(items) if items else ""
 
@@ -445,7 +475,11 @@ class PptxContentExtractor(BaseContentExtractor):
             chart = shape.chart
             title = None
             try:
-                if chart.has_title and chart.chart_title and chart.chart_title.has_text_frame:
+                if (
+                    chart.has_title
+                    and chart.chart_title
+                    and chart.chart_title.has_text_frame
+                ):
                     title = chart.chart_title.text_frame.text.strip() or None
             except (AttributeError, TypeError) as exc:
                 logger.debug("Chart title extraction failed: %s", exc)
@@ -524,6 +558,7 @@ class PptxContentExtractor(BaseContentExtractor):
 # Module-level helpers
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def _get_position(shape: Any) -> Tuple[int, int, int, int]:
     """Get (left, top, width, height) in EMU from a shape."""
     try:
@@ -540,6 +575,7 @@ def _is_picture(shape: Any) -> bool:
     """Check whether a shape is an image/picture."""
     try:
         from pptx.enum.shapes import MSO_SHAPE_TYPE
+
         if hasattr(shape, "shape_type") and shape.shape_type == MSO_SHAPE_TYPE.PICTURE:
             return True
     except Exception:

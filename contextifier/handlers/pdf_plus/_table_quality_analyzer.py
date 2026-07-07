@@ -22,7 +22,7 @@ The analyser evaluates four dimensions (each 0–1 score):
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 from contextifier.handlers.pdf_plus._types import (
     PdfPlusConfig,
@@ -87,7 +87,13 @@ class TableQualityAnalyzer:
 
         logger.debug(
             "[TQAnalyzer] %s quality=%s total=%.2f  border=%.2f grid=%.2f cell=%.2f simple=%.2f",
-            bbox, quality.name, total, border_sc, grid_sc, cell_sc, simple_sc,
+            bbox,
+            quality.name,
+            total,
+            border_sc,
+            grid_sc,
+            cell_sc,
+            simple_sc,
         )
         return TableQualityResult(
             bbox=bbox,
@@ -111,13 +117,15 @@ class TableQualityAnalyzer:
         results: list[dict] = []
         for bbox in table_regions:
             qr = self.analyze_table(bbox)
-            results.append({
-                "bbox": bbox,
-                "quality": qr.quality,
-                "score": qr.score,
-                "is_processable": qr.text_extractable,
-                "issues": qr.issues,
-            })
+            results.append(
+                {
+                    "bbox": bbox,
+                    "quality": qr.quality,
+                    "score": qr.score,
+                    "is_processable": qr.text_extractable,
+                    "issues": qr.issues,
+                }
+            )
         has_ok = any(r["is_processable"] for r in results)
         return {
             "table_candidates": results,
@@ -142,7 +150,12 @@ class TableQualityAnalyzer:
             return 0.0, ["no_border_lines"]
         tol = CFG.QUALITY_BORDER_TOLERANCE
         x0, y0, x1, y1 = bbox
-        sides: dict[str, bool] = {"top": False, "bottom": False, "left": False, "right": False}
+        sides: dict[str, bool] = {
+            "top": False,
+            "bottom": False,
+            "left": False,
+            "right": False,
+        }
         for ln in lines:
             if ln["is_horizontal"]:
                 if abs(ln["y1"] - y0) <= tol:
@@ -167,12 +180,12 @@ class TableQualityAnalyzer:
         lines = self._extract_lines(drawings)
         if not lines:
             return 0.0, ["no_grid_lines"]
-        orth_cnt = sum(1 for l in lines if l["is_horizontal"] or l["is_vertical"])
+        orth_cnt = sum(1 for ln in lines if ln["is_horizontal"] or ln["is_vertical"])
         orth_ratio = orth_cnt / len(lines)
         if orth_ratio < CFG.QUALITY_MIN_ORTHOGONAL_RATIO:
             issues.append(f"non_orth({(1 - orth_ratio) * 100:.0f}%)")
-        h_align = self._alignment([l["y1"] for l in lines if l["is_horizontal"]])
-        v_align = self._alignment([l["x1"] for l in lines if l["is_vertical"]])
+        h_align = self._alignment([ln["y1"] for ln in lines if ln["is_horizontal"]])
+        v_align = self._alignment([ln["x1"] for ln in lines if ln["is_vertical"]])
         alignment = (h_align + v_align) / 2
         if alignment < 0.8:
             issues.append("misaligned_grid")
@@ -183,18 +196,36 @@ class TableQualityAnalyzer:
     ) -> Tuple[float, list[str]]:
         issues: list[str] = []
         lines = self._extract_lines(drawings)
-        h_sorted = sorted((l for l in lines if l["is_horizontal"]), key=lambda l: l["y1"])
-        v_sorted = sorted((l for l in lines if l["is_vertical"]), key=lambda l: l["x1"])
+        h_sorted = sorted(
+            (ln for ln in lines if ln["is_horizontal"]), key=lambda ln: ln["y1"]
+        )
+        v_sorted = sorted(
+            (ln for ln in lines if ln["is_vertical"]), key=lambda ln: ln["x1"]
+        )
         if len(h_sorted) < 2 or len(v_sorted) < 2:
             return 0.5, ["insufficient_lines"]
-        heights = [h_sorted[i + 1]["y1"] - h_sorted[i]["y1"] for i in range(len(h_sorted) - 1) if h_sorted[i + 1]["y1"] > h_sorted[i]["y1"]]
-        widths = [v_sorted[i + 1]["x1"] - v_sorted[i]["x1"] for i in range(len(v_sorted) - 1) if v_sorted[i + 1]["x1"] > v_sorted[i]["x1"]]
-        tiny = sum(1 for h in heights if h < CFG.QUALITY_MIN_CELL_SIZE) + sum(1 for w in widths if w < CFG.QUALITY_MIN_CELL_SIZE)
+        heights = [
+            h_sorted[i + 1]["y1"] - h_sorted[i]["y1"]
+            for i in range(len(h_sorted) - 1)
+            if h_sorted[i + 1]["y1"] > h_sorted[i]["y1"]
+        ]
+        widths = [
+            v_sorted[i + 1]["x1"] - v_sorted[i]["x1"]
+            for i in range(len(v_sorted) - 1)
+            if v_sorted[i + 1]["x1"] > v_sorted[i]["x1"]
+        ]
+        tiny = sum(1 for h in heights if h < CFG.QUALITY_MIN_CELL_SIZE) + sum(
+            1 for w in widths if w < CFG.QUALITY_MIN_CELL_SIZE
+        )
         total_dims = len(heights) + len(widths)
         extreme_ratio = 0
         for h in heights:
             for w in widths:
-                if h > 0 and w > 0 and max(h / w, w / h) > CFG.QUALITY_MAX_CELL_ASPECT_RATIO:
+                if (
+                    h > 0
+                    and w > 0
+                    and max(h / w, w / h) > CFG.QUALITY_MAX_CELL_ASPECT_RATIO
+                ):
                     extreme_ratio += 1
         sc = 1.0
         if tiny and total_dims and tiny / total_dims > 0.1:
@@ -218,7 +249,10 @@ class TableQualityAnalyzer:
                     curve_c += 1
                 elif i[0] == "l":
                     p1, p2 = i[1], i[2]
-                    if abs(p2.x - p1.x) > CFG.QUALITY_LINE_ANGLE_TOLERANCE and abs(p2.y - p1.y) > CFG.QUALITY_LINE_ANGLE_TOLERANCE:
+                    if (
+                        abs(p2.x - p1.x) > CFG.QUALITY_LINE_ANGLE_TOLERANCE
+                        and abs(p2.y - p1.y) > CFG.QUALITY_LINE_ANGLE_TOLERANCE
+                    ):
                         diag_c += 1
             if d.get("fill"):
                 fill_c += 1
@@ -253,7 +287,8 @@ class TableQualityAnalyzer:
         if self._drawings is None:
             self._drawings = self.page.get_drawings()
         return [
-            d for d in self._drawings
+            d
+            for d in self._drawings
             if d.get("rect") and self._overlaps(bbox, tuple(d["rect"]))
         ]
 
@@ -264,8 +299,8 @@ class TableQualityAnalyzer:
         if not lines:
             return []
         # quick bbox of all lines
-        xs = [l["x1"] for l in lines] + [l["x2"] for l in lines]
-        ys = [l["y1"] for l in lines] + [l["y2"] for l in lines]
+        xs = [ln["x1"] for ln in lines] + [ln["x2"] for ln in lines]
+        ys = [ln["y1"] for ln in lines] + [ln["y2"] for ln in lines]
         bbox = (min(xs), min(ys), max(xs), max(ys))
         w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
         return [bbox] if w > 100 and h > 50 else []
@@ -278,13 +313,17 @@ class TableQualityAnalyzer:
                 if item[0] == "l":
                     p1, p2 = item[1], item[2]
                     x1, y1, x2, y2 = p1.x, p1.y, p2.x, p2.y
-                    result.append({
-                        "x1": min(x1, x2), "y1": min(y1, y2),
-                        "x2": max(x1, x2), "y2": max(y1, y2),
-                        "is_horizontal": abs(y2 - y1) <= 2.0,
-                        "is_vertical": abs(x2 - x1) <= 2.0,
-                        "length": ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5,
-                    })
+                    result.append(
+                        {
+                            "x1": min(x1, x2),
+                            "y1": min(y1, y2),
+                            "x2": max(x1, x2),
+                            "y2": max(y1, y2),
+                            "is_horizontal": abs(y2 - y1) <= 2.0,
+                            "is_vertical": abs(x2 - x1) <= 2.0,
+                            "length": ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5,
+                        }
+                    )
                 elif item[0] == "re":
                     r = item[1]
                     x0, y0, x1, y1 = r.x0, r.y0, r.x1, r.y1
@@ -294,11 +333,17 @@ class TableQualityAnalyzer:
                         (x0, y0, x0, y1, False, True),
                         (x1, y0, x1, y1, False, True),
                     ]:
-                        result.append({
-                            "x1": a, "y1": b, "x2": c, "y2": dd,
-                            "is_horizontal": ih, "is_vertical": iv,
-                            "length": abs(c - a) + abs(dd - b),
-                        })
+                        result.append(
+                            {
+                                "x1": a,
+                                "y1": b,
+                                "x2": c,
+                                "y2": dd,
+                                "is_horizontal": ih,
+                                "is_vertical": iv,
+                                "length": abs(c - a) + abs(dd - b),
+                            }
+                        )
         return result
 
     @staticmethod

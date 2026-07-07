@@ -127,6 +127,7 @@ class XlsxPreprocessor(BasePreprocessor):
 # ZIP-level extraction helpers
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def _extract_charts_from_zip(file_data: bytes) -> List[dict]:
     """
     Extract all chart data from ``xl/charts/chart*.xml`` in the ZIP.
@@ -139,7 +140,8 @@ def _extract_charts_from_zip(file_data: bytes) -> List[dict]:
     try:
         with zipfile.ZipFile(io.BytesIO(file_data)) as zf:
             chart_files = sorted(
-                n for n in zf.namelist()
+                n
+                for n in zf.namelist()
                 if n.startswith("xl/charts/chart") and n.endswith(".xml")
             )
             for chart_file in chart_files:
@@ -228,9 +230,7 @@ def _extract_chart_title(chart_el: ET.Element, ns_c: str, ns_a: str) -> Optional
             return " ".join(parts).strip()
 
     # Try string reference: c:title/c:tx/c:strRef/c:strCache/c:pt/c:v
-    str_cache = title_el.find(
-        f"{{{ns_c}}}tx/{{{ns_c}}}strRef/{{{ns_c}}}strCache"
-    )
+    str_cache = title_el.find(f"{{{ns_c}}}tx/{{{ns_c}}}strRef/{{{ns_c}}}strCache")
     if str_cache is not None:
         pt = str_cache.find(f"{{{ns_c}}}pt/{{{ns_c}}}v")
         if pt is not None and pt.text:
@@ -362,7 +362,7 @@ def _extract_textboxes_from_zip(file_data: bytes) -> Dict[str, List[str]]:
     """
     ns_xdr = OOXML_NS["xdr"]
     ns_a = OOXML_NS["a"]
-    ns_r = OOXML_NS["r"]
+    OOXML_NS["r"]
 
     textboxes: Dict[str, List[str]] = {}
 
@@ -380,7 +380,9 @@ def _extract_textboxes_from_zip(file_data: bytes) -> Dict[str, List[str]]:
                     if texts:
                         textboxes[sheet_name] = texts
                 except Exception as exc:
-                    logger.debug("Failed to parse textboxes from %s: %s", drawing_path, exc)
+                    logger.debug(
+                        "Failed to parse textboxes from %s: %s", drawing_path, exc
+                    )
     except zipfile.BadZipFile:
         pass
 
@@ -428,7 +430,9 @@ def _build_sheet_drawing_map(zf: zipfile.ZipFile) -> Dict[str, str]:
                 continue
 
             # Resolve relative path: target is relative to xl/
-            sheet_path = f"xl/{target}" if not target.startswith("/") else target.lstrip("/")
+            sheet_path = (
+                f"xl/{target}" if not target.startswith("/") else target.lstrip("/")
+            )
             rels_path = sheet_path.replace(
                 os.path.basename(sheet_path),
                 f"_rels/{os.path.basename(sheet_path)}.rels",
@@ -443,7 +447,11 @@ def _build_sheet_drawing_map(zf: zipfile.ZipFile) -> Dict[str, str]:
                     rel_target = rel.get("Target", "")
                     rel_type = rel.get("Type", "")
                     if "drawing" in rel_type.lower() and rel_target:
-                        drawing_path = f"xl/{rel_target}" if not rel_target.startswith("/") else rel_target.lstrip("/")
+                        drawing_path = (
+                            f"xl/{rel_target}"
+                            if not rel_target.startswith("/")
+                            else rel_target.lstrip("/")
+                        )
                         # Normalize path (remove ../)
                         drawing_path = os.path.normpath(drawing_path).replace("\\", "/")
                         mapping[sheet_name] = drawing_path

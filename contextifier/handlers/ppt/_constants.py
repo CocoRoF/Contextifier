@@ -30,12 +30,14 @@ SUMMARY_INFO_STREAM = "\x05SummaryInformation"
 DOC_SUMMARY_STREAM = "\x05DocumentSummaryInformation"
 
 # Known OLE streams in PPT files
-PPT_KNOWN_STREAMS = frozenset({
-    PP_DOCUMENT_STREAM,
-    CURRENT_USER_STREAM,
-    SUMMARY_INFO_STREAM,
-    DOC_SUMMARY_STREAM,
-})
+PPT_KNOWN_STREAMS = frozenset(
+    {
+        PP_DOCUMENT_STREAM,
+        CURRENT_USER_STREAM,
+        SUMMARY_INFO_STREAM,
+        DOC_SUMMARY_STREAM,
+    }
+)
 
 
 __all__ = [

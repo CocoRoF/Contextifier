@@ -9,20 +9,16 @@ colspan/rowspan in the output TableData.
 
 from __future__ import annotations
 
-import pytest
 from unittest import mock
 
 from contextifier.handlers.rtf._table_parser import (
     _parse_cell_definitions,
-    _extract_cells_with_merge,
     _build_table_data,
     _is_real_table,
     _ParsedCell,
-    _CellDef,
     extract_tables,
     single_column_to_text,
 )
-from contextifier.types import TableCell, TableData
 
 
 # ═══════════════════════════════════════════════════════════════════════════

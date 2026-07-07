@@ -20,12 +20,10 @@ is format-independent (delimiter is handled in the Preprocessor stage).
 
 from __future__ import annotations
 
-import logging
 from typing import Any, List, NamedTuple, Optional
 
 from contextifier.pipeline.converter import BaseConverter
 from contextifier.types import FileContext
-from contextifier.errors import ConversionError
 
 
 class CsvConvertedData(NamedTuple):
@@ -34,6 +32,7 @@ class CsvConvertedData(NamedTuple):
 
     Carries decoded text and metadata needed by downstream stages.
     """
+
     text: str
     encoding: str
     file_extension: str
@@ -45,9 +44,9 @@ class CsvConvertedData(NamedTuple):
 _BOM_TABLE: List[tuple[bytes, str]] = [
     (b"\xff\xfe\x00\x00", "utf-32-le"),
     (b"\x00\x00\xfe\xff", "utf-32-be"),
-    (b"\xef\xbb\xbf",     "utf-8-sig"),
-    (b"\xff\xfe",          "utf-16-le"),
-    (b"\xfe\xff",          "utf-16-be"),
+    (b"\xef\xbb\xbf", "utf-8-sig"),
+    (b"\xff\xfe", "utf-16-le"),
+    (b"\xfe\xff", "utf-16-be"),
 ]
 
 # Default encoding priority for CSV/TSV files.
@@ -129,7 +128,8 @@ class CsvConverter(BaseConverter):
                     text = file_data.decode(bom_encoding)
                     self._logger.debug(
                         "BOM detected: %s, decoded %d bytes",
-                        bom_encoding, len(file_data),
+                        bom_encoding,
+                        len(file_data),
                     )
                     return CsvConvertedData(
                         text=text,
@@ -137,7 +137,9 @@ class CsvConverter(BaseConverter):
                         file_extension=file_ext,
                     )
                 except (UnicodeDecodeError, LookupError):
-                    self._logger.debug("BOM %s detected but decode failed", bom_encoding)
+                    self._logger.debug(
+                        "BOM %s detected but decode failed", bom_encoding
+                    )
 
         # Phase 2: Try encoding candidates
         extra: List[str] = kwargs.get("encodings", [])

@@ -53,7 +53,9 @@ class PptMetadataExtractor(BaseMetadataExtractor):
                 create_time=self._to_datetime(meta.create_time),
                 last_saved_time=self._to_datetime(meta.last_saved_time),
                 revision=str(meta.revision_number) if meta.revision_number else None,
-                category=self._decode(meta.category) if hasattr(meta, "category") else None,
+                category=self._decode(meta.category)
+                if hasattr(meta, "category")
+                else None,
             )
         except Exception as exc:
             self._logger.warning("Failed to extract PPT metadata: %s", exc)
@@ -92,7 +94,9 @@ class PptMetadataExtractor(BaseMetadataExtractor):
             if content is not None and hasattr(content, "get_metadata"):
                 return content
         # Direct OLE-like object with get_metadata (e.g. from preprocessed.content)
-        if hasattr(source, "get_metadata") and callable(getattr(source, "get_metadata", None)):
+        if hasattr(source, "get_metadata") and callable(
+            getattr(source, "get_metadata", None)
+        ):
             return source
         # Has .ole attribute
         if hasattr(source, "ole"):

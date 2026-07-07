@@ -178,7 +178,7 @@ class HwpRecord:
         except ValueError:
             return []
 
-        return siblings[idx + 1: idx + 1 + count]
+        return siblings[idx + 1 : idx + 1 + count]
 
 
 __all__ = ["HwpRecord"]

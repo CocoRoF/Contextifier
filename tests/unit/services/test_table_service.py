@@ -3,11 +3,10 @@
 
 from __future__ import annotations
 
-import pytest
 
-from contextifier.config import ProcessingConfig, TableConfig
+from contextifier.config import ProcessingConfig
 from contextifier.services.table_service import TableService
-from contextifier.types import OutputFormat, TableData, TableCell
+from contextifier.types import TableData, TableCell
 
 
 def _simple_table() -> TableData:

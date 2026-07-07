@@ -11,10 +11,8 @@ Covers:
 
 from __future__ import annotations
 
-import io
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 from contextifier.handlers.xls.content_extractor import (
     XlsContentExtractor,
@@ -156,7 +154,7 @@ class TestXlsImageExtraction:
             resources={"file_data": b"\xd0\xcf" + b"\x00" * 100},
         )
         extractor = XlsContentExtractor(image_service=image_service)
-        tags = extractor.extract_images(preprocessed)
+        extractor.extract_images(preprocessed)
 
         # Should only save once (dedup by md5)
         assert image_service.save_and_tag.call_count == 1

@@ -24,8 +24,9 @@ logger = logging.getLogger(__name__)
 
 class HwpxConvertedData(NamedTuple):
     """Result of the HWPX conversion stage."""
-    zf: zipfile.ZipFile      # Opened ZIP archive
-    file_data: bytes          # Original raw bytes
+
+    zf: zipfile.ZipFile  # Opened ZIP archive
+    file_data: bytes  # Original raw bytes
 
 
 class HwpxConverter(BaseConverter):
@@ -40,7 +41,9 @@ class HwpxConverter(BaseConverter):
         file_data: bytes = file_context.get("file_data", b"")
         if not file_data:
             raise ConversionError(
-                "Empty file data", stage="convert", handler="hwpx",
+                "Empty file data",
+                stage="convert",
+                handler="hwpx",
             )
 
         try:

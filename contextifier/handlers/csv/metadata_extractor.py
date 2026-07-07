@@ -20,8 +20,7 @@ properties, CSV files only have structural information.
 
 from __future__ import annotations
 
-import logging
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from contextifier.pipeline.metadata_extractor import BaseMetadataExtractor
 from contextifier.types import DocumentMetadata
@@ -30,10 +29,10 @@ from contextifier.handlers.csv.preprocessor import CsvParsedData
 
 # Delimiter display names (human-readable)
 _DELIMITER_NAMES: Dict[str, str] = {
-    ",":  "Comma (,)",
+    ",": "Comma (,)",
     "\t": "Tab (\\t)",
-    ";":  "Semicolon (;)",
-    "|":  "Pipe (|)",
+    ";": "Semicolon (;)",
+    "|": "Pipe (|)",
 }
 
 # Maximum number of column names to include in metadata

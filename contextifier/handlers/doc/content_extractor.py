@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import re
 import logging
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, List, Optional, Set
 
 from contextifier.pipeline.content_extractor import BaseContentExtractor
 from contextifier.types import PreprocessedData, TableData, TableCell
@@ -64,7 +64,8 @@ class DocContentExtractor(BaseContentExtractor):
         self._min_unicode_bytes = MIN_UNICODE_BYTES
         if self._config is not None:
             frag_len = self._config.get_format_option(
-                "doc", "min_text_fragment_length",
+                "doc",
+                "min_text_fragment_length",
                 self._min_text_fragment_length,
             )
             self._min_text_fragment_length = int(frag_len)
@@ -146,19 +147,23 @@ class DocContentExtractor(BaseContentExtractor):
             for row_idx, row_cells in enumerate(raw_table):
                 row: List[TableCell] = []
                 for col_idx, cell_text in enumerate(row_cells):
-                    row.append(TableCell(
-                        content=cell_text,
-                        row_index=row_idx,
-                        col_index=col_idx,
-                    ))
+                    row.append(
+                        TableCell(
+                            content=cell_text,
+                            row_index=row_idx,
+                            col_index=col_idx,
+                        )
+                    )
                 rows.append(row)
                 max_cols = max(max_cols, len(row_cells))
 
-            tables.append(TableData(
-                rows=rows,
-                num_rows=len(rows),
-                num_cols=max_cols,
-            ))
+            tables.append(
+                TableData(
+                    rows=rows,
+                    num_rows=len(rows),
+                    num_cols=max_cols,
+                )
+            )
 
         return tables
 
@@ -224,15 +229,20 @@ class DocContentExtractor(BaseContentExtractor):
 
                 if len(run_bytes) >= self._min_unicode_bytes:
                     try:
-                        fragment = bytes(run_bytes).decode(
-                            "utf-16-le", errors="ignore"
-                        ).strip()
-                        if (
-                            len(fragment) >= self._min_text_fragment_length
-                            and not fragment.startswith("\\")
+                        fragment = (
+                            bytes(run_bytes)
+                            .decode("utf-16-le", errors="ignore")
+                            .strip()
+                        )
+                        if len(
+                            fragment
+                        ) >= self._min_text_fragment_length and not fragment.startswith(
+                            "\\"
                         ):
                             # Clean control characters
-                            fragment = fragment.replace("\r\n", "\n").replace("\r", "\n")
+                            fragment = fragment.replace("\r\n", "\n").replace(
+                                "\r", "\n"
+                            )
                             fragment = re.sub(
                                 r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", fragment
                             )
@@ -274,9 +284,7 @@ class DocContentExtractor(BaseContentExtractor):
         of actual text).
         """
         # ASCII printable + common whitespace (high byte = 0x00)
-        if high == 0x00 and (
-            0x20 <= low <= 0x7E or low in (0x0D, 0x0A, 0x09)
-        ):
+        if high == 0x00 and (0x20 <= low <= 0x7E or low in (0x0D, 0x0A, 0x09)):
             return True
 
         # Hangul / CJK — allowed to start a run, but ONLY if low != 0x00
@@ -294,9 +302,7 @@ class DocContentExtractor(BaseContentExtractor):
     def _is_text_pair(low: int, high: int) -> bool:
         """Check if a UTF-16LE byte pair represents printable text."""
         # ASCII printable + common whitespace, high byte = 0x00
-        if high == 0x00 and (
-            0x20 <= low <= 0x7E or low in (0x0D, 0x0A, 0x09)
-        ):
+        if high == 0x00 and (0x20 <= low <= 0x7E or low in (0x0D, 0x0A, 0x09)):
             return True
 
         # Hangul Syllables (U+AC00 – U+D7AF)
@@ -351,6 +357,7 @@ class DocContentExtractor(BaseContentExtractor):
 
             # Simple deduplication by content hash
             import hashlib
+
             content_hash = hashlib.md5(data).hexdigest()
             if content_hash in processed_hashes:
                 continue
@@ -380,7 +387,7 @@ class DocContentExtractor(BaseContentExtractor):
             return None
 
         for fmt_name, (signature, min_len) in IMAGE_SIGNATURES.items():
-            if len(data) >= min_len and data[:len(signature)] == signature:
+            if len(data) >= min_len and data[: len(signature)] == signature:
                 # Normalise names that have variants
                 if fmt_name.startswith("gif"):
                     return "gif"

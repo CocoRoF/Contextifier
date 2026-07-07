@@ -70,7 +70,8 @@ class HwpMetadataExtractor(BaseMetadataExtractor):
 
         # Count sections as pages
         section_count = sum(
-            1 for e in ole.listdir()
+            1
+            for e in ole.listdir()
             if len(e) >= 2 and e[0] == "BodyText" and e[1].startswith("Section")
         )
 
@@ -81,8 +82,12 @@ class HwpMetadataExtractor(BaseMetadataExtractor):
             keywords=_str_or_none(meta_dict.get("keywords")),
             comments=_str_or_none(meta_dict.get("comments")),
             last_saved_by=_str_or_none(meta_dict.get("last_saved_by")),
-            create_time=meta_dict.get("create_time") if isinstance(meta_dict.get("create_time"), datetime) else None,
-            last_saved_time=meta_dict.get("last_saved_time") if isinstance(meta_dict.get("last_saved_time"), datetime) else None,
+            create_time=meta_dict.get("create_time")
+            if isinstance(meta_dict.get("create_time"), datetime)
+            else None,
+            last_saved_time=meta_dict.get("last_saved_time")
+            if isinstance(meta_dict.get("last_saved_time"), datetime)
+            else None,
             page_count=section_count or None,
         )
 
@@ -163,7 +168,7 @@ def _parse_hwp_summary(data: bytes) -> Dict[str, Any]:
                 if voff + 4 < len(data):
                     slen = struct.unpack_from("<I", data, voff)[0]
                     if 0 < slen and voff + 4 + slen <= len(data):
-                        raw = data[voff + 4: voff + 4 + slen]
+                        raw = data[voff + 4 : voff + 4 + slen]
                         try:
                             value = raw.decode("cp949", errors="ignore").rstrip("\x00")
                         except Exception:
@@ -174,9 +179,11 @@ def _parse_hwp_summary(data: bytes) -> Dict[str, Any]:
                     slen = struct.unpack_from("<I", data, voff)[0]
                     blen = slen * 2
                     if 0 < slen and voff + 4 + blen <= len(data):
-                        value = data[voff + 4: voff + 4 + blen].decode(
-                            "utf-16le", errors="ignore"
-                        ).rstrip("\x00")
+                        value = (
+                            data[voff + 4 : voff + 4 + blen]
+                            .decode("utf-16le", errors="ignore")
+                            .rstrip("\x00")
+                        )
 
             elif ptype == 0x40:  # FILETIME
                 if voff + 8 <= len(data):

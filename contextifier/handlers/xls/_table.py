@@ -11,7 +11,7 @@ Converts a LayoutRange region of an xlrd Sheet into:
 from __future__ import annotations
 
 import logging
-from typing import Any, List, Optional, Set, Tuple
+from typing import List, Optional, Set, Tuple
 
 from contextifier.types import TableData, TableCell
 
@@ -184,7 +184,12 @@ def _has_merged_in_region(sheet: object, region: LayoutRange) -> bool:
     for rlo, rhi, clo, chi in getattr(sheet, "merged_cells", []):
         mr_min, mr_max = rlo + 1, rhi
         mc_min, mc_max = clo + 1, chi
-        if mr_min <= region.max_row and mr_max >= region.min_row and mc_min <= region.max_col and mc_max >= region.min_col:
+        if (
+            mr_min <= region.max_row
+            and mr_max >= region.min_row
+            and mc_min <= region.max_col
+            and mc_max >= region.min_col
+        ):
             return True
     return False
 
@@ -198,7 +203,12 @@ def _get_merged_in_region(
     for rlo, rhi, clo, chi in getattr(sheet, "merged_cells", []):
         mr_min, mr_max = rlo + 1, rhi
         mc_min, mc_max = clo + 1, chi
-        if mr_min <= region.max_row and mr_max >= region.min_row and mc_min <= region.max_col and mc_max >= region.min_col:
+        if (
+            mr_min <= region.max_row
+            and mr_max >= region.min_row
+            and mc_min <= region.max_col
+            and mc_max >= region.min_col
+        ):
             result.append((rlo, rhi, clo, chi))
     return result
 

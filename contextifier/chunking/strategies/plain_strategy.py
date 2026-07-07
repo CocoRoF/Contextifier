@@ -17,7 +17,7 @@ Algorithm:
 from __future__ import annotations
 
 import re
-from typing import Any, List, Optional, Union
+from typing import Any, List, Union
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
@@ -107,11 +107,15 @@ class PlainChunkingStrategy(BaseChunkingStrategy):
 
     @staticmethod
     def _split_code(
-        text: str, lang: str, chunk_size: int, chunk_overlap: int,
+        text: str,
+        lang: str,
+        chunk_size: int,
+        chunk_overlap: int,
     ) -> List[str]:
         """Use langchain's language-aware splitter."""
         try:
             from langchain_text_splitters import Language
+
             lang_enum = getattr(Language, lang, None)
             if lang_enum is not None:
                 splitter = RecursiveCharacterTextSplitter.from_language(
@@ -133,7 +137,9 @@ class PlainChunkingStrategy(BaseChunkingStrategy):
 
     @staticmethod
     def _split_plain(
-        text: str, chunk_size: int, chunk_overlap: int,
+        text: str,
+        chunk_size: int,
+        chunk_overlap: int,
     ) -> List[str]:
         """
         Paragraph-aware recursive splitting.

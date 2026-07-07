@@ -44,7 +44,6 @@ Design improvements:
 
 from __future__ import annotations
 
-import io
 import logging
 import os
 from dataclasses import dataclass, field
@@ -61,8 +60,6 @@ from contextifier.types import (
 from contextifier.errors import (
     FileNotFoundError as ContextifyFileNotFoundError,
     UnsupportedFormatError,
-    HandlerNotFoundError,
-    ContextifierError,
 )
 from contextifier.handlers.registry import HandlerRegistry
 from contextifier.chunking.chunker import TextChunker
@@ -79,6 +76,7 @@ logger = logging.getLogger("contextifier")
 
 
 # ── ChunkResult ──────────────────────────────────────────────────────────
+
 
 @dataclass
 class ChunkResult:
@@ -97,7 +95,9 @@ class ChunkResult:
     @property
     def has_metadata(self) -> bool:
         """Whether position metadata is available."""
-        return self.chunks_with_metadata is not None and len(self.chunks_with_metadata) > 0
+        return (
+            self.chunks_with_metadata is not None and len(self.chunks_with_metadata) > 0
+        )
 
     def __len__(self) -> int:
         return len(self.chunks)
@@ -154,6 +154,7 @@ class ChunkResult:
 
 # ── DocumentProcessor ────────────────────────────────────────────────────
 
+
 class DocumentProcessor:
     """
     Main entry point for document processing.
@@ -201,6 +202,7 @@ class DocumentProcessor:
         self._ocr_processor = None
         if self._ocr_engine is not None:
             from contextifier.ocr.processor import OCRProcessor
+
             self._ocr_processor = OCRProcessor(
                 engine=self._ocr_engine,
                 config=self._config,
@@ -260,7 +262,9 @@ class DocumentProcessor:
 
         # Build FileContext
         file_context = self._create_file_context(
-            file_path_str, ext, max_file_size=self._MAX_FILE_SIZE,
+            file_path_str,
+            ext,
+            max_file_size=self._MAX_FILE_SIZE,
             password=password,
         )
 
@@ -330,7 +334,9 @@ class DocumentProcessor:
             )
 
         file_context = self._create_file_context(
-            file_path_str, ext, max_file_size=self._MAX_FILE_SIZE,
+            file_path_str,
+            ext,
+            max_file_size=self._MAX_FILE_SIZE,
             password=password,
         )
 
@@ -471,7 +477,11 @@ class DocumentProcessor:
 
         # Build ChunkResult
         strategy_name = self._chunker.last_strategy_name
-        if include_position_metadata and raw_chunks and isinstance(raw_chunks[0], Chunk):
+        if (
+            include_position_metadata
+            and raw_chunks
+            and isinstance(raw_chunks[0], Chunk)
+        ):
             return ChunkResult(
                 chunks=[c.text for c in raw_chunks],  # type: ignore
                 chunks_with_metadata=raw_chunks,  # type: ignore
@@ -572,7 +582,10 @@ class DocumentProcessor:
 
     @staticmethod
     def _create_file_context(
-        file_path: str, extension: str, *, max_file_size: int = 0,
+        file_path: str,
+        extension: str,
+        *,
+        max_file_size: int = 0,
         password: Optional[str] = None,
     ) -> FileContext:
         """Create a standardised FileContext dict from a file path.
@@ -587,17 +600,22 @@ class DocumentProcessor:
         file_size = os.path.getsize(file_path)
         if max_file_size and file_size > max_file_size:
             from contextifier.errors import FileReadError
+
             raise FileReadError(
                 f"File size ({file_size:,} bytes) exceeds the limit "
                 f"({max_file_size:,} bytes). Consider processing in "
                 f"streaming mode or increase the limit.",
-                context={"file_path": file_path, "file_size": file_size,
-                         "max_file_size": max_file_size},
+                context={
+                    "file_path": file_path,
+                    "file_size": file_size,
+                    "max_file_size": max_file_size,
+                },
             )
         file_data = Path(file_path).read_bytes()
 
         # Decrypt password-protected MS Office files
         from contextifier.services.crypto_service import decrypt_if_encrypted
+
         file_data = decrypt_if_encrypted(file_data, password=password)
 
         return FileContext(

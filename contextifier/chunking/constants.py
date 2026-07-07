@@ -61,7 +61,9 @@ CODE_LANGUAGE_MAP: dict[str, str] = {
 HTML_TABLE_PATTERN = re.compile(r"<table[^>]*>.*?</table>", re.DOTALL | re.IGNORECASE)
 
 # Textbox block — [textbox]...[/textbox] — config-independent (no TagConfig entry)
-TEXTBOX_BLOCK_PATTERN = re.compile(r"\[textbox\].*?\[/textbox\]", re.DOTALL | re.IGNORECASE)
+TEXTBOX_BLOCK_PATTERN = re.compile(
+    r"\[textbox\].*?\[/textbox\]", re.DOTALL | re.IGNORECASE
+)
 
 # Markdown tables — config-independent
 MARKDOWN_TABLE_PATTERN = re.compile(
@@ -76,12 +78,16 @@ MARKDOWN_TABLE_HEADER_PATTERN = re.compile(r"^(\|[^\n]+\|\n)(\|[-:|\s]+\|)")
 # Pattern Builder Functions — Config-Driven
 # ============================================================================
 
+
 def _build_block_pattern(
-    open_tag: str, close_tag: str, flags: int = re.DOTALL,
+    open_tag: str,
+    close_tag: str,
+    flags: int = re.DOTALL,
 ) -> re.Pattern[str]:
     """Build regex for block-level tags like [chart]...[/chart]."""
     return re.compile(
-        rf"{re.escape(open_tag)}.*?{re.escape(close_tag)}", flags,
+        rf"{re.escape(open_tag)}.*?{re.escape(close_tag)}",
+        flags,
     )
 
 
@@ -114,7 +120,9 @@ def build_protected_patterns(config: "ProcessingConfig") -> list[re.Pattern[str]
     tags = config.tags
     return [
         # Block-level protected regions
-        _build_block_pattern(tags.chart_prefix, tags.chart_suffix, re.DOTALL | re.IGNORECASE),
+        _build_block_pattern(
+            tags.chart_prefix, tags.chart_suffix, re.DOTALL | re.IGNORECASE
+        ),
         TEXTBOX_BLOCK_PATTERN,
         HTML_TABLE_PATTERN,
         _build_block_pattern(tags.metadata_prefix, tags.metadata_suffix, re.DOTALL),
@@ -148,10 +156,10 @@ def build_image_capture_pattern(config: "ProcessingConfig") -> re.Pattern[str]:
 # Table Chunking Thresholds
 # ============================================================================
 
-TABLE_WRAPPER_OVERHEAD: int = 30       # <table border='1'>\n</table>
-ROW_OVERHEAD: int = 12                 # <tr>\n</tr>
-CELL_OVERHEAD: int = 10                # <td></td> or <th></th>
-CHUNK_INDEX_OVERHEAD: int = 30         # [Table chunk 1/10]\n
+TABLE_WRAPPER_OVERHEAD: int = 30  # <table border='1'>\n</table>
+ROW_OVERHEAD: int = 12  # <tr>\n</tr>
+CELL_OVERHEAD: int = 10  # <td></td> or <th></th>
+CHUNK_INDEX_OVERHEAD: int = 30  # [Table chunk 1/10]\n
 TABLE_SIZE_THRESHOLD_MULTIPLIER: float = 1.2  # 1.2× of chunk_size
 
 # Extensions that are inherently table-based
@@ -161,6 +169,7 @@ TABLE_EXTENSIONS: FrozenSet[str] = frozenset({"csv", "tsv", "xlsx", "xls"})
 # ============================================================================
 # Dataclasses
 # ============================================================================
+
 
 @dataclass(frozen=True)
 class TableRow:

@@ -35,7 +35,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
-from typing import Any, Dict, List, NamedTuple, Optional, Set, Tuple
+from typing import Any, List, NamedTuple, Set, Tuple
 
 from contextifier.pipeline.preprocessor import BasePreprocessor
 from contextifier.types import PreprocessedData
@@ -57,6 +57,7 @@ _logger = logging.getLogger("contextifier.rtf.preprocessor")
 # Data Structures
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class RtfImageData(NamedTuple):
     """
     Extracted image from RTF binary content.
@@ -64,10 +65,11 @@ class RtfImageData(NamedTuple):
     Stored in PreprocessedData.resources["images"].
     ContentExtractor saves these via ImageService.
     """
-    image_format: str      # "jpeg", "png", "gif", "bmp", etc.
-    image_bytes: bytes     # Raw image binary data
-    position: int          # Position in original RTF stream
-    content_hash: str      # MD5 hash for deduplication
+
+    image_format: str  # "jpeg", "png", "gif", "bmp", etc.
+    image_bytes: bytes  # Raw image binary data
+    position: int  # Position in original RTF stream
+    content_hash: str  # MD5 hash for deduplication
 
 
 class RtfParsedData(NamedTuple):
@@ -77,16 +79,18 @@ class RtfParsedData(NamedTuple):
     Stored in PreprocessedData.content.
     Consumed by RtfMetadataExtractor and RtfContentExtractor.
     """
-    text: str              # Decoded RTF string (binary data removed)
-    encoding: str          # Detected encoding
-    image_count: int       # Number of images extracted
+
+    text: str  # Decoded RTF string (binary data removed)
+    encoding: str  # Detected encoding
+    image_count: int  # Number of images extracted
 
 
 class _BinaryRegion(NamedTuple):
     """Internal: describes a binary data region in RTF bytes."""
+
     start_pos: int
     end_pos: int
-    bin_type: str          # "bin" or "pict"
+    bin_type: str  # "bin" or "pict"
     image_format: str
     image_data: bytes
 
@@ -94,6 +98,7 @@ class _BinaryRegion(NamedTuple):
 # ═══════════════════════════════════════════════════════════════════════════
 # Preprocessor
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class RtfPreprocessor(BasePreprocessor):
     """
@@ -217,12 +222,14 @@ class RtfPreprocessor(BasePreprocessor):
                 continue
             seen_hashes.add(content_hash)
 
-            images.append(RtfImageData(
-                image_format=region.image_format,
-                image_bytes=region.image_data,
-                position=region.start_pos,
-                content_hash=content_hash,
-            ))
+            images.append(
+                RtfImageData(
+                    image_format=region.image_format,
+                    image_bytes=region.image_data,
+                    position=region.start_pos,
+                    content_hash=content_hash,
+                )
+            )
 
         # Remove binary regions from content
         clean_bytes = _remove_binary_regions(content, all_regions)
@@ -233,6 +240,7 @@ class RtfPreprocessor(BasePreprocessor):
 # ═══════════════════════════════════════════════════════════════════════════
 # Binary Region Discovery (module-level for testability)
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def _find_bin_regions(content: bytes) -> List[_BinaryRegion]:
     """
@@ -257,7 +265,10 @@ def _find_bin_regions(content: bytes) -> List[_BinaryRegion]:
 
             data_start = bin_tag_end
             # Skip optional space after \binN
-            if data_start < len(content) and content[data_start : data_start + 1] == b" ":
+            if (
+                data_start < len(content)
+                and content[data_start : data_start + 1] == b" "
+            ):
                 data_start += 1
 
             data_end = data_start + bin_size
@@ -293,13 +304,15 @@ def _find_bin_regions(content: bytes) -> List[_BinaryRegion]:
                     j += 1
                 group_end = j
 
-            regions.append(_BinaryRegion(
-                start_pos=group_start,
-                end_pos=group_end,
-                bin_type="bin",
-                image_format=image_format,
-                image_data=binary_data,
-            ))
+            regions.append(
+                _BinaryRegion(
+                    start_pos=group_start,
+                    end_pos=group_end,
+                    bin_type="bin",
+                    image_format=image_format,
+                    image_data=binary_data,
+                )
+            )
         except (ValueError, IndexError):
             continue
 
@@ -387,13 +400,15 @@ def _find_pict_regions(
                         image_format = _detect_image_format(image_data)
 
                     if image_format:
-                        regions.append(_BinaryRegion(
-                            start_pos=start_pos,
-                            end_pos=i,
-                            bin_type="pict",
-                            image_format=image_format,
-                            image_data=image_data,
-                        ))
+                        regions.append(
+                            _BinaryRegion(
+                                start_pos=start_pos,
+                                end_pos=i,
+                                bin_type="pict",
+                                image_format=image_format,
+                                image_data=image_data,
+                            )
+                        )
                 except ValueError:
                     continue
     except Exception as e:

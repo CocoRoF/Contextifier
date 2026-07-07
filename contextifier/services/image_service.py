@@ -142,12 +142,14 @@ class ImageService:
             if size_mb > max_mb:
                 self._logger.warning(
                     "Image skipped: %.2f MB exceeds limit of %.2f MB",
-                    size_mb, max_mb,
+                    size_mb,
+                    max_mb,
                 )
                 return None
 
         should_skip = (
-            skip_duplicate if skip_duplicate is not None
+            skip_duplicate
+            if skip_duplicate is not None
             else self._image_config.skip_duplicate
         )
 
@@ -280,7 +282,9 @@ class ImageService:
         if self._tag_service is not None:
             return self._tag_service.create_image_tag(file_path)
         # Fallback: build directly from config (backward compat)
-        return f"{self._tag_config.image_prefix}{file_path}{self._tag_config.image_suffix}"
+        return (
+            f"{self._tag_config.image_prefix}{file_path}{self._tag_config.image_suffix}"
+        )
 
     def _generate_filename(self, image_data: bytes) -> str:
         """Generate a filename using the configured naming strategy."""

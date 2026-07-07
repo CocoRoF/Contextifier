@@ -64,16 +64,18 @@ def convert_region_to_table(
                             continue
                         skip_cells.add((row_idx + dr, col_idx + dc))
 
-            is_header = (row_idx == region.min_row)
+            is_header = row_idx == region.min_row
 
-            row_cells.append(TableCell(
-                content=value,
-                row_span=row_span,
-                col_span=col_span,
-                is_header=is_header,
-                row_index=row_idx - region.min_row,
-                col_index=col_idx - region.min_col,
-            ))
+            row_cells.append(
+                TableCell(
+                    content=value,
+                    row_span=row_span,
+                    col_span=col_span,
+                    is_header=is_header,
+                    row_index=row_idx - region.min_row,
+                    col_index=col_idx - region.min_col,
+                )
+            )
 
         if row_cells:
             rows.append(row_cells)
@@ -82,11 +84,7 @@ def convert_region_to_table(
         return None
 
     # Filter out completely empty tables
-    has_content = any(
-        cell.content.strip()
-        for row in rows
-        for cell in row
-    )
+    has_content = any(cell.content.strip() for row in rows for cell in row)
     if not has_content:
         return None
 
@@ -157,7 +155,7 @@ def convert_region_to_html(
 
     for row_idx in range(region.min_row, region.max_row + 1):
         cells_html: List[str] = []
-        is_header = (row_idx == region.min_row)
+        is_header = row_idx == region.min_row
 
         for col_idx in range(region.min_col, region.max_col + 1):
             if (row_idx, col_idx) in skip_cells:
@@ -214,6 +212,7 @@ def convert_sheet_to_text(
 # ═══════════════════════════════════════════════════════════════════════════════
 # Internal helpers
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _get_merged_cells_in_region(
     ws: object,

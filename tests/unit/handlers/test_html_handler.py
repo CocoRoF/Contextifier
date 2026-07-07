@@ -11,7 +11,6 @@ import pytest
 from contextifier.handlers.html.converter import HtmlConvertedData
 from contextifier.handlers.html.preprocessor import (
     HtmlPreprocessor,
-    _MAX_IMAGE_DECODE_BYTES,
 )
 
 

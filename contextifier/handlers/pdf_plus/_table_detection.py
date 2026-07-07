@@ -19,7 +19,7 @@ Post-processing:
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, List, Optional, Tuple
 
 from contextifier.handlers.pdf_plus._types import (
     CellInfo,
@@ -47,7 +47,7 @@ class TableDetectionEngine:
     def __init__(self, page: Any, page_num: int, file_data: bytes) -> None:
         self.page = page
         self.page_num = page_num
-        self.file_data = file_data          # raw PDF bytes (for pdfplumber)
+        self.file_data = file_data  # raw PDF bytes (for pdfplumber)
         self.page_width: float = page.rect.width
         self.page_height: float = page.rect.height
 
@@ -112,11 +112,17 @@ class TableDetectionEngine:
                     if conf < self.CONFIDENCE_THRESHOLD:
                         continue
                     cells = self._cells_from_pymupdf(table, col_map)
-                    cands.append(TableCandidate(
-                        strategy=TableDetectionStrategy.PYMUPDF_NATIVE,
-                        confidence=conf, bbox=table.bbox, grid=None,
-                        cells=cells, data=merged_data, raw_table=table,
-                    ))
+                    cands.append(
+                        TableCandidate(
+                            strategy=TableDetectionStrategy.PYMUPDF_NATIVE,
+                            confidence=conf,
+                            bbox=table.bbox,
+                            grid=None,
+                            cells=cells,
+                            data=merged_data,
+                            raw_table=table,
+                        )
+                    )
                 except Exception as exc:
                     logger.debug("[TableDet] pymupdf table err: %s", exc)
         except Exception as exc:
@@ -153,11 +159,17 @@ class TableDetectionEngine:
                     conf = self._plumber_confidence(tdata)
                     if conf < self.CONFIDENCE_THRESHOLD:
                         continue
-                    cands.append(TableCandidate(
-                        strategy=TableDetectionStrategy.PDFPLUMBER_LINES,
-                        confidence=conf, bbox=bbox, grid=None,
-                        cells=[], data=tdata, raw_table=None,
-                    ))
+                    cands.append(
+                        TableCandidate(
+                            strategy=TableDetectionStrategy.PDFPLUMBER_LINES,
+                            confidence=conf,
+                            bbox=bbox,
+                            grid=None,
+                            cells=[],
+                            data=tdata,
+                            raw_table=None,
+                        )
+                    )
         except ImportError:
             logger.debug("[TableDet] pdfplumber not installed — skipping")
         except Exception as exc:
@@ -185,11 +197,17 @@ class TableDetectionEngine:
         conf = self._line_confidence(grid, data)
         if conf < self.CONFIDENCE_THRESHOLD:
             return []
-        return [TableCandidate(
-            strategy=TableDetectionStrategy.HYBRID_ANALYSIS,
-            confidence=conf, bbox=grid.bbox, grid=grid,
-            cells=cells, data=data, raw_table=None,
-        )]
+        return [
+            TableCandidate(
+                strategy=TableDetectionStrategy.HYBRID_ANALYSIS,
+                confidence=conf,
+                bbox=grid.bbox,
+                grid=grid,
+                cells=cells,
+                data=data,
+                raw_table=None,
+            )
+        ]
 
     # ==================================================================
     # Header–data merging
@@ -235,8 +253,10 @@ class TableDetectionEngine:
 
     def _do_merge_hd(self, hd: TableCandidate, dt: TableCandidate) -> TableCandidate:
         bbox = (
-            min(hd.bbox[0], dt.bbox[0]), hd.bbox[1],
-            max(hd.bbox[2], dt.bbox[2]), dt.bbox[3],
+            min(hd.bbox[0], dt.bbox[0]),
+            hd.bbox[1],
+            max(hd.bbox[2], dt.bbox[2]),
+            dt.bbox[3],
         )
         hcols = max((len(r) for r in hd.data), default=0)
         dcols = max((len(r) for r in dt.data), default=0)
@@ -255,18 +275,30 @@ class TableDetectionEngine:
         merged_cells.extend(hd.cells)
         # Data rows
         for ri, row in enumerate(dt.data):
-            adj = list(row) + ([""] * (ncols - len(row))) if len(row) < ncols else list(row)
+            adj = (
+                list(row) + ([""] * (ncols - len(row)))
+                if len(row) < ncols
+                else list(row)
+            )
             merged_data.append(adj)
         for c in dt.cells:
-            merged_cells.append(CellInfo(
-                row=c.row + hrc, col=c.col,
-                rowspan=c.rowspan, colspan=c.colspan, bbox=c.bbox,
-            ))
+            merged_cells.append(
+                CellInfo(
+                    row=c.row + hrc,
+                    col=c.col,
+                    rowspan=c.rowspan,
+                    colspan=c.colspan,
+                    bbox=c.bbox,
+                )
+            )
         return TableCandidate(
             strategy=hd.strategy,
             confidence=max(hd.confidence, dt.confidence),
-            bbox=bbox, grid=hd.grid or dt.grid,
-            cells=merged_cells, data=merged_data, raw_table=None,
+            bbox=bbox,
+            grid=hd.grid or dt.grid,
+            cells=merged_cells,
+            data=merged_data,
+            raw_table=None,
         )
 
     # ==================================================================
@@ -324,17 +356,23 @@ class TableDetectionEngine:
                 groups.append(cur)
                 cur = []
         if cur:
-            (groups[-1] if groups else groups.append(cur) or groups).extend([] if not groups else [])
+            (groups[-1] if groups else groups.append(cur) or groups).extend(
+                [] if not groups else []
+            )
             if cur and groups and cur is not groups[-1]:
                 groups[-1].extend(cur)
         return groups
 
-    def _merge_cols_by_content(self, data: list[list]) -> Tuple[list[list[str]], dict[int, int]]:
+    def _merge_cols_by_content(
+        self, data: list[list]
+    ) -> Tuple[list[list[str]], dict[int, int]]:
         ncols = max(len(r) for r in data)
         nrows = len(data)
         ratios = []
         for ci in range(ncols):
-            empty = sum(1 for r in data if ci >= len(r) or not r[ci] or not str(r[ci]).strip())
+            empty = sum(
+                1 for r in data if ci >= len(r) or not r[ci] or not str(r[ci]).strip()
+            )
             ratios.append(empty / nrows if nrows else 1.0)
         groups: list[list[int]] = []
         cur: list[int] = []
@@ -365,7 +403,9 @@ class TableDetectionEngine:
     # PyMuPDF cell extraction
     # ==================================================================
 
-    def _cells_from_pymupdf(self, table: Any, col_map: dict[int, int]) -> list[CellInfo]:
+    def _cells_from_pymupdf(
+        self, table: Any, col_map: dict[int, int]
+    ) -> list[CellInfo]:
         raw = self._extract_raw_cells(table)
         if not col_map or not raw:
             return raw
@@ -382,7 +422,15 @@ class TableDetectionEngine:
                 if mc != nc:
                     ncs = max(ncs, mc - nc + 1)
             ncs = min(ncs, new_nc - nc)
-            out.append(CellInfo(row=c.row, col=nc, rowspan=c.rowspan, colspan=max(1, ncs), bbox=c.bbox))
+            out.append(
+                CellInfo(
+                    row=c.row,
+                    col=nc,
+                    rowspan=c.rowspan,
+                    colspan=max(1, ncs),
+                    bbox=c.bbox,
+                )
+            )
             for ri in range(c.row, c.row + c.rowspan):
                 for ci in range(nc, nc + max(1, ncs)):
                     seen.add((ri, ci))
@@ -416,11 +464,15 @@ class TableDetectionEngine:
             if (rs, cs) in seen:
                 continue
             seen.add((rs, cs))
-            cells.append(CellInfo(
-                row=rs, col=cs,
-                rowspan=max(1, re - rs), colspan=max(1, ce - cs),
-                bbox=cb,
-            ))
+            cells.append(
+                CellInfo(
+                    row=rs,
+                    col=cs,
+                    rowspan=max(1, re - rs),
+                    colspan=max(1, ce - cs),
+                    bbox=cb,
+                )
+            )
             for r in range(rs, rs + max(1, re - rs)):
                 for c in range(cs, cs + max(1, ce - cs)):
                     if (r, c) != (rs, cs):
@@ -528,24 +580,41 @@ class TableDetectionEngine:
         for c in cands:
             skip_gfx = c.strategy == TableDetectionStrategy.PYMUPDF_NATIVE
             ok, conf, reason = self.quality_validator.validate(
-                data=c.data, bbox=c.bbox,
+                data=c.data,
+                bbox=c.bbox,
                 cells_info=[
-                    {"row": ci.row, "col": ci.col, "rowspan": ci.rowspan,
-                     "colspan": ci.colspan, "bbox": ci.bbox}
+                    {
+                        "row": ci.row,
+                        "col": ci.col,
+                        "rowspan": ci.rowspan,
+                        "colspan": ci.colspan,
+                        "bbox": ci.bbox,
+                    }
                     for ci in c.cells
-                ] if c.cells else None,
+                ]
+                if c.cells
+                else None,
                 skip_graphic_check=skip_gfx,
             )
             if ok:
-                out.append(TableCandidate(
-                    strategy=c.strategy,
-                    confidence=min(c.confidence, conf),
-                    bbox=c.bbox, grid=c.grid,
-                    cells=c.cells, data=c.data, raw_table=c.raw_table,
-                ))
+                out.append(
+                    TableCandidate(
+                        strategy=c.strategy,
+                        confidence=min(c.confidence, conf),
+                        bbox=c.bbox,
+                        grid=c.grid,
+                        cells=c.cells,
+                        data=c.data,
+                        raw_table=c.raw_table,
+                    )
+                )
             else:
-                logger.debug("[TableDet] filtered: page=%d bbox=%s reason=%s",
-                             self.page_num + 1, c.bbox, reason)
+                logger.debug(
+                    "[TableDet] filtered: page=%d bbox=%s reason=%s",
+                    self.page_num + 1,
+                    c.bbox,
+                    reason,
+                )
         return out
 
     def _select_best(self, cands: list[TableCandidate]) -> list[TableCandidate]:
@@ -606,13 +675,16 @@ class TableDetectionEngine:
                 continue
             for ln in blk.get("lines", []):
                 lb = ln.get("bbox", (0, 0, 0, 0))
-                if not (max(lb[0], bbox[0]) < min(lb[2], bbox[2])
-                        and max(lb[1], bbox[1]) < min(lb[3], bbox[3])):
+                if not (
+                    max(lb[0], bbox[0]) < min(lb[2], bbox[2])
+                    and max(lb[1], bbox[1]) < min(lb[3], bbox[3])
+                ):
                     continue
                 for sp in ln.get("spans", []):
                     sb = sp.get("bbox", (0, 0, 0, 0))
-                    if max(sb[0], bbox[0]) < min(sb[2], bbox[2]) \
-                            and max(sb[1], bbox[1]) < min(sb[3], bbox[3]):
+                    if max(sb[0], bbox[0]) < min(sb[2], bbox[2]) and max(
+                        sb[1], bbox[1]
+                    ) < min(sb[3], bbox[3]):
                         t = sp.get("text", "").strip()
                         if t:
                             texts.append(t)
@@ -621,9 +693,18 @@ class TableDetectionEngine:
     @staticmethod
     def _cells_from_grid(grid: GridInfo) -> list[CellInfo]:
         return [
-            CellInfo(row=ri, col=ci, rowspan=1, colspan=1,
-                     bbox=(grid.v_lines[ci], grid.h_lines[ri],
-                           grid.v_lines[ci + 1], grid.h_lines[ri + 1]))
+            CellInfo(
+                row=ri,
+                col=ci,
+                rowspan=1,
+                colspan=1,
+                bbox=(
+                    grid.v_lines[ci],
+                    grid.h_lines[ri],
+                    grid.v_lines[ci + 1],
+                    grid.h_lines[ri + 1],
+                ),
+            )
             for ri in range(grid.row_count)
             for ci in range(grid.col_count)
         ]
@@ -638,8 +719,14 @@ class TableDetectionEngine:
             words = pp.extract_words()
             if not words:
                 return None
-            table_texts = {str(c).strip()[:20] for r in data for c in r if c and str(c).strip()}
-            hits = [w for w in words if any(w["text"] in t or t in w["text"] for t in table_texts)]
+            table_texts = {
+                str(c).strip()[:20] for r in data for c in r if c and str(c).strip()
+            }
+            hits = [
+                w
+                for w in words
+                if any(w["text"] in t or t in w["text"] for t in table_texts)
+            ]
             if not hits:
                 return None
             m = 5

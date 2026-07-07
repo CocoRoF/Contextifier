@@ -32,6 +32,7 @@ logger = logging.getLogger("contextifier.chunking.table_parser")
 # HTML Table Parsing
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def parse_html_table(html: str) -> ParsedTable:
     """
     Parse an HTML table string into a structured ParsedTable.
@@ -49,16 +50,22 @@ def parse_html_table(html: str) -> ParsedTable:
     data_rows: List[TableRow] = []
 
     # Extract rows from <thead> section
-    thead_match = re.search(r"<thead[^>]*>(.*?)</thead>", html, re.DOTALL | re.IGNORECASE)
+    thead_match = re.search(
+        r"<thead[^>]*>(.*?)</thead>", html, re.DOTALL | re.IGNORECASE
+    )
     thead_rows_html: List[str] = []
     if thead_match:
-        thead_rows_html = re.findall(r"<tr[^>]*>.*?</tr>", thead_match.group(1), re.DOTALL | re.IGNORECASE)
+        thead_rows_html = re.findall(
+            r"<tr[^>]*>.*?</tr>", thead_match.group(1), re.DOTALL | re.IGNORECASE
+        )
 
     # Extract ALL <tr> rows from the full table
     all_rows_html = re.findall(r"<tr[^>]*>.*?</tr>", html, re.DOTALL | re.IGNORECASE)
 
     for row_html in all_rows_html:
-        cells = re.findall(r"<t[hd][^>]*>.*?</t[hd]>", row_html, re.DOTALL | re.IGNORECASE)
+        cells = re.findall(
+            r"<t[hd][^>]*>.*?</t[hd]>", row_html, re.DOTALL | re.IGNORECASE
+        )
         cell_count = len(cells)
         char_length = len(row_html)
 
@@ -133,6 +140,7 @@ def has_complex_spans(html: str) -> bool:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Markdown Table Parsing
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def parse_markdown_table(text: str) -> Optional[ParsedMarkdownTable]:
     """

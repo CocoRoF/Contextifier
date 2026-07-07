@@ -25,7 +25,7 @@ import io
 import logging
 import zipfile
 from abc import ABC, abstractmethod
-from typing import Any, BinaryIO, Optional
+from typing import Any
 
 from contextifier.types import FileContext
 from contextifier.errors import ConversionError
@@ -159,4 +159,9 @@ class NullConverter(BaseConverter):
         return "raw"
 
 
-__all__ = ["BaseConverter", "NullConverter", "check_zip_bomb", "MAX_ZIP_DECOMPRESSED_BYTES"]
+__all__ = [
+    "BaseConverter",
+    "NullConverter",
+    "check_zip_bomb",
+    "MAX_ZIP_DECOMPRESSED_BYTES",
+]

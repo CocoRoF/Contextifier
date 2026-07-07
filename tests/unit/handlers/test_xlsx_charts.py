@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from unittest import mock
 
-import pytest
 
 from contextifier.handlers.xlsx.content_extractor import XlsxContentExtractor
 from contextifier.types import ChartData, ChartSeries, PreprocessedData

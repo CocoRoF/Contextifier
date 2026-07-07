@@ -35,12 +35,12 @@ def extract_text_raw(data: bytes) -> str:
         val = struct.unpack_from("<H", data, i)[0]
 
         is_valid = (
-            (0xAC00 <= val <= 0xD7A3)   # Korean syllables
-            or (0x0020 <= val <= 0x007E) # ASCII printable
-            or (0x3130 <= val <= 0x318F) # Hangul compat jamo
-            or (0x1100 <= val <= 0x11FF) # Hangul jamo
-            or (0x3000 <= val <= 0x303F) # CJK punctuation
-            or val in (10, 13, 9)        # LF, CR, TAB
+            (0xAC00 <= val <= 0xD7A3)  # Korean syllables
+            or (0x0020 <= val <= 0x007E)  # ASCII printable
+            or (0x3130 <= val <= 0x318F)  # Hangul compat jamo
+            or (0x1100 <= val <= 0x11FF)  # Hangul jamo
+            or (0x3000 <= val <= 0x303F)  # CJK punctuation
+            or val in (10, 13, 9)  # LF, CR, TAB
         )
 
         if is_valid:
@@ -64,9 +64,7 @@ def extract_text_raw(data: bytes) -> str:
     return "".join(p for p in parts if p.strip())
 
 
-def find_zlib_streams(
-    data: bytes, min_size: int = 50
-) -> List[Tuple[int, bytes]]:
+def find_zlib_streams(data: bytes, min_size: int = 50) -> List[Tuple[int, bytes]]:
     """
     Scan raw data for zlib-compressed streams and decompress them.
 

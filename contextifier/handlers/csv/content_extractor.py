@@ -35,7 +35,7 @@ from contextifier.types import PreprocessedData, TableCell, TableData
 from contextifier.handlers.csv.preprocessor import CsvParsedData
 
 if TYPE_CHECKING:
-    from contextifier.services.table_service import TableService
+    pass
 
 
 class CsvContentExtractor(BaseContentExtractor):
@@ -167,14 +167,16 @@ def _build_simple(
 
         for col_idx in range(col_count):
             content = row[col_idx].strip() if col_idx < len(row) else ""
-            cells.append(TableCell(
-                content=content,
-                row_span=1,
-                col_span=1,
-                is_header=is_header_row,
-                row_index=row_idx,
-                col_index=col_idx,
-            ))
+            cells.append(
+                TableCell(
+                    content=content,
+                    row_span=1,
+                    col_span=1,
+                    is_header=is_header_row,
+                    row_index=row_idx,
+                    col_index=col_idx,
+                )
+            )
         table_rows.append(cells)
 
     return TableData(
@@ -207,12 +209,14 @@ def _build_with_merges(
         row_info: List[Dict[str, Any]] = []
         for c_idx in range(col_count):
             value = row[c_idx].strip() if c_idx < len(row) else ""
-            row_info.append({
-                "value": value,
-                "colspan": 1,
-                "rowspan": 1,
-                "skip": False,
-            })
+            row_info.append(
+                {
+                    "value": value,
+                    "colspan": 1,
+                    "rowspan": 1,
+                    "skip": False,
+                }
+            )
         grid.append(row_info)
 
     # Pass 1: Horizontal merge (colspan)
@@ -272,14 +276,16 @@ def _build_with_merges(
             if cell["skip"]:
                 continue
 
-            cells.append(TableCell(
-                content=cell["value"],
-                row_span=cell["rowspan"],
-                col_span=cell["colspan"],
-                is_header=is_header_row,
-                row_index=r_idx,
-                col_index=c_idx,
-            ))
+            cells.append(
+                TableCell(
+                    content=cell["value"],
+                    row_span=cell["rowspan"],
+                    col_span=cell["colspan"],
+                    is_header=is_header_row,
+                    row_index=r_idx,
+                    col_index=c_idx,
+                )
+            )
         table_rows.append(cells)
 
     return TableData(

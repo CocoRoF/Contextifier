@@ -11,7 +11,7 @@ to images and OCRs them.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, List, Tuple
 
 from contextifier.handlers.pdf_plus._types import (
     PdfPlusConfig,
@@ -100,10 +100,12 @@ class VectorTextOCREngine:
             if text.strip():
                 continue  # already has real text
 
-            regions.append(VectorTextRegion(
-                bbox=region_bbox,
-                glyph_count=len(cluster),
-            ))
+            regions.append(
+                VectorTextRegion(
+                    bbox=region_bbox,
+                    glyph_count=len(cluster),
+                )
+            )
 
         return regions
 
@@ -135,10 +137,7 @@ class VectorTextOCREngine:
     @staticmethod
     def _nearby(a: tuple, b: tuple, m: float) -> bool:
         return not (
-            a[2] + m < b[0]
-            or b[2] + m < a[0]
-            or a[3] + m < b[1]
-            or b[3] + m < a[1]
+            a[2] + m < b[0] or b[2] + m < a[0] or a[3] + m < b[1] or b[3] + m < a[1]
         )
 
     # ------------------------------------------------------------------

@@ -25,7 +25,6 @@ from contextifier.types import (
     TableData,
 )
 from contextifier.handlers.xlsx._layout import (
-    LayoutRange,
     layout_detect_range,
     object_detect,
 )
@@ -96,7 +95,9 @@ class XlsxContentExtractor(BaseContentExtractor):
             if not self._include_hidden_sheets:
                 state = getattr(ws, "sheet_state", "visible")
                 if state != "visible":
-                    logger.debug("Skipping hidden sheet '%s' (state=%s)", sheet_name, state)
+                    logger.debug(
+                        "Skipping hidden sheet '%s' (state=%s)", sheet_name, state
+                    )
                     continue
 
             sheet_parts: List[str] = []
@@ -134,7 +135,9 @@ class XlsxContentExtractor(BaseContentExtractor):
                             sheet_parts.append(chart_text)
                         chart_index += 1
             except Exception as exc:
-                logger.debug("Error processing charts for sheet %s: %s", sheet_name, exc)
+                logger.debug(
+                    "Error processing charts for sheet %s: %s", sheet_name, exc
+                )
 
             # Process per-sheet images
             try:
@@ -142,7 +145,9 @@ class XlsxContentExtractor(BaseContentExtractor):
                 if sheet_image_tags:
                     sheet_parts.extend(sheet_image_tags)
             except Exception as exc:
-                logger.debug("Error processing images for sheet %s: %s", sheet_name, exc)
+                logger.debug(
+                    "Error processing images for sheet %s: %s", sheet_name, exc
+                )
 
             # Textboxes
             sheet_textboxes = textboxes.get(sheet_name, [])
@@ -248,12 +253,14 @@ class XlsxContentExtractor(BaseContentExtractor):
                     )
                     for s in chart_dict.get("series", [])
                 ]
-                result.append(ChartData(
-                    chart_type=chart_dict.get("chart_type", "Unknown"),
-                    title=chart_dict.get("title", ""),
-                    categories=chart_dict.get("categories", []),
-                    series=series,
-                ))
+                result.append(
+                    ChartData(
+                        chart_type=chart_dict.get("chart_type", "Unknown"),
+                        title=chart_dict.get("title", ""),
+                        categories=chart_dict.get("categories", []),
+                        series=series,
+                    )
+                )
             except (KeyError, TypeError, ValueError) as exc:
                 logger.debug("Failed to parse chart data: %s", exc)
 

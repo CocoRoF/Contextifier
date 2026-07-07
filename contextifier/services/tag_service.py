@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import re
 import logging
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 from contextifier.config import ProcessingConfig, TagConfig
 from contextifier.types import TagType
@@ -67,7 +67,9 @@ class TagService:
 
     def create_page_tag(self, page_number: int) -> str:
         """Create a page number tag. E.g., '[Page Number: 1]'"""
-        return f"{self._tag_config.page_prefix}{page_number}{self._tag_config.page_suffix}"
+        return (
+            f"{self._tag_config.page_prefix}{page_number}{self._tag_config.page_suffix}"
+        )
 
     def create_slide_tag(self, slide_number: int) -> str:
         """Create a slide number tag. E.g., '[Slide Number: 1]'"""
@@ -141,8 +143,7 @@ class TagService:
     def find_sheet_tags(self, text: str) -> List[Tuple[int, int, str]]:
         """Find all sheet tags. Returns [(start, end, sheet_name), ...]"""
         return [
-            (m.start(), m.end(), m.group(1))
-            for m in self._sheet_pattern.finditer(text)
+            (m.start(), m.end(), m.group(1)) for m in self._sheet_pattern.finditer(text)
         ]
 
     def has_page_markers(self, text: str) -> bool:

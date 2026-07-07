@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, NamedTuple, Optional
+from typing import Any, NamedTuple
 
 from contextifier.pipeline.converter import BaseConverter
 from contextifier.types import FileContext
@@ -45,6 +45,7 @@ _HTML_MARKERS = (
 
 class HtmlConvertedData(NamedTuple):
     """Result of Stage 1 conversion for HTML."""
+
     html_text: str
     encoding: str
     file_extension: str
@@ -53,9 +54,7 @@ class HtmlConvertedData(NamedTuple):
 class HtmlConverter(BaseConverter):
     """Validate HTML input and decode to string."""
 
-    def convert(
-        self, file_context: FileContext, **kwargs: Any
-    ) -> HtmlConvertedData:
+    def convert(self, file_context: FileContext, **kwargs: Any) -> HtmlConvertedData:
         file_data: bytes = file_context.get("file_data", b"")
         if not file_data:
             raise ConversionError(

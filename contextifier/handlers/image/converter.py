@@ -26,8 +26,9 @@ logger = logging.getLogger(__name__)
 
 class ImageConvertedData(NamedTuple):
     """Result of the image conversion stage."""
-    image_data: bytes         # Raw image bytes (unchanged)
-    detected_format: Optional[str]   # Detected format from magic bytes (or None)
+
+    image_data: bytes  # Raw image bytes (unchanged)
+    detected_format: Optional[str]  # Detected format from magic bytes (or None)
 
 
 class ImageConverter(BaseConverter):
@@ -43,7 +44,9 @@ class ImageConverter(BaseConverter):
         file_data: bytes = file_context.get("file_data", b"")
         if not file_data:
             raise ConversionError(
-                "Empty file data", stage="convert", handler="image",
+                "Empty file data",
+                stage="convert",
+                handler="image",
             )
 
         detected = detect_image_format(file_data)
@@ -54,7 +57,8 @@ class ImageConverter(BaseConverter):
         # but we let the content stage decide).
         if ext in MAGIC_VALIDATED_EXTENSIONS and detected is None:
             logger.warning(
-                "Image magic bytes not recognised for extension '%s'", ext,
+                "Image magic bytes not recognised for extension '%s'",
+                ext,
             )
 
         return ImageConvertedData(image_data=file_data, detected_format=detected)

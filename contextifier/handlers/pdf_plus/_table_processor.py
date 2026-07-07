@@ -17,11 +17,10 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 from contextifier.handlers.pdf_plus._types import (
     AnnotationInfo,
-    CellInfo,
     PdfPlusConfig,
     TableCandidate,
 )
@@ -38,9 +37,11 @@ CFG = PdfPlusConfig
 # Data containers for processed tables
 # ──────────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class ProcessedTable:
     """One fully-processed table."""
+
     page_num: int
     bbox: Tuple[float, float, float, float]
     data: List[List[str]]
@@ -54,6 +55,7 @@ class ProcessedTable:
 # ──────────────────────────────────────────────────────────────────────
 # TableProcessor
 # ──────────────────────────────────────────────────────────────────────
+
 
 class TableProcessor:
     """
@@ -92,15 +94,17 @@ class TableProcessor:
             cells = self._analyse_cells(cand)
             annotations = self._detect_annotations(cand)
             html = self._to_html(cand.data, cells, annotations)
-            results.append(ProcessedTable(
-                page_num=self.page_num,
-                bbox=cand.bbox,
-                data=cand.data,
-                cells=cells,
-                html=html,
-                annotations=annotations,
-                confidence=cand.confidence,
-            ))
+            results.append(
+                ProcessedTable(
+                    page_num=self.page_num,
+                    bbox=cand.bbox,
+                    data=cand.data,
+                    cells=cells,
+                    html=html,
+                    annotations=annotations,
+                    confidence=cand.confidence,
+                )
+            )
         return results
 
     def check_continuity(
@@ -130,7 +134,9 @@ class TableProcessor:
                     ct.is_continuation = True
                     logger.debug(
                         "[TableProc] page %d table is continuation (prev cols=%d, cur cols=%d)",
-                        ct.page_num + 1, pcols, ccols,
+                        ct.page_num + 1,
+                        pcols,
+                        ccols,
                     )
 
     # ------------------------------------------------------------------
@@ -172,11 +178,13 @@ class TableProcessor:
                 if not text:
                     continue
                 atype = self._classify_annotation(text)
-                annotations.append(AnnotationInfo(
-                    text=text,
-                    bbox=lb,
-                    annotation_type=atype,
-                ))
+                annotations.append(
+                    AnnotationInfo(
+                        text=text,
+                        bbox=lb,
+                        annotation_type=atype,
+                    )
+                )
         return annotations
 
     @staticmethod

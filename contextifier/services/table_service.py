@@ -17,10 +17,10 @@ from __future__ import annotations
 
 import html as html_mod
 import logging
-from typing import List, Optional
+from typing import List
 
 from contextifier.config import ProcessingConfig, TableConfig
-from contextifier.types import OutputFormat, TableCell, TableData
+from contextifier.types import OutputFormat, TableData
 
 
 class TableService:

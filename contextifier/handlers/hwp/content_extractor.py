@@ -23,7 +23,6 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
 from contextifier.pipeline.content_extractor import BaseContentExtractor
 from contextifier.types import (
     ChartData,
-    ExtractionResult,
     PreprocessedData,
     TableData,
 )
@@ -41,11 +40,7 @@ from contextifier.handlers.hwp._table import parse_table
 from contextifier.handlers.hwp._recovery import extract_text_raw
 
 if TYPE_CHECKING:
-    import olefile
-    from contextifier.services.image_service import ImageService
-    from contextifier.services.tag_service import TagService
-    from contextifier.services.chart_service import ChartService
-    from contextifier.services.table_service import TableService
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -57,9 +52,7 @@ class HwpContentExtractor(BaseContentExtractor):
 
     # ── BaseContentExtractor interface ────────────────────────────────
 
-    def extract_text(
-        self, preprocessed: PreprocessedData, **kwargs: Any
-    ) -> str:
+    def extract_text(self, preprocessed: PreprocessedData, **kwargs: Any) -> str:
         ole, bin_data_map = self._unwrap(preprocessed)
         if ole is None:
             return ""
@@ -177,9 +170,13 @@ class HwpContentExtractor(BaseContentExtractor):
             for i, seg in enumerate(segments):
                 parts.append(seg)
                 if i < len(controls):
-                    parts.append(self._traverse(controls[i], ole, bin_data_map, processed_images))
+                    parts.append(
+                        self._traverse(controls[i], ole, bin_data_map, processed_images)
+                    )
             for k in range(len(segments) - 1, len(controls)):
-                parts.append(self._traverse(controls[k], ole, bin_data_map, processed_images))
+                parts.append(
+                    self._traverse(controls[k], ole, bin_data_map, processed_images)
+                )
         else:
             parts.append(text_content)
             for c in controls:
@@ -258,15 +255,11 @@ class HwpContentExtractor(BaseContentExtractor):
 
         idx = _extract_bindata_index(record.payload, len(bin_list))
         if idx is not None and 0 < idx <= len(bin_list):
-            return self._save_bindata_image(
-                ole, bin_list[idx - 1], processed_images
-            )
+            return self._save_bindata_image(ole, bin_list[idx - 1], processed_images)
 
         # Fallback: if only one BinData, use it
         if len(bin_list) == 1:
-            return self._save_bindata_image(
-                ole, bin_list[0], processed_images
-            )
+            return self._save_bindata_image(ole, bin_list[0], processed_images)
 
         return None
 
@@ -291,6 +284,7 @@ class HwpContentExtractor(BaseContentExtractor):
 
         try:
             import zlib
+
             raw = ole.openstream(stream_path).read()
 
             # Try decompress
@@ -320,14 +314,19 @@ class HwpContentExtractor(BaseContentExtractor):
     def _unwrap(preprocessed: PreprocessedData):
         """Return (ole, bin_data_map) from PreprocessedData."""
         ole = preprocessed.content
-        bdm = preprocessed.resources.get("bin_data_map") if preprocessed.resources else None
+        bdm = (
+            preprocessed.resources.get("bin_data_map")
+            if preprocessed.resources
+            else None
+        )
         return ole, bdm
 
     @staticmethod
     def _sorted_sections(ole: Any) -> List:
         """Return BodyText/Section* entries sorted by number."""
         sections = [
-            e for e in ole.listdir()
+            e
+            for e in ole.listdir()
             if len(e) >= 2 and e[0] == STREAM_BODY_TEXT and e[1].startswith("Section")
         ]
         sections.sort(key=lambda x: int(x[1].replace("Section", "")))
@@ -360,7 +359,27 @@ def _extract_bindata_index(payload: bytes, list_len: int) -> Optional[int]:
             return val
 
     # Strategy 3: scan common offsets
-    for off in (4, 6, 10, 12, 14, 16, 18, 20, 40, 44, 48, 52, 56, 60, 64, 68, 72, 76, 80):
+    for off in (
+        4,
+        6,
+        10,
+        12,
+        14,
+        16,
+        18,
+        20,
+        40,
+        44,
+        48,
+        52,
+        56,
+        60,
+        64,
+        68,
+        72,
+        76,
+        80,
+    ):
         if len(payload) >= off + 2:
             val = struct.unpack_from("<H", payload, off)[0]
             if 0 < val <= list_len:

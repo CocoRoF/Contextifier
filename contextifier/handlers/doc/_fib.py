@@ -21,20 +21,20 @@ from __future__ import annotations
 import re
 import struct
 import logging
-from typing import List, NamedTuple, Optional, Tuple
+from typing import List, NamedTuple, Optional
 
 logger = logging.getLogger(__name__)
 
 # ── FIB well-known offsets (Word 97+ / nFib >= 0x00C1) ──────────────────────
 
 # FibBase fields
-_OFFSET_WIDENT = 0x0000       # uint16 — magic (0xA5EC / 0xA5DC)
-_OFFSET_NFIB = 0x0002         # uint16 — version number
-_OFFSET_FLAGS = 0x000A        # uint16 — flags (bit 9 = fWhichTblStm)
+_OFFSET_WIDENT = 0x0000  # uint16 — magic (0xA5EC / 0xA5DC)
+_OFFSET_NFIB = 0x0002  # uint16 — version number
+_OFFSET_FLAGS = 0x000A  # uint16 — flags (bit 9 = fWhichTblStm)
 
 # FibRgLw97 fields (absolute offsets assuming standard csw=14, cslw=22)
-_OFFSET_CCPTEXT = 0x004C      # uint32 — character count of main body text
-_OFFSET_CCPFTN = 0x0050       # uint32 — character count of footnote text
+_OFFSET_CCPTEXT = 0x004C  # uint32 — character count of main body text
+_OFFSET_CCPFTN = 0x0050  # uint32 — character count of footnote text
 
 # FibRgFcLcb97: fcClx / lcbClx
 # fcClx  is at absolute offset 0x01A2 (entry index 33 of FibRgFcLcb97)
@@ -43,18 +43,19 @@ _OFFSET_FC_CLX = 0x01A2
 _OFFSET_LCB_CLX = 0x01A6
 
 # Minimum FIB size to attempt piece-table parsing
-_MIN_FIB_SIZE = 0x01AA        # must be able to read lcbClx
+_MIN_FIB_SIZE = 0x01AA  # must be able to read lcbClx
 
 # nFib threshold — piece table parsing only reliable for Word 97+
-_MIN_NFIB_FOR_PIECE_TABLE = 0x00C1   # Word 97
+_MIN_NFIB_FOR_PIECE_TABLE = 0x00C1  # Word 97
 
 
 class PieceDescriptor(NamedTuple):
     """A single entry from the PlcPcd piece table."""
-    cp_start: int         # Starting character position (in document order)
-    cp_end: int           # Ending character position (exclusive)
-    fc: int               # File Character offset in WordDocument stream
-    is_compressed: bool   # True → cp1252 (1 byte/char), False → UTF-16LE
+
+    cp_start: int  # Starting character position (in document order)
+    cp_end: int  # Ending character position (exclusive)
+    fc: int  # File Character offset in WordDocument stream
+    is_compressed: bool  # True → cp1252 (1 byte/char), False → UTF-16LE
 
 
 def parse_fib_text(
@@ -73,7 +74,9 @@ def parse_fib_text(
         (caller should fall back to heuristic extraction).
     """
     if len(word_data) < _MIN_FIB_SIZE:
-        logger.debug("WordDocument stream too short for FIB parsing (%d bytes)", len(word_data))
+        logger.debug(
+            "WordDocument stream too short for FIB parsing (%d bytes)", len(word_data)
+        )
         return None
 
     if table_stream is None or len(table_stream) == 0:
@@ -103,7 +106,9 @@ def parse_fib_text(
     if fc_clx + lcb_clx > len(table_stream):
         logger.debug(
             "Clx extends beyond table stream (fcClx=%d, lcbClx=%d, stream=%d)",
-            fc_clx, lcb_clx, len(table_stream),
+            fc_clx,
+            lcb_clx,
+            len(table_stream),
         )
         return None
 
@@ -152,7 +157,9 @@ def _parse_clx(clx_data: bytes) -> List[PieceDescriptor]:
             break
         else:
             # Unknown type — abort
-            logger.debug("Unknown Clx entry type: 0x%02X at offset %d", clx_data[offset], offset)
+            logger.debug(
+                "Unknown Clx entry type: 0x%02X at offset %d", clx_data[offset], offset
+            )
             return []
 
     if offset >= length or clx_data[offset] != 0x02:
@@ -216,12 +223,14 @@ def _parse_plc_pcd(plc_data: bytes) -> List[PieceDescriptor]:
             # ANSI: actual byte offset is fc / 2
             fc = fc // 2
 
-        pieces.append(PieceDescriptor(
-            cp_start=cps[i],
-            cp_end=cps[i + 1],
-            fc=fc,
-            is_compressed=is_compressed,
-        ))
+        pieces.append(
+            PieceDescriptor(
+                cp_start=cps[i],
+                cp_end=cps[i + 1],
+                fc=fc,
+                is_compressed=is_compressed,
+            )
+        )
 
     return pieces
 
@@ -256,7 +265,9 @@ def _read_pieces(
             if byte_offset + byte_len > stream_len:
                 logger.debug(
                     "Piece extends beyond stream (offset=%d, len=%d, stream=%d)",
-                    byte_offset, byte_len, stream_len,
+                    byte_offset,
+                    byte_len,
+                    stream_len,
                 )
                 continue
             raw = word_data[byte_offset : byte_offset + byte_len]
@@ -271,7 +282,9 @@ def _read_pieces(
             if byte_offset + byte_len > stream_len:
                 logger.debug(
                     "Piece extends beyond stream (offset=%d, len=%d, stream=%d)",
-                    byte_offset, byte_len, stream_len,
+                    byte_offset,
+                    byte_len,
+                    stream_len,
                 )
                 continue
             raw = word_data[byte_offset : byte_offset + byte_len]

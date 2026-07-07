@@ -333,9 +333,11 @@ class BaseHandler(ABC):
         if BaseHandler._timeout_executor is None:
             with BaseHandler._timeout_executor_lock:
                 if BaseHandler._timeout_executor is None:
-                    BaseHandler._timeout_executor = concurrent.futures.ThreadPoolExecutor(
-                        max_workers=4,
-                        thread_name_prefix="handler-timeout",
+                    BaseHandler._timeout_executor = (
+                        concurrent.futures.ThreadPoolExecutor(
+                            max_workers=4,
+                            thread_name_prefix="handler-timeout",
+                        )
                     )
                     atexit.register(BaseHandler._shutdown_timeout_executor)
         return BaseHandler._timeout_executor
@@ -359,9 +361,7 @@ class BaseHandler(ABC):
         # Stage 0: Delegation check (e.g., .doc that is actually RTF)
         delegation_result = self._check_delegation(file_context, **kwargs)
         if delegation_result is not None:
-            self._logger.info(
-                f"{self.handler_name} delegated to another handler"
-            )
+            self._logger.info(f"{self.handler_name} delegated to another handler")
             return delegation_result
 
         converted = None
@@ -385,9 +385,7 @@ class BaseHandler(ABC):
             metadata = None
             if include_metadata:
                 try:
-                    metadata = self._metadata_extractor.extract(
-                        preprocessed.content
-                    )
+                    metadata = self._metadata_extractor.extract(preprocessed.content)
                 except Exception as e:
                     self._logger.warning(f"Metadata extraction failed: {e}")
                     metadata = None
@@ -412,7 +410,12 @@ class BaseHandler(ABC):
             result.text = final_text
             return result
 
-        except (ConversionError, PreprocessingError, ExtractionError, PostprocessingError):
+        except (
+            ConversionError,
+            PreprocessingError,
+            ExtractionError,
+            PostprocessingError,
+        ):
             raise
         except Exception as e:
             raise HandlerExecutionError(

@@ -73,12 +73,15 @@ class PDFHandler(BaseHandler):
 
     def create_content_extractor(self) -> BaseContentExtractor:
         mode = self._config.get_format_option(
-            PDF_FORMAT_OPTION_KEY, PDF_MODE_OPTION, PDF_MODE_PLUS,
+            PDF_FORMAT_OPTION_KEY,
+            PDF_MODE_OPTION,
+            PDF_MODE_PLUS,
         )
         logger.debug("[PDFHandler] PDF mode = %s", mode)
 
         if mode not in PDF_VALID_MODES:
             from contextifier.errors import ConfigurationError
+
             raise ConfigurationError(
                 f"Invalid PDF mode '{mode}'. Valid options: {sorted(PDF_VALID_MODES)}",
                 context={"mode": mode},
@@ -88,6 +91,7 @@ class PDFHandler(BaseHandler):
             from contextifier.handlers.pdf_default import (
                 PdfDefaultContentExtractor,
             )
+
             return PdfDefaultContentExtractor(
                 image_service=self._image_service,
                 tag_service=self._tag_service,
@@ -99,6 +103,7 @@ class PDFHandler(BaseHandler):
         from contextifier.handlers.pdf_plus import (
             PdfPlusContentExtractor,
         )
+
         return PdfPlusContentExtractor(
             image_service=self._image_service,
             tag_service=self._tag_service,
@@ -112,5 +117,6 @@ class PDFHandler(BaseHandler):
             metadata_service=self._metadata_service,
             tag_service=self._tag_service,
         )
+
 
 __all__ = ["PDFHandler"]

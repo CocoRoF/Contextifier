@@ -8,7 +8,7 @@ import zipfile
 
 import pytest
 
-from contextifier.pipeline.converter import check_zip_bomb, MAX_ZIP_DECOMPRESSED_BYTES
+from contextifier.pipeline.converter import check_zip_bomb
 from contextifier.errors import ConversionError
 
 

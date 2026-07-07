@@ -28,7 +28,6 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from contextifier.types import PreprocessedData
-from contextifier.errors import PreprocessingError
 
 
 class BasePreprocessor(ABC):

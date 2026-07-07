@@ -83,7 +83,7 @@ def parse_doc_info(
                 if len(payload) >= 6:
                     ext_len = struct.unpack_from("<H", payload, 4)[0]
                     if 0 < ext_len < 50 and len(payload) >= 6 + ext_len * 2:
-                        ext = payload[6: 6 + ext_len * 2].decode(
+                        ext = payload[6 : 6 + ext_len * 2].decode(
                             "utf-16le", errors="ignore"
                         )
                 by_id[sid] = (sid, ext)
@@ -101,7 +101,7 @@ def parse_doc_info(
                     if len(payload) >= 6:
                         ext_len = struct.unpack_from("<H", payload, 4)[0]
                         if 0 < ext_len < 50 and len(payload) >= 6 + ext_len * 2:
-                            ext = payload[6: 6 + ext_len * 2].decode(
+                            ext = payload[6 : 6 + ext_len * 2].decode(
                                 "utf-16le", errors="ignore"
                             )
                 if sid > 0:

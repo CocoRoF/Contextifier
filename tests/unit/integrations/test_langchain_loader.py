@@ -1,8 +1,6 @@
 # tests/unit/integrations/test_langchain_loader.py
 """Tests for ContextifierLoader — LangChain integration."""
 
-import os
-import tempfile
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -11,7 +9,6 @@ from langchain_core.documents import Document
 from contextifier.integrations.langchain_loader import ContextifierLoader
 from contextifier.config import ProcessingConfig
 from contextifier.document_processor import ChunkResult
-from contextifier.types import Chunk, ChunkMetadata
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────

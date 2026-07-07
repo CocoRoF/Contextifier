@@ -47,27 +47,75 @@ from contextifier.handlers.text.content_extractor import TextContentExtractor
 
 # All text-based extensions supported by this handler.
 # Covers: plain text, markup, source code, config, scripts, stylesheets.
-_TEXT_EXTENSIONS = frozenset({
-    # Plain text & markup
-    "txt", "md", "markdown", "rst", "log",
-    # Config & data formats
-    "cfg", "ini", "conf", "yaml", "yml", "toml", "json", "xml", "svg",
-    "properties", "env",
-    # Source code
-    "py", "js", "ts", "jsx", "tsx", "java", "cpp", "c", "h", "hpp",
-    "cs", "go", "rs", "php", "rb", "swift", "kt", "scala", "dart",
-    "r", "m", "lua", "pl", "pm",
-    # Scripts
-    "sh", "bash", "zsh", "bat", "ps1", "cmd", "fish",
-    # SQL
-    "sql",
-    # Web
-    "css", "scss", "less", "sass",
-    # Vue / Svelte (single-file components)
-    "vue", "svelte",
-    # Dotfiles
-    "gitignore", "dockerignore", "editorconfig",
-})
+_TEXT_EXTENSIONS = frozenset(
+    {
+        # Plain text & markup
+        "txt",
+        "md",
+        "markdown",
+        "rst",
+        "log",
+        # Config & data formats
+        "cfg",
+        "ini",
+        "conf",
+        "yaml",
+        "yml",
+        "toml",
+        "json",
+        "xml",
+        "svg",
+        "properties",
+        "env",
+        # Source code
+        "py",
+        "js",
+        "ts",
+        "jsx",
+        "tsx",
+        "java",
+        "cpp",
+        "c",
+        "h",
+        "hpp",
+        "cs",
+        "go",
+        "rs",
+        "php",
+        "rb",
+        "swift",
+        "kt",
+        "scala",
+        "dart",
+        "r",
+        "m",
+        "lua",
+        "pl",
+        "pm",
+        # Scripts
+        "sh",
+        "bash",
+        "zsh",
+        "bat",
+        "ps1",
+        "cmd",
+        "fish",
+        # SQL
+        "sql",
+        # Web
+        "css",
+        "scss",
+        "less",
+        "sass",
+        # Vue / Svelte (single-file components)
+        "vue",
+        "svelte",
+        # Dotfiles
+        "gitignore",
+        "dockerignore",
+        "editorconfig",
+    }
+)
 
 
 class TextHandler(BaseHandler):

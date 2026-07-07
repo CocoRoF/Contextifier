@@ -55,7 +55,9 @@ def extract_table(table_element: Any) -> Optional[TableData]:
     try:
         # 1. Column widths
         col_widths = _calculate_column_widths(table_element)
-        num_cols = len(col_widths) if col_widths else _estimate_column_count(table_element)
+        num_cols = (
+            len(col_widths) if col_widths else _estimate_column_count(table_element)
+        )
 
         if num_cols == 0:
             return None
@@ -134,6 +136,7 @@ def extract_table(table_element: Any) -> Optional[TableData]:
 
 # ── Internal data structures ──────────────────────────────────────────────
 
+
 class _RawCell:
     """Temporary cell representation during parsing."""
 
@@ -153,6 +156,7 @@ class _RawCell:
 
 
 # ── Row parsing ───────────────────────────────────────────────────────────
+
 
 def _parse_row(tr_element: Any, expected_cols: int) -> List[_RawCell]:
     """Parse a ``<w:tr>`` into a list of ``_RawCell``."""
@@ -184,17 +188,20 @@ def _parse_row(tr_element: Any, expected_cols: int) -> List[_RawCell]:
                     # Empty val or "continue" means this cell continues a merge
                     v_merge_continue = True
 
-        cells.append(_RawCell(
-            text=text,
-            col_span=col_span,
-            v_merge_restart=v_merge_restart,
-            v_merge_continue=v_merge_continue,
-        ))
+        cells.append(
+            _RawCell(
+                text=text,
+                col_span=col_span,
+                v_merge_restart=v_merge_restart,
+                v_merge_continue=v_merge_continue,
+            )
+        )
 
     return cells
 
 
 # ── Cell text extraction ──────────────────────────────────────────────────
+
 
 def _extract_cell_text(tc_element: Any) -> str:
     """
@@ -218,6 +225,7 @@ def _extract_cell_text(tc_element: Any) -> str:
 
 
 # ── Column width calculation ──────────────────────────────────────────────
+
 
 def _calculate_column_widths(table_element: Any) -> List[int]:
     """
@@ -264,6 +272,7 @@ def _estimate_column_count(table_element: Any) -> int:
 
 
 # ── Row span (vMerge) calculation ─────────────────────────────────────────
+
 
 def _calculate_rowspans(
     raw_rows: List[List[_RawCell]],
@@ -328,9 +337,7 @@ def _find_cell_at_col(
     return None
 
 
-def _find_col_start(
-    entries: List[Tuple[int, _RawCell]], target_col: int
-) -> int:
+def _find_col_start(entries: List[Tuple[int, _RawCell]], target_col: int) -> int:
     """Find the starting column index of the cell covering target_col."""
     for col_start, cell in entries:
         if col_start <= target_col < col_start + cell.col_span:
@@ -339,6 +346,7 @@ def _find_col_start(
 
 
 # ── Header detection ──────────────────────────────────────────────────────
+
 
 def _detect_header(raw_rows: List[List[_RawCell]]) -> bool:
     """

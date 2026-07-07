@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 from collections import deque
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Set, Tuple
+from typing import List, Optional, Set, Tuple
 
 from contextifier.handlers.xlsx._constants import MAX_SCAN_ROWS, MAX_SCAN_COLS
 
@@ -45,8 +45,12 @@ class LayoutRange:
 
     def is_adjacent(self, other: "LayoutRange", *, tolerance: int = 1) -> bool:
         """Check if two ranges are adjacent (within tolerance rows/cols)."""
-        row_gap = max(0, max(self.min_row, other.min_row) - min(self.max_row, other.max_row) - 1)
-        col_gap = max(0, max(self.min_col, other.min_col) - min(self.max_col, other.max_col) - 1)
+        row_gap = max(
+            0, max(self.min_row, other.min_row) - min(self.max_row, other.max_row) - 1
+        )
+        col_gap = max(
+            0, max(self.min_col, other.min_col) - min(self.max_col, other.max_col) - 1
+        )
         return row_gap <= tolerance and col_gap <= tolerance
 
     def merge_with(self, other: "LayoutRange") -> "LayoutRange":
@@ -70,8 +74,7 @@ class LayoutRange:
     def contains(self, row: int, col: int) -> bool:
         """Check if a cell is within this range."""
         return (
-            self.min_row <= row <= self.max_row
-            and self.min_col <= col <= self.max_col
+            self.min_row <= row <= self.max_row and self.min_col <= col <= self.max_col
         )
 
 

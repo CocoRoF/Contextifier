@@ -29,8 +29,9 @@ logger = logging.getLogger(__name__)
 
 class PptConvertedData(NamedTuple):
     """Result of the PPT conversion stage."""
-    ole: olefile.OleFileIO          # Opened OLE2 compound file
-    file_extension: str             # Original extension (always "ppt")
+
+    ole: olefile.OleFileIO  # Opened OLE2 compound file
+    file_extension: str  # Original extension (always "ppt")
 
 
 class PptConverter(BaseConverter):

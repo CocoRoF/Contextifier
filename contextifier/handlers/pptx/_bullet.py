@@ -31,6 +31,7 @@ _NS = {"a": _NS_A}
 # Public API
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def extract_text_with_bullets(text_frame: Any) -> str:
     """
     Extract text from a python-pptx TextFrame, preserving bullet
@@ -91,6 +92,7 @@ def extract_text_with_bullets(text_frame: Any) -> str:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Bullet detection
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _extract_bullet_info(paragraph: Any) -> Dict[str, Any]:
     """
@@ -160,6 +162,7 @@ def _extract_bullet_info(paragraph: Any) -> Dict[str, Any]:
 # Special font conversion
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def _convert_special_font_char(char: str, font_typeface: str) -> str:
     """Convert a Wingdings/Symbol character to a Unicode equivalent."""
     if not char:
@@ -194,6 +197,7 @@ def _convert_special_font_char(char: str, font_typeface: str) -> str:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Numbering helpers
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _get_or_increment_number(
     numbering_state: Dict[int, int],
@@ -244,9 +248,19 @@ def _format_number(num: int, format_type: str) -> str:
 def _to_roman(num: int) -> str:
     """Convert integer to Roman numeral string."""
     val_map = [
-        (1000, "M"), (900, "CM"), (500, "D"), (400, "CD"),
-        (100, "C"), (90, "XC"), (50, "L"), (40, "XL"),
-        (10, "X"), (9, "IX"), (5, "V"), (4, "IV"), (1, "I"),
+        (1000, "M"),
+        (900, "CM"),
+        (500, "D"),
+        (400, "CD"),
+        (100, "C"),
+        (90, "XC"),
+        (50, "L"),
+        (40, "XL"),
+        (10, "X"),
+        (9, "IX"),
+        (5, "V"),
+        (4, "IV"),
+        (1, "I"),
     ]
     parts: list[str] = []
     for value, letter in val_map:

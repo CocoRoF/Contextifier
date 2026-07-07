@@ -125,7 +125,7 @@ class TestPdfDefaultThresholds(unittest.TestCase):
         ext._image_service.save_and_tag.return_value = "[Image: scan.png]"
 
         # Call _extract_scan_pages
-        result = ext._extract_scan_pages(mock_doc)
+        ext._extract_scan_pages(mock_doc)
 
         # Verify Matrix was called with custom DPI zoom (300/72 ≈ 4.167)
         zoom = 300 / 72.0

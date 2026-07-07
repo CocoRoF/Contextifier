@@ -102,9 +102,13 @@ class GraphicRegionDetector:
                 "colors": set(),
             }
             if fill:
-                rd["colors"].add(tuple(fill) if isinstance(fill, (list, tuple)) else fill)
+                rd["colors"].add(
+                    tuple(fill) if isinstance(fill, (list, tuple)) else fill
+                )
             if stroke:
-                rd["colors"].add(tuple(stroke) if isinstance(stroke, (list, tuple)) else stroke)
+                rd["colors"].add(
+                    tuple(stroke) if isinstance(stroke, (list, tuple)) else stroke
+                )
 
             merged = False
             for existing in raw:
@@ -219,10 +223,16 @@ class GraphicRegionDetector:
         # 5. Chart pattern (curves + fills)
         if region.curve_count >= 5 and region.fill_count >= 3:
             score += 0.3
-            reasons.append(f"chart_pattern(c={region.curve_count},f={region.fill_count})")
+            reasons.append(
+                f"chart_pattern(c={region.curve_count},f={region.fill_count})"
+            )
 
         # 6. Only-rectangles penalty (table cells, not graphics)
-        if region.rect_count >= 5 and region.curve_count == 0 and region.line_count == 0:
+        if (
+            region.rect_count >= 5
+            and region.curve_count == 0
+            and region.line_count == 0
+        ):
             if region.color_count >= 3:
                 score += 0.2
                 reasons.append(f"colored_rects({region.rect_count})")

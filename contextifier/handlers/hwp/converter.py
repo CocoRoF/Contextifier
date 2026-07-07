@@ -28,8 +28,9 @@ logger = logging.getLogger(__name__)
 
 class HwpConvertedData(NamedTuple):
     """Result of the HWP conversion stage."""
-    ole: olefile.OleFileIO   # Opened OLE compound file
-    file_data: bytes         # Original raw bytes (for OLE metadata parsing)
+
+    ole: olefile.OleFileIO  # Opened OLE compound file
+    file_data: bytes  # Original raw bytes (for OLE metadata parsing)
 
 
 class HwpConverter(BaseConverter):
@@ -44,7 +45,9 @@ class HwpConverter(BaseConverter):
         file_data: bytes = file_context.get("file_data", b"")
         if not file_data:
             raise ConversionError(
-                "Empty file data", stage="convert", handler="hwp",
+                "Empty file data",
+                stage="convert",
+                handler="hwp",
             )
 
         try:

@@ -20,7 +20,7 @@ Three cooperating components:
 from __future__ import annotations
 
 import logging
-from typing import Any, List, Optional, Tuple
+from typing import Any, Optional
 
 from contextifier.handlers.pdf_plus._types import (
     PdfPlusConfig,
@@ -36,6 +36,7 @@ CFG = PdfPlusConfig
 # ======================================================================
 # Text Quality Analyzer
 # ======================================================================
+
 
 class TextQualityAnalyzer:
     """Measure extractable-text quality on a single PDF page."""
@@ -95,6 +96,7 @@ class TextQualityAnalyzer:
 # Page OCR Fallback
 # ======================================================================
 
+
 class PageOCRFallbackEngine:
     """Render page → image → pytesseract OCR."""
 
@@ -120,13 +122,16 @@ class PageOCRFallbackEngine:
             logger.debug("[OCRFallback] pytesseract / Pillow not installed")
             return ""
         except Exception as exc:
-            logger.warning("[OCRFallback] page %d OCR failed: %s", self.page_num + 1, exc)
+            logger.warning(
+                "[OCRFallback] page %d OCR failed: %s", self.page_num + 1, exc
+            )
             return ""
 
 
 # ======================================================================
 # Quality-Aware Text Extractor
 # ======================================================================
+
 
 class QualityAwareTextExtractor:
     """

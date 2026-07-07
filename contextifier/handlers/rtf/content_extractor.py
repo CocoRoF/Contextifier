@@ -32,12 +32,11 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import Any, List, Optional, Tuple, TYPE_CHECKING
 
 from contextifier.pipeline.content_extractor import BaseContentExtractor
 from contextifier.services.table_service import TableService
 from contextifier.types import (
-    ExtractionResult,
     PreprocessedData,
     TableData,
 )
@@ -53,13 +52,9 @@ from contextifier.handlers.rtf._cleaner import (
 )
 from contextifier.handlers.rtf._table_parser import (
     extract_tables_with_positions,
-    single_column_to_text,
 )
 
 if TYPE_CHECKING:
-    from contextifier.services.image_service import ImageService
-    from contextifier.services.tag_service import TagService
-    from contextifier.services.chart_service import ChartService
     from contextifier.services.table_service import TableService
 
 _logger = logging.getLogger("contextifier.rtf.content")
@@ -136,7 +131,8 @@ class RtfContentExtractor(BaseContentExtractor):
             return []
 
         _, table_regions = extract_tables_with_positions(
-            parsed.text, encoding,
+            parsed.text,
+            encoding,
         )
         return [table for _, _, table in table_regions]
 
@@ -176,15 +172,16 @@ class RtfContentExtractor(BaseContentExtractor):
 
         if not table_regions:
             clean = self._clean_segment(
-                content[header_end:], header_end, encoding, excluded,
+                content[header_end:],
+                header_end,
+                encoding,
+                excluded,
             )
             return clean.strip()
 
         # Adjust table regions to start after header
         adjusted = [
-            (max(s, header_end), e, t)
-            for s, e, t in table_regions
-            if e > header_end
+            (max(s, header_end), e, t) for s, e, t in table_regions if e > header_end
         ]
 
         parts: List[str] = []
@@ -195,7 +192,10 @@ class RtfContentExtractor(BaseContentExtractor):
             if start_pos > last_end:
                 segment = content[last_end:start_pos]
                 clean = self._clean_segment(
-                    segment, last_end, encoding, excluded,
+                    segment,
+                    last_end,
+                    encoding,
+                    excluded,
                 )
                 if clean.strip():
                     parts.append(clean)
@@ -211,7 +211,10 @@ class RtfContentExtractor(BaseContentExtractor):
         if last_end < len(content):
             segment = content[last_end:]
             clean = self._clean_segment(
-                segment, last_end, encoding, excluded,
+                segment,
+                last_end,
+                encoding,
+                excluded,
             )
             if clean.strip():
                 parts.append(clean)
@@ -307,9 +310,7 @@ class RtfContentExtractor(BaseContentExtractor):
             return []
 
         images: List[RtfImageData] = (
-            preprocessed.resources.get("images", [])
-            if preprocessed.resources
-            else []
+            preprocessed.resources.get("images", []) if preprocessed.resources else []
         )
         if not images:
             return []
@@ -340,6 +341,7 @@ class RtfContentExtractor(BaseContentExtractor):
         """
         try:
             from striprtf.striprtf import rtf_to_text  # type: ignore
+
             text = rtf_to_text(parsed.text)
             if text:
                 _logger.info("Using striprtf fallback (%d chars)", len(text))

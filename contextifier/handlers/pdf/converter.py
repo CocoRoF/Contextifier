@@ -28,7 +28,8 @@ logger = logging.getLogger(__name__)
 
 class PdfConvertedData(NamedTuple):
     """Result of PDF conversion: a fitz.Document + the original bytes."""
-    doc: Any          # fitz.Document (typed as Any to avoid import issues in tests)
+
+    doc: Any  # fitz.Document (typed as Any to avoid import issues in tests)
     file_data: bytes
 
 

@@ -29,10 +29,10 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 from contextifier.config import ProcessingConfig, ChartConfig
-from contextifier.types import ChartData, ChartSeries
+from contextifier.types import ChartData
 
 if TYPE_CHECKING:
     from contextifier.services.tag_service import TagService
@@ -216,8 +216,10 @@ class ChartService:
         rows.append(f"<tr>{''.join(header_cells)}</tr>")
 
         # Data rows
-        num_rows = len(data.categories) if data.categories else (
-            max((len(s.values) for s in data.series), default=0)
+        num_rows = (
+            len(data.categories)
+            if data.categories
+            else (max((len(s.values) for s in data.series), default=0))
         )
         for i in range(num_rows):
             cells: List[str] = []
@@ -239,8 +241,7 @@ class ChartService:
         lines: List[str] = []
         for i, cat in enumerate(data.categories or []):
             values = [
-                str(s.values[i]) if i < len(s.values) else ""
-                for s in data.series
+                str(s.values[i]) if i < len(s.values) else "" for s in data.series
             ]
             lines.append(f"{cat}: {', '.join(values)}")
 

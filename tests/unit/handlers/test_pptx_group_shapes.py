@@ -10,10 +10,9 @@ from __future__ import annotations
 
 from unittest import mock
 
-import pytest
 
 from contextifier.handlers.pptx.content_extractor import PptxContentExtractor
-from contextifier.types import ChartData, ChartSeries, PreprocessedData, TableData, TableCell
+from contextifier.types import ChartData, PreprocessedData
 
 
 def _make_shape(

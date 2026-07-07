@@ -69,9 +69,7 @@ class ComplexityAnalyzer:
         text_dict = self._get_text_dict()
         images = self._get_images()
 
-        text_blocks = [
-            b for b in text_dict.get("blocks", []) if b.get("type") == 0
-        ]
+        text_blocks = [b for b in text_dict.get("blocks", []) if b.get("type") == 0]
 
         column_count = self._count_columns(text_blocks)
         d_score = self._drawing_score(drawings)
@@ -85,7 +83,8 @@ class ComplexityAnalyzer:
         # region-wise
         regions = self._region_analysis(drawings, text_blocks, images)
         complex_regions = [
-            r.bbox for r in regions
+            r.bbox
+            for r in regions
             if r.complexity_level in (ComplexityLevel.COMPLEX, ComplexityLevel.EXTREME)
         ]
 
@@ -106,7 +105,11 @@ class ComplexityAnalyzer:
         )
         logger.debug(
             "[ComplexityAnalyzer] Page %d: %s (%.2f) → %s  cols=%d",
-            self.page_num + 1, level.name, overall, strategy.name, column_count,
+            self.page_num + 1,
+            level.name,
+            overall,
+            strategy.name,
+            column_count,
         )
         return result
 
@@ -196,7 +199,11 @@ class ComplexityAnalyzer:
     # ─────────────────────────────────────────────────────────────────────
 
     def _weighted_score(
-        self, drawing: float, image: float, text_quality: float, layout: float,
+        self,
+        drawing: float,
+        image: float,
+        text_quality: float,
+        layout: float,
     ) -> float:
         if layout >= 0.95:
             return 0.90  # cap — other factors needed for EXTREME
@@ -240,11 +247,13 @@ class ComplexityAnalyzer:
                 area = (x1 - x0) * (y1 - y0)
 
                 rd = [
-                    d for d in drawings
+                    d
+                    for d in drawings
                     if d.get("rect") and self._overlaps(bbox, tuple(d["rect"]))
                 ]
                 rt = [
-                    b for b in text_blocks
+                    b
+                    for b in text_blocks
                     if self._overlaps(bbox, b.get("bbox", (0, 0, 0, 0)))
                 ]
 
@@ -266,14 +275,16 @@ class ComplexityAnalyzer:
                     lev = ComplexityLevel.SIMPLE
                     strat = ProcessingStrategy.TEXT_EXTRACTION
 
-                regions.append(RegionComplexity(
-                    bbox=bbox,
-                    complexity_level=lev,
-                    complexity_score=score,
-                    drawing_density=dd,
-                    text_quality=tq,
-                    recommended_strategy=strat,
-                ))
+                regions.append(
+                    RegionComplexity(
+                        bbox=bbox,
+                        complexity_level=lev,
+                        complexity_score=score,
+                        drawing_density=dd,
+                        text_quality=tq,
+                        recommended_strategy=strat,
+                    )
+                )
         return regions
 
     # ─────────────────────────────────────────────────────────────────────
@@ -297,9 +308,7 @@ class ComplexityAnalyzer:
 
         # large complex area + poor text → full OCR
         if complex_regions:
-            total_area = sum(
-                (r[2] - r[0]) * (r[3] - r[1]) for r in complex_regions
-            )
+            total_area = sum((r[2] - r[0]) * (r[3] - r[1]) for r in complex_regions)
             if total_area / max(1, self.page_area) > 0.5 and text_quality < 0.7:
                 return ProcessingStrategy.FULL_PAGE_OCR
 

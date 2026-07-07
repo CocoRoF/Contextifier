@@ -32,26 +32,29 @@ from typing import (
 # File & Format Types
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @unique
 class FileCategory(str, Enum):
     """Classification of file types by their nature."""
-    DOCUMENT = "document"       # PDF, DOCX, DOC, RTF, HWP, HWPX
+
+    DOCUMENT = "document"  # PDF, DOCX, DOC, RTF, HWP, HWPX
     PRESENTATION = "presentation"  # PPT, PPTX
-    SPREADSHEET = "spreadsheet"    # XLSX, XLS
-    TEXT = "text"               # TXT, MD
-    CODE = "code"               # PY, JS, TS, Java, ...
-    CONFIG = "config"           # JSON, YAML, XML, TOML, ...
-    DATA = "data"               # CSV, TSV
-    SCRIPT = "script"           # SH, BAT, PS1, ...
-    LOG = "log"                 # LOG
-    WEB = "web"                 # HTML, HTM, XHTML
-    IMAGE = "image"             # JPG, PNG, GIF, ...
+    SPREADSHEET = "spreadsheet"  # XLSX, XLS
+    TEXT = "text"  # TXT, MD
+    CODE = "code"  # PY, JS, TS, Java, ...
+    CONFIG = "config"  # JSON, YAML, XML, TOML, ...
+    DATA = "data"  # CSV, TSV
+    SCRIPT = "script"  # SH, BAT, PS1, ...
+    LOG = "log"  # LOG
+    WEB = "web"  # HTML, HTM, XHTML
+    IMAGE = "image"  # JPG, PNG, GIF, ...
     UNKNOWN = "unknown"
 
 
 @unique
 class OutputFormat(str, Enum):
     """Output format for table rendering."""
+
     HTML = "html"
     MARKDOWN = "markdown"
     TEXT = "text"
@@ -60,6 +63,7 @@ class OutputFormat(str, Enum):
 @unique
 class ImageFormat(str, Enum):
     """Supported image formats."""
+
     PNG = "png"
     JPEG = "jpeg"
     JPG = "jpg"
@@ -73,15 +77,17 @@ class ImageFormat(str, Enum):
 @unique
 class NamingStrategy(str, Enum):
     """Strategy for naming saved files."""
-    HASH = "hash"           # Content-based hash (deduplication)
-    UUID = "uuid"           # Random UUID
+
+    HASH = "hash"  # Content-based hash (deduplication)
+    UUID = "uuid"  # Random UUID
     SEQUENTIAL = "sequential"  # Counter-based
-    TIMESTAMP = "timestamp"    # Time-based
+    TIMESTAMP = "timestamp"  # Time-based
 
 
 @unique
 class StorageType(str, Enum):
     """Storage backend types."""
+
     LOCAL = "local"
     MINIO = "minio"
     S3 = "s3"
@@ -92,6 +98,7 @@ class StorageType(str, Enum):
 @unique
 class TagType(str, Enum):
     """Types of structural tags in extracted text."""
+
     PAGE = "page"
     SLIDE = "slide"
     SHEET = "sheet"
@@ -100,6 +107,7 @@ class TagType(str, Enum):
 @unique
 class PipelineStage(str, Enum):
     """Named stages in the processing pipeline."""
+
     CONVERT = "convert"
     PREPROCESS = "preprocess"
     EXTRACT_METADATA = "extract_metadata"
@@ -110,6 +118,7 @@ class PipelineStage(str, Enum):
 # ═══════════════════════════════════════════════════════════════════════════════
 # File Data Structures
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class FileContext(TypedDict):
     """
@@ -122,22 +131,25 @@ class FileContext(TypedDict):
     ``file_stream`` may be ``None`` to save memory; use
     ``BaseConverter._get_stream()`` to obtain a seekable stream.
     """
-    file_path: str          # Absolute path to the original file
-    file_name: str          # Filename with extension
-    file_extension: str     # Lowercase extension without dot
-    file_category: str      # FileCategory value
-    file_data: bytes        # Raw binary content
+
+    file_path: str  # Absolute path to the original file
+    file_name: str  # Filename with extension
+    file_extension: str  # Lowercase extension without dot
+    file_category: str  # FileCategory value
+    file_data: bytes  # Raw binary content
     file_stream: Optional[io.BytesIO]  # Seekable binary stream (may be None)
-    file_size: int          # Size in bytes
+    file_size: int  # Size in bytes
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Document Metadata
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @unique
 class MetadataField(str, Enum):
     """Standard metadata field names."""
+
     TITLE = "title"
     SUBJECT = "subject"
     AUTHOR = "author"
@@ -160,6 +172,7 @@ class DocumentMetadata:
     Every handler's MetadataExtractor produces this same structure,
     ensuring uniform metadata handling regardless of source format.
     """
+
     title: Optional[str] = None
     subject: Optional[str] = None
     author: Optional[str] = None
@@ -178,9 +191,18 @@ class DocumentMetadata:
         """Convert to dictionary, omitting None values."""
         result: Dict[str, Any] = {}
         for f in [
-            "title", "subject", "author", "keywords", "comments",
-            "last_saved_by", "create_time", "last_saved_time",
-            "page_count", "word_count", "category", "revision",
+            "title",
+            "subject",
+            "author",
+            "keywords",
+            "comments",
+            "last_saved_by",
+            "create_time",
+            "last_saved_time",
+            "page_count",
+            "word_count",
+            "category",
+            "revision",
         ]:
             val = getattr(self, f)
             if val is not None:
@@ -197,8 +219,16 @@ class DocumentMetadata:
         """Create from dictionary."""
         kwargs: Dict[str, Any] = {}
         for f in [
-            "title", "subject", "author", "keywords", "comments",
-            "last_saved_by", "page_count", "word_count", "category", "revision",
+            "title",
+            "subject",
+            "author",
+            "keywords",
+            "comments",
+            "last_saved_by",
+            "page_count",
+            "word_count",
+            "category",
+            "revision",
         ]:
             if f in data:
                 kwargs[f] = data[f]
@@ -219,9 +249,18 @@ class DocumentMetadata:
     def is_empty(self) -> bool:
         """Check if all fields are empty/None."""
         for f in [
-            "title", "subject", "author", "keywords", "comments",
-            "last_saved_by", "create_time", "last_saved_time",
-            "page_count", "word_count", "category", "revision",
+            "title",
+            "subject",
+            "author",
+            "keywords",
+            "comments",
+            "last_saved_by",
+            "create_time",
+            "last_saved_time",
+            "page_count",
+            "word_count",
+            "category",
+            "revision",
         ]:
             if getattr(self, f) is not None:
                 return False
@@ -232,9 +271,11 @@ class DocumentMetadata:
 # Table Data Structures
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class TableCell:
     """Single cell in a table."""
+
     content: str = ""
     row_span: int = 1
     col_span: int = 1
@@ -253,6 +294,7 @@ class TableData:
     using the same structure — PDF tables, DOCX tables, Excel sheets,
     CSV data all normalize to this representation.
     """
+
     rows: List[List[TableCell]] = field(default_factory=list)
     num_rows: int = 0
     num_cols: int = 0
@@ -266,9 +308,11 @@ class TableData:
 # Chart Data Structures
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class ChartSeries:
     """One data series in a chart."""
+
     name: Optional[str] = None
     values: List[Any] = field(default_factory=list)
 
@@ -280,6 +324,7 @@ class ChartData:
 
     Whether from DOCX, PPTX, XLSX, or HWP — chart data normalizes here.
     """
+
     chart_type: Optional[str] = None
     title: Optional[str] = None
     categories: List[str] = field(default_factory=list)
@@ -291,6 +336,7 @@ class ChartData:
 # Extraction Result
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class ExtractionResult:
     """
@@ -299,6 +345,7 @@ class ExtractionResult:
     Every handler returns this same structure, making downstream
     consumers (chunking, OCR, user code) format-agnostic.
     """
+
     text: str = ""
     metadata: Optional[DocumentMetadata] = None
     tables: List[TableData] = field(default_factory=list)
@@ -328,9 +375,11 @@ class ExtractionResult:
 # Chunk Result
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class ChunkMetadata:
     """Position metadata for a single chunk."""
+
     chunk_index: int = 0
     page_number: Optional[int] = None
     line_start: int = 0
@@ -345,6 +394,7 @@ class ChunkMetadata:
 @dataclass
 class Chunk:
     """A single text chunk with optional position metadata."""
+
     text: str = ""
     metadata: Optional[ChunkMetadata] = None
 
@@ -352,6 +402,7 @@ class Chunk:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Preprocessed Data
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 @dataclass
 class PreprocessedData:
@@ -361,11 +412,16 @@ class PreprocessedData:
     The preprocessor transforms the converted format object
     into cleaned data ready for content extraction.
     """
-    content: Any = None                      # Primary processed content
-    raw_content: Any = None                  # Original input (for reference)
-    encoding: str = "utf-8"                  # Detected encoding
-    resources: Dict[str, Any] = field(default_factory=dict)   # Extracted resources (images, etc.)
-    properties: Dict[str, Any] = field(default_factory=dict)  # Discovered properties during preprocessing
+
+    content: Any = None  # Primary processed content
+    raw_content: Any = None  # Original input (for reference)
+    encoding: str = "utf-8"  # Detected encoding
+    resources: Dict[str, Any] = field(
+        default_factory=dict
+    )  # Extracted resources (images, etc.)
+    properties: Dict[str, Any] = field(
+        default_factory=dict
+    )  # Discovered properties during preprocessing
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -380,14 +436,47 @@ _CATEGORY_EXTENSIONS: Dict[FileCategory, FrozenSet[str]] = {
     FileCategory.PRESENTATION: frozenset(["ppt", "pptx"]),
     FileCategory.SPREADSHEET: frozenset(["xlsx", "xls"]),
     FileCategory.TEXT: frozenset(["txt", "md", "markdown"]),
-    FileCategory.CODE: frozenset([
-        "py", "js", "ts", "java", "cpp", "c", "h", "cs", "go", "rs",
-        "php", "rb", "swift", "kt", "scala", "dart", "r", "sql",
-        "css", "jsx", "tsx", "vue", "svelte",
-    ]),
-    FileCategory.CONFIG: frozenset([
-        "json", "yaml", "yml", "xml", "toml", "ini", "cfg", "conf", "properties", "env",
-    ]),
+    FileCategory.CODE: frozenset(
+        [
+            "py",
+            "js",
+            "ts",
+            "java",
+            "cpp",
+            "c",
+            "h",
+            "cs",
+            "go",
+            "rs",
+            "php",
+            "rb",
+            "swift",
+            "kt",
+            "scala",
+            "dart",
+            "r",
+            "sql",
+            "css",
+            "jsx",
+            "tsx",
+            "vue",
+            "svelte",
+        ]
+    ),
+    FileCategory.CONFIG: frozenset(
+        [
+            "json",
+            "yaml",
+            "yml",
+            "xml",
+            "toml",
+            "ini",
+            "cfg",
+            "conf",
+            "properties",
+            "env",
+        ]
+    ),
     FileCategory.DATA: frozenset(["csv", "tsv"]),
     FileCategory.SCRIPT: frozenset(["sh", "bat", "ps1", "zsh", "fish"]),
     FileCategory.LOG: frozenset(["log"]),

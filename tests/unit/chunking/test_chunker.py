@@ -7,7 +7,6 @@ import pytest
 
 from contextifier.config import ProcessingConfig
 from contextifier.chunking.chunker import TextChunker
-from contextifier.errors import ChunkingError
 
 
 @pytest.fixture()

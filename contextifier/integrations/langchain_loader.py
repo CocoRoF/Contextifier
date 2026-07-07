@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any, Iterator, List, Optional, Union
+from typing import Any, Iterator, Optional, Union
 
 from langchain_core.document_loaders import BaseLoader
 from langchain_core.documents import Document

@@ -30,18 +30,16 @@ from contextifier.handlers.rtf._constants import (
     SKIP_DESTINATIONS,
     IMAGE_DESTINATIONS,
 )
-from contextifier.handlers.rtf._decoder import decode_bytes
 
 
 # Precompile shape property name pattern for performance
-_SHAPE_NAME_PATTERN = re.compile(
-    r"\b(" + "|".join(SHAPE_PROPERTY_NAMES) + r")\b"
-)
+_SHAPE_NAME_PATTERN = re.compile(r"\b(" + "|".join(SHAPE_PROPERTY_NAMES) + r")\b")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Main Text Cleaner
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def clean_rtf_text(text: str, encoding: str = "cp949") -> str:
     """
@@ -82,9 +80,7 @@ def clean_rtf_text(text: str, encoding: str = "cp949") -> str:
 
     # Remove shape property inline patterns
     text = re.sub(r"\{\\sp\{\\sn\s*\w+\}\{\\sv\s*[^}]*\}\}", "", text)
-    text = re.sub(
-        r"shapeType\d+[a-zA-Z0-9]+(?:posrelh\d+posrelv\d+)?", "", text
-    )
+    text = re.sub(r"shapeType\d+[a-zA-Z0-9]+(?:posrelh\d+posrelv\d+)?", "", text)
     text = re.sub(
         r"\\shp(?:inst|txt|left|right|top|bottom|bx\w+|by\w+|wr\d+|fblwtxt\d+|z\d+|lid\d+)\b\d*",
         "",
@@ -129,11 +125,11 @@ def clean_rtf_text(text: str, encoding: str = "cp949") -> str:
                     i += 2
                     continue
                 elif next_ch == "~":
-                    result.append("\u00A0")  # non-breaking space
+                    result.append("\u00a0")  # non-breaking space
                     i += 2
                     continue
                 elif next_ch == "-":
-                    result.append("\u00AD")  # soft hyphen
+                    result.append("\u00ad")  # soft hyphen
                     i += 2
                     continue
                 elif next_ch == "_":
@@ -244,9 +240,7 @@ def _remove_hex_outside_image_tags(text: str) -> str:
     last_end = 0
     for start, end in protected_ranges:
         before = text[last_end:start]
-        before = re.sub(
-            r"(?<![a-zA-Z])[0-9a-fA-F]{32,}(?![a-zA-Z])", "", before
-        )
+        before = re.sub(r"(?<![a-zA-Z])[0-9a-fA-F]{32,}(?![a-zA-Z])", "", before)
         result.append(before)
         result.append(text[start:end])
         last_end = end
@@ -260,6 +254,7 @@ def _remove_hex_outside_image_tags(text: str) -> str:
 # ═══════════════════════════════════════════════════════════════════════════
 # Destination Group Removal
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def remove_destination_groups(content: str) -> str:
     """
@@ -290,9 +285,7 @@ def remove_destination_groups(content: str) -> str:
         if content[i] == "{" and i + 1 < n and content[i + 1] == "\\":
             # Check for {\*\word or {\word
             j = i + 2
-            has_star = False
             if j < n and content[j] == "*":
-                has_star = True
                 j += 1
                 # Skip whitespace and the next backslash
                 while j < n and content[j] in " \t\r\n":
@@ -466,6 +459,7 @@ def remove_shprslt_blocks(content: str) -> str:
 # Region Finder (merged from rtf_region_finder.py)
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def find_excluded_regions(content: str) -> List[Tuple[int, int]]:
     """
     Find document regions to exclude from content extraction.
@@ -483,12 +477,12 @@ def find_excluded_regions(content: str) -> List[Tuple[int, int]]:
 
     # Header/footer/footnote start patterns
     start_patterns = [
-        r"\\header[lrf]?\b",   # Headers (left/right/first)
-        r"\\footer[lrf]?\b",   # Footers
-        r"\\footnote\b",       # Footnotes
-        r"\\annotation\b",     # Annotations/comments
-        r"\{\\headerf",        # First-page header
-        r"\{\\footerf",        # First-page footer
+        r"\\header[lrf]?\b",  # Headers (left/right/first)
+        r"\\footer[lrf]?\b",  # Footers
+        r"\\footnote\b",  # Footnotes
+        r"\\annotation\b",  # Annotations/comments
+        r"\{\\headerf",  # First-page header
+        r"\{\\footerf",  # First-page footer
     ]
 
     for pattern in start_patterns:

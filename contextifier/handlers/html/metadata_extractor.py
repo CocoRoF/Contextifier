@@ -86,7 +86,12 @@ class HtmlMetadataExtractor(BaseMetadataExtractor):
 
     @staticmethod
     def _try_parse_date(value: str) -> Optional[datetime]:
-        for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%d %H:%M:%S"):
+        for fmt in (
+            "%Y-%m-%d",
+            "%Y-%m-%dT%H:%M:%S",
+            "%Y-%m-%dT%H:%M:%SZ",
+            "%Y-%m-%d %H:%M:%S",
+        ):
             try:
                 return datetime.strptime(value.strip(), fmt)
             except ValueError:

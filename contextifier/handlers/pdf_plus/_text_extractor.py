@@ -18,7 +18,6 @@ from contextifier.handlers.pdf_plus._types import (
     PdfPlusConfig,
 )
 from contextifier.handlers.pdf_plus._utils import (
-    escape_html,
     is_inside_any_bbox,
 )
 from contextifier.handlers.pdf_plus._text_quality_analyzer import (
@@ -71,24 +70,28 @@ def extract_text_blocks(
         if not text.strip():
             continue
         text_found = True
-        elements.append(PageElement(
-            element_type=ElementType.TEXT,
-            content=text,
-            bbox=bb,
-            page_num=page_num,
-        ))
+        elements.append(
+            PageElement(
+                element_type=ElementType.TEXT,
+                content=text,
+                bbox=bb,
+                page_num=page_num,
+            )
+        )
 
     # 2. Fallback: quality-aware extraction if structured gave nothing
     if not text_found:
         qa = QualityAwareTextExtractor(page, page_num)
         result = qa.extract()
         if result.text.strip():
-            elements.append(PageElement(
-                element_type=ElementType.TEXT,
-                content=result.text,
-                bbox=(0, 0, page.rect.width, page.rect.height),
-                page_num=page_num,
-            ))
+            elements.append(
+                PageElement(
+                    element_type=ElementType.TEXT,
+                    content=result.text,
+                    bbox=(0, 0, page.rect.width, page.rect.height),
+                    page_num=page_num,
+                )
+            )
             if result.used_ocr:
                 logger.debug(
                     "[TextExtractor] page %d: used OCR fallback (quality=%.2f)",

@@ -19,7 +19,7 @@ Algorithm:
 from __future__ import annotations
 
 import re
-from typing import Any, FrozenSet, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 
 from contextifier.config import ProcessingConfig
 from contextifier.types import Chunk, ChunkMetadata
@@ -96,11 +96,19 @@ class TableChunkingStrategy(BaseChunkingStrategy):
 
         if sheets:
             raw = self._chunk_multi_sheet(
-                sheets, context_prefix, chunk_size, chunk_overlap, config,
+                sheets,
+                context_prefix,
+                chunk_size,
+                chunk_overlap,
+                config,
             )
         else:
             raw = self._chunk_single_table(
-                body, context_prefix, chunk_size, chunk_overlap, config,
+                body,
+                context_prefix,
+                chunk_size,
+                chunk_overlap,
+                config,
             )
 
         if not raw:
@@ -157,7 +165,9 @@ class TableChunkingStrategy(BaseChunkingStrategy):
                         all_chunks.append(f"{sheet_prefix}\n{seg_content}".strip())
                     else:
                         table_chunks = chunk_large_table(
-                            seg_content, chunk_size, sheet_prefix,
+                            seg_content,
+                            chunk_size,
+                            sheet_prefix,
                         )
                         all_chunks.extend(table_chunks)
 
@@ -170,7 +180,9 @@ class TableChunkingStrategy(BaseChunkingStrategy):
                     if len(sheet_prefix) + len(seg_content) <= chunk_size:
                         all_chunks.append(f"{sheet_prefix}\n{seg_content}".strip())
                     else:
-                        text_chunks = self._split_plain(seg_content, chunk_size, chunk_overlap)
+                        text_chunks = self._split_plain(
+                            seg_content, chunk_size, chunk_overlap
+                        )
                         for tc in text_chunks:
                             all_chunks.append(f"{sheet_prefix}\n{tc}".strip())
 
@@ -199,11 +211,17 @@ class TableChunkingStrategy(BaseChunkingStrategy):
         for _, _, table_content in tables:
             total = len(context_prefix) + len(table_content)
             if total <= chunk_size:
-                chunk = f"{context_prefix}\n\n{table_content}".strip() if context_prefix else table_content
+                chunk = (
+                    f"{context_prefix}\n\n{table_content}".strip()
+                    if context_prefix
+                    else table_content
+                )
                 all_chunks.append(chunk)
             else:
                 table_chunks = chunk_large_table(
-                    table_content, chunk_size, context_prefix,
+                    table_content,
+                    chunk_size,
+                    context_prefix,
                 )
                 all_chunks.extend(table_chunks)
 
@@ -213,7 +231,8 @@ class TableChunkingStrategy(BaseChunkingStrategy):
 
     @staticmethod
     def _extract_metadata_block(
-        text: str, tags: Any,
+        text: str,
+        tags: Any,
     ) -> Tuple[Optional[str], str]:
         """Extract ``[Document-Metadata]…[/Document-Metadata]`` block."""
         pattern = re.compile(
@@ -248,7 +267,8 @@ class TableChunkingStrategy(BaseChunkingStrategy):
 
     @staticmethod
     def _extract_segments(
-        content: str, config: ProcessingConfig,
+        content: str,
+        config: ProcessingConfig,
     ) -> List[Tuple[str, str]]:
         """
         Extract typed segments (table / textbox / chart / image / text)
@@ -264,10 +284,13 @@ class TableChunkingStrategy(BaseChunkingStrategy):
         )
 
         patterns: List[Tuple[str, re.Pattern]] = [
-            ("table", re.compile(
-                r"(?:\[Table\s*\d+\]\s*)?<table[^>]*>.*?</table>",
-                re.DOTALL | re.IGNORECASE,
-            )),
+            (
+                "table",
+                re.compile(
+                    r"(?:\[Table\s*\d+\]\s*)?<table[^>]*>.*?</table>",
+                    re.DOTALL | re.IGNORECASE,
+                ),
+            ),
             ("table", MARKDOWN_TABLE_PATTERN),
             ("textbox", TEXTBOX_BLOCK_PATTERN),
             ("chart", chart_pattern),

@@ -28,27 +28,29 @@ WORD_DOCUMENT_STREAM: str = "WordDocument"
 TABLE_STREAM_NAMES: tuple[str, ...] = ("1Table", "0Table")
 
 # Streams that may contain embedded images
-IMAGE_STREAM_KEYWORDS: frozenset[str] = frozenset({
-    "pictures",
-    "data",
-    "object",
-    "oleobject",
-    "objectpool",
-})
+IMAGE_STREAM_KEYWORDS: frozenset[str] = frozenset(
+    {
+        "pictures",
+        "data",
+        "object",
+        "oleobject",
+        "objectpool",
+    }
+)
 
 # ── Image format detection ────────────────────────────────────────────────
 
 # Binary signatures for detecting image format in OLE streams.
 # Mapping: format_name → (header_bytes, min_data_length)
 IMAGE_SIGNATURES: dict[str, tuple[bytes, int]] = {
-    "png":  (b"\x89PNG\r\n\x1a\n", 8),
-    "jpeg": (b"\xff\xd8",          2),
-    "gif87": (b"GIF87a",           6),
-    "gif89": (b"GIF89a",           6),
-    "bmp":  (b"BM",                2),
-    "tiff_le": (b"II\x2a\x00",    4),
-    "tiff_be": (b"MM\x00\x2a",    4),
-    "emf":  (b"\x01\x00\x00\x00", 4),  # EMF header (Enhanced Metafile)
+    "png": (b"\x89PNG\r\n\x1a\n", 8),
+    "jpeg": (b"\xff\xd8", 2),
+    "gif87": (b"GIF87a", 6),
+    "gif89": (b"GIF89a", 6),
+    "bmp": (b"BM", 2),
+    "tiff_le": (b"II\x2a\x00", 4),
+    "tiff_be": (b"MM\x00\x2a", 4),
+    "emf": (b"\x01\x00\x00\x00", 4),  # EMF header (Enhanced Metafile)
 }
 
 # ── Encoding fallback list ────────────────────────────────────────────────
@@ -76,8 +78,8 @@ MIN_UNICODE_BYTES: int = MIN_TEXT_FRAGMENT_LENGTH * 2
 # AC00-D7AF: Hangul Syllables
 # 3000-4DFF: CJK Symbols, Hiragana, Katakana, Bopomofo, CJK Unified
 CJK_HIGH_BYTE_RANGES: tuple[tuple[int, int], ...] = (
-    (0xAC, 0xD7),    # Hangul Syllables
-    (0x30, 0x4E),    # CJK range (partial)
+    (0xAC, 0xD7),  # Hangul Syllables
+    (0x30, 0x4E),  # CJK range (partial)
 )
 
 

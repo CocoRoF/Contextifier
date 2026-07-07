@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from contextifier.services.crypto_service import decrypt_if_encrypted, is_encrypted
+from contextifier.services.crypto_service import decrypt_if_encrypted
 
 
 # ═══════════════════════════════════════════════════════════════════════════

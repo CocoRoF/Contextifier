@@ -26,9 +26,11 @@ ZIP_MAGIC = b"PK\x03\x04"
 # Slide element types
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @unique
 class ElementType(str, Enum):
     """Classification of content elements found on a slide."""
+
     TEXT = "text"
     IMAGE = "image"
     TABLE = "table"
@@ -43,6 +45,7 @@ class SlideElement:
     Slide content is collected per-shape, then sorted by position
     (top first, then left) to reconstruct visual reading order.
     """
+
     element_type: ElementType
     content: str
     position: Tuple[int, int, int, int]  # (left, top, width, height) EMU
@@ -127,11 +130,11 @@ WINGDINGS_CHAR_MAPPING: Dict[str, str] = {
 
 # Symbol font code-point → Unicode mapping
 SYMBOL_MAPPING: Dict[int, str] = {
-    0xB7: "•",   # Bullet
-    0xD7: "×",   # Multiplication
-    0xF7: "÷",   # Division
-    0xA5: "∞",   # Infinity
-    0xB1: "±",   # Plus-minus
+    0xB7: "•",  # Bullet
+    0xD7: "×",  # Multiplication
+    0xF7: "÷",  # Division
+    0xA5: "∞",  # Infinity
+    0xB1: "±",  # Plus-minus
 }
 
 

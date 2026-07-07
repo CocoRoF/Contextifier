@@ -13,14 +13,10 @@ Covers:
 from __future__ import annotations
 
 import struct
-import pytest
 
 from contextifier.handlers.doc._fib import (
-    PieceDescriptor,
     _clean_doc_text,
     _parse_clx,
-    _parse_plc_pcd,
-    _read_pieces,
     detect_tables_from_text,
     parse_fib_text,
 )
@@ -87,7 +83,7 @@ def _build_clx_unicode(text: str, body_offset: int = 0x0200) -> tuple[bytes, int
 
     Returns (table_stream_bytes, fc_clx, lcb_clx).
     """
-    text_bytes = text.encode("utf-16-le")
+    text.encode("utf-16-le")
     char_count = len(text)
 
     # Build PlcPcd: 2 CPs + 1 PCD
@@ -152,7 +148,6 @@ class TestPieceParsing:
         text = "Hello World"
         table_stream, fc_clx, lcb_clx = _build_clx_compressed(text)
 
-        body_offset = 0x0200
         word_data = _build_word_data(
             ccp_text=len(text),
             fc_clx=fc_clx,
@@ -168,7 +163,6 @@ class TestPieceParsing:
         text = "한글 테스트"
         table_stream, fc_clx, lcb_clx = _build_clx_unicode(text)
 
-        body_offset = 0x0200
         word_data = _build_word_data(
             ccp_text=len(text),
             fc_clx=fc_clx,

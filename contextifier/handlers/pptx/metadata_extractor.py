@@ -48,8 +48,12 @@ class PptxMetadataExtractor(BaseMetadataExtractor):
                 create_time=props.created,
                 last_saved_time=props.modified,
                 page_count=len(prs.slides) if hasattr(prs, "slides") else None,
-                category=self._get(props.category) if hasattr(props, "category") else None,
-                revision=str(props.revision) if hasattr(props, "revision") and props.revision else None,
+                category=self._get(props.category)
+                if hasattr(props, "category")
+                else None,
+                revision=str(props.revision)
+                if hasattr(props, "revision") and props.revision
+                else None,
             )
         except Exception as exc:
             self._logger.warning("Failed to extract PPTX metadata: %s", exc)
