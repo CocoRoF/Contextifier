@@ -18,19 +18,16 @@ from __future__ import annotations
 
 import re
 import logging
-from typing import List, Optional, Tuple
+from typing import List
 
 from contextifier.chunking.constants import (
     TABLE_WRAPPER_OVERHEAD,
-    ROW_OVERHEAD,
     CHUNK_INDEX_OVERHEAD,
     ParsedTable,
-    ParsedMarkdownTable,
     TableRow,
 )
 from contextifier.chunking.table_parser import (
     parse_html_table,
-    extract_cell_spans,
     has_complex_spans,
     parse_markdown_table,
     is_markdown_table,
@@ -42,6 +39,7 @@ logger = logging.getLogger("contextifier.chunking.table_chunker")
 # ═══════════════════════════════════════════════════════════════════════════════
 # HTML Table Chunking
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def chunk_html_table(
     table_html: str,
@@ -168,7 +166,9 @@ def _split_table_preserving_rowspan(
 
     chunks: List[str] = []
     for idx, group in enumerate(groups, start=1):
-        adjusted_rows = [_adjust_row_rowspan(r, len(group), i) for i, r in enumerate(group)]
+        adjusted_rows = [
+            _adjust_row_rowspan(r, len(group), i) for i, r in enumerate(group)
+        ]
         body_rows = "\n".join(adjusted_rows)
         header_part = f"\n{parsed.header_html}" if parsed.header_html else ""
         table_str = f"<table>{header_part}\n{body_rows}\n</table>"
@@ -191,12 +191,15 @@ def _adjust_row_rowspan(row: TableRow, group_size: int, row_idx: int) -> str:
             return ""  # Remove rowspan="1"
         return f'rowspan="{clamped}"'
 
-    return re.sub(r'rowspan\s*=\s*["\']?(\d+)["\']?', _clamp_rowspan, html, flags=re.IGNORECASE)
+    return re.sub(
+        r'rowspan\s*=\s*["\']?(\d+)["\']?', _clamp_rowspan, html, flags=re.IGNORECASE
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Markdown Table Chunking
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def chunk_markdown_table(
     table_text: str,
@@ -268,6 +271,7 @@ def chunk_markdown_table(
 # ═══════════════════════════════════════════════════════════════════════════════
 # Unified Entry Point
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def chunk_large_table(
     table_text: str,

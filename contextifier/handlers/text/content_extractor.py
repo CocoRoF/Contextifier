@@ -38,12 +38,14 @@ from contextifier.types import PreprocessedData
 
 # File categories where content should be treated as code
 # (preserve indentation, replace tabs, don't collapse blank lines)
-_CODE_CATEGORIES: FrozenSet[str] = frozenset({
-    "code",     # .py, .js, .ts, .java, .cpp, ...
-    "config",   # .json, .yaml, .xml, .toml, .ini, ...
-    "script",   # .sh, .bat, .ps1, ...
-    "web",      # .htm, .xhtml
-})
+_CODE_CATEGORIES: FrozenSet[str] = frozenset(
+    {
+        "code",  # .py, .js, .ts, .java, .cpp, ...
+        "config",  # .json, .yaml, .xml, .toml, .ini, ...
+        "script",  # .sh, .bat, .ps1, ...
+        "web",  # .htm, .xhtml
+    }
+)
 
 
 class TextContentExtractor(BaseContentExtractor):

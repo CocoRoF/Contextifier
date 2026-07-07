@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, List, Optional, Set, Tuple
 
 from contextifier.pipeline.content_extractor import BaseContentExtractor
 from contextifier.types import (
@@ -42,11 +42,11 @@ from contextifier.types import (
 logger = logging.getLogger(__name__)
 
 # PPT binary record types containing text
-_TEXT_BYTES_ATOM = 0x0FA0    # TextBytesAtom: single-byte text (ANSI)
-_TEXT_CHARS_ATOM = 0x0FA8    # TextCharsAtom: double-byte text (Unicode UTF-16LE)
-_CSTRING_ATOM = 0x0FBA       # CString: Unicode string (used in headers etc.)
-_SLIDE_ATOM = 0x03EF         # SlideAtom
-_NOTES_CONTAINER = 0x0408    # NotesContainer
+_TEXT_BYTES_ATOM = 0x0FA0  # TextBytesAtom: single-byte text (ANSI)
+_TEXT_CHARS_ATOM = 0x0FA8  # TextCharsAtom: double-byte text (Unicode UTF-16LE)
+_CSTRING_ATOM = 0x0FBA  # CString: Unicode string (used in headers etc.)
+_SLIDE_ATOM = 0x03EF  # SlideAtom
+_NOTES_CONTAINER = 0x0408  # NotesContainer
 
 
 class PptContentExtractor(BaseContentExtractor):
@@ -124,6 +124,7 @@ class PptContentExtractor(BaseContentExtractor):
                 continue
 
             import hashlib
+
             content_hash = hashlib.md5(img_data).hexdigest()[:16]
             if content_hash in processed:
                 continue
@@ -206,6 +207,7 @@ class PptContentExtractor(BaseContentExtractor):
 # ═══════════════════════════════════════════════════════════════════════════════
 # Binary stream parsing
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _parse_text_records(data: bytes) -> List[Tuple[int, str]]:
     """
@@ -330,6 +332,7 @@ __all__ = ["PptContentExtractor"]
 # Table detection from text patterns
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def _detect_tabular_text(
     records: List[Tuple[int, str]],
 ) -> List[TableData]:
@@ -369,11 +372,13 @@ def _rows_to_table_data(rows: List[List[str]]) -> TableData:
     for row_idx, cells in enumerate(rows):
         row: List[TableCell] = []
         for col_idx, text in enumerate(cells):
-            row.append(TableCell(
-                content=text,
-                row_index=row_idx,
-                col_index=col_idx,
-            ))
+            row.append(
+                TableCell(
+                    content=text,
+                    row_index=row_idx,
+                    col_index=col_idx,
+                )
+            )
         table_rows.append(row)
 
     return TableData(
@@ -422,9 +427,9 @@ def _detect_ole_charts(ole: Any) -> List[ChartData]:
             parent = entry[0]
             # Try to read the OLE class ID of the parent storage
             try:
-                clsid = ole.get_rootentry_name() if len(entry) == 1 else None
+                ole.get_rootentry_name() if len(entry) == 1 else None
             except Exception:
-                clsid = None
+                pass
             # We can't reliably determine chart type without full parsing,
             # but we note the embedded object
             if parent not in chart_storages:
@@ -433,10 +438,12 @@ def _detect_ole_charts(ole: Any) -> List[ChartData]:
                     chart_storages.add(parent)
 
     for storage_name in chart_storages:
-        charts.append(ChartData(
-            chart_type="embedded_ole",
-            title=f"Embedded Chart ({storage_name})",
-            raw_content=f"OLE embedded chart object in storage: {storage_name}",
-        ))
+        charts.append(
+            ChartData(
+                chart_type="embedded_ole",
+                title=f"Embedded Chart ({storage_name})",
+                raw_content=f"OLE embedded chart object in storage: {storage_name}",
+            )
+        )
 
     return charts

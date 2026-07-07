@@ -38,7 +38,7 @@ from contextifier.pipeline.metadata_extractor import BaseMetadataExtractor
 from contextifier.pipeline.content_extractor import BaseContentExtractor
 from contextifier.pipeline.postprocessor import BasePostprocessor, DefaultPostprocessor
 
-from contextifier.handlers.ppt._constants import ZIP_MAGIC, OLE2_MAGIC
+from contextifier.handlers.ppt._constants import ZIP_MAGIC
 from contextifier.handlers.ppt.converter import PptConverter
 from contextifier.handlers.ppt.preprocessor import PptPreprocessor
 from contextifier.handlers.ppt.metadata_extractor import PptMetadataExtractor
@@ -84,7 +84,8 @@ class PPTHandler(BaseHandler):
         if data[:4] == ZIP_MAGIC:
             self._logger.info("PPT file is actually PPTX (ZIP magic detected)")
             return self._delegate_to(
-                "pptx", file_context,
+                "pptx",
+                file_context,
                 include_metadata=kwargs.get("include_metadata", True),
                 **{k: v for k, v in kwargs.items() if k != "include_metadata"},
             )

@@ -62,12 +62,8 @@ class LineAnalysisEngine:
         if not self.h_lines and not self.v_lines:
             return None
 
-        h_positions = self._cluster_positions(
-            [ln.y0 for ln in self.h_lines], tolerance
-        )
-        v_positions = self._cluster_positions(
-            [ln.x0 for ln in self.v_lines], tolerance
-        )
+        h_positions = self._cluster_positions([ln.y0 for ln in self.h_lines], tolerance)
+        v_positions = self._cluster_positions([ln.x0 for ln in self.v_lines], tolerance)
 
         if len(h_positions) < 2 or len(v_positions) < 2:
             return None
@@ -98,16 +94,28 @@ class LineAnalysisEngine:
         x_min, x_max = min(v_lines), max(v_lines)
         reconstructed = False
 
-        if not any(abs(y - y_min) < CFG.LINE_MERGE_TOLERANCE for y in h_lines) and len(h_lines) >= 2:
+        if (
+            not any(abs(y - y_min) < CFG.LINE_MERGE_TOLERANCE for y in h_lines)
+            and len(h_lines) >= 2
+        ):
             h_lines.insert(0, y_min - CFG.BORDER_EXTENSION_MARGIN)
             reconstructed = True
-        if not any(abs(y - y_max) < CFG.LINE_MERGE_TOLERANCE for y in h_lines) and len(h_lines) >= 2:
+        if (
+            not any(abs(y - y_max) < CFG.LINE_MERGE_TOLERANCE for y in h_lines)
+            and len(h_lines) >= 2
+        ):
             h_lines.append(y_max + CFG.BORDER_EXTENSION_MARGIN)
             reconstructed = True
-        if not any(abs(x - x_min) < CFG.LINE_MERGE_TOLERANCE for x in v_lines) and len(v_lines) >= 2:
+        if (
+            not any(abs(x - x_min) < CFG.LINE_MERGE_TOLERANCE for x in v_lines)
+            and len(v_lines) >= 2
+        ):
             v_lines.insert(0, x_min - CFG.BORDER_EXTENSION_MARGIN)
             reconstructed = True
-        if not any(abs(x - x_max) < CFG.LINE_MERGE_TOLERANCE for x in v_lines) and len(v_lines) >= 2:
+        if (
+            not any(abs(x - x_max) < CFG.LINE_MERGE_TOLERANCE for x in v_lines)
+            and len(v_lines) >= 2
+        ):
             v_lines.append(x_max + CFG.BORDER_EXTENSION_MARGIN)
             reconstructed = True
 
@@ -149,7 +157,10 @@ class LineAnalysisEngine:
 
             self.all_lines.append(
                 LineInfo(
-                    x0=x0, y0=y0, x1=x1, y1=y1,
+                    x0=x0,
+                    y0=y0,
+                    x1=x1,
+                    y1=y1,
                     thickness=stroke_width,
                     thickness_class=self._classify_thickness(stroke_width),
                     is_horizontal=is_h,
@@ -167,11 +178,14 @@ class LineAnalysisEngine:
             return
         self.all_lines.append(
             LineInfo(
-                x0=min(x0, x1), y0=min(y0, y1),
-                x1=max(x0, x1), y1=max(y0, y1),
+                x0=min(x0, x1),
+                y0=min(y0, y1),
+                x1=max(x0, x1),
+                y1=max(y0, y1),
                 thickness=stroke_width,
                 thickness_class=self._classify_thickness(stroke_width),
-                is_horizontal=is_h, is_vertical=is_v,
+                is_horizontal=is_h,
+                is_vertical=is_v,
             )
         )
 
@@ -198,13 +212,15 @@ class LineAnalysisEngine:
         self.h_lines = self._merge_parallel(self.h_lines, is_horizontal=True)
         self.v_lines = self._merge_parallel(self.v_lines, is_horizontal=False)
 
-    def _merge_parallel(self, lines: List[LineInfo], *, is_horizontal: bool) -> List[LineInfo]:
+    def _merge_parallel(
+        self, lines: List[LineInfo], *, is_horizontal: bool
+    ) -> List[LineInfo]:
         if len(lines) < 2:
             return lines
         if is_horizontal:
-            sorted_lines = sorted(lines, key=lambda l: (l.y0, l.x0))
+            sorted_lines = sorted(lines, key=lambda ln: (ln.y0, ln.x0))
         else:
-            sorted_lines = sorted(lines, key=lambda l: (l.x0, l.y0))
+            sorted_lines = sorted(lines, key=lambda ln: (ln.x0, ln.y0))
 
         merged: list[LineInfo] = []
         used: set[int] = set()
@@ -241,19 +257,25 @@ class LineAnalysisEngine:
         if is_h:
             avg_y = (a.y0 + b.y0) / 2
             return LineInfo(
-                x0=min(a.x0, b.x0), y0=avg_y,
-                x1=max(a.x1, b.x1), y1=avg_y,
+                x0=min(a.x0, b.x0),
+                y0=avg_y,
+                x1=max(a.x1, b.x1),
+                y1=avg_y,
                 thickness=max(a.thickness, b.thickness),
                 thickness_class=thicker.thickness_class,
-                is_horizontal=True, is_vertical=False,
+                is_horizontal=True,
+                is_vertical=False,
             )
         avg_x = (a.x0 + b.x0) / 2
         return LineInfo(
-            x0=avg_x, y0=min(a.y0, b.y0),
-            x1=avg_x, y1=max(a.y1, b.y1),
+            x0=avg_x,
+            y0=min(a.y0, b.y0),
+            x1=avg_x,
+            y1=max(a.y1, b.y1),
             thickness=max(a.thickness, b.thickness),
             thickness_class=thicker.thickness_class,
-            is_horizontal=False, is_vertical=True,
+            is_horizontal=False,
+            is_vertical=True,
         )
 
     @staticmethod

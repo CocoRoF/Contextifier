@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import html as html_mod
 import logging
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, List, Optional, Set, Tuple
 
 try:
     import fitz  # PyMuPDF (AGPL-3.0) — optional dependency
@@ -27,7 +27,6 @@ except ImportError:
 
 from contextifier.pipeline.content_extractor import BaseContentExtractor
 from contextifier.types import (
-    ExtractionResult,
     PreprocessedData,
     TableData,
 )
@@ -70,10 +69,7 @@ def _table_to_html(data: List[List[Optional[str]]]) -> str:
     rows_out: list[str] = []
     for ri, row in enumerate(data):
         tag = "th" if ri == 0 else "td"
-        cells = "".join(
-            f"<{tag}>{_escape(cell or '')}</{tag}>"
-            for cell in row
-        )
+        cells = "".join(f"<{tag}>{_escape(cell or '')}</{tag}>" for cell in row)
         rows_out.append(f"<tr>{cells}</tr>")
 
     return "<table>" + "".join(rows_out) + "</table>"
@@ -144,7 +140,10 @@ class PdfDefaultContentExtractor(BaseContentExtractor):
         for page_num in range(page_count):
             page = doc.load_page(page_num)
             page_text = self._process_page(
-                doc, page, page_num, processed_images,
+                doc,
+                page,
+                page_num,
+                processed_images,
             )
             if page_text.strip():
                 tag = self._make_page_tag(page_num + 1)
@@ -220,7 +219,9 @@ class PdfDefaultContentExtractor(BaseContentExtractor):
         render_dpi = 150
         if self._config is not None:
             render_dpi = self._config.get_format_option(
-                "pdf", "render_dpi", render_dpi,
+                "pdf",
+                "render_dpi",
+                render_dpi,
             )
         zoom = render_dpi / 72.0
         mat = fitz.Matrix(zoom, zoom)
@@ -245,7 +246,9 @@ class PdfDefaultContentExtractor(BaseContentExtractor):
                     parts.append(f"{page_tag}\n[Image: scan_page_{page_num + 1}.png]")
             except Exception as exc:
                 logger.warning(
-                    "Failed to render scan page %d: %s", page_num + 1, exc,
+                    "Failed to render scan page %d: %s",
+                    page_num + 1,
+                    exc,
                 )
 
         return "\n\n".join(parts)
@@ -260,7 +263,7 @@ class PdfDefaultContentExtractor(BaseContentExtractor):
         processed_images: Set[int],
     ) -> str:
         """Process a single page: tables → text → images → merge."""
-        elements: list[Tuple[float, str]] = []   # (y_pos, content)
+        elements: list[Tuple[float, str]] = []  # (y_pos, content)
 
         # 1. Tables
         tables = self._detect_tables(page)
@@ -281,7 +284,11 @@ class PdfDefaultContentExtractor(BaseContentExtractor):
 
         # 3. Images
         image_elements = self._extract_images(
-            doc, page, page_num, processed_images, table_bboxes,
+            doc,
+            page,
+            page_num,
+            processed_images,
+            table_bboxes,
         )
         elements.extend(image_elements)
 
@@ -292,7 +299,8 @@ class PdfDefaultContentExtractor(BaseContentExtractor):
     # ── Table detection ──────────────────────────────────────────────────
 
     def _detect_tables(
-        self, page: Any,
+        self,
+        page: Any,
     ) -> List[Tuple[List[List[Optional[str]]], Tuple]]:
         """Detect tables on *page* via PyMuPDF find_tables()."""
         results: list[Tuple[List[List[Optional[str]]], Tuple]] = []
@@ -362,10 +370,14 @@ class PdfDefaultContentExtractor(BaseContentExtractor):
         # Override defaults from format_options if available
         if self._config is not None:
             min_size = self._config.get_format_option(
-                "pdf", "min_image_size", min_size,
+                "pdf",
+                "min_image_size",
+                min_size,
             )
             min_area = self._config.get_format_option(
-                "pdf", "min_image_area", min_area,
+                "pdf",
+                "min_image_area",
+                min_area,
             )
 
         elements: list[Tuple[float, str]] = []

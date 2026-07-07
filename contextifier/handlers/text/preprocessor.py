@@ -20,8 +20,7 @@ v1.0 Issues resolved:
 
 from __future__ import annotations
 
-import logging
-from typing import Any, Union
+from typing import Any
 
 from contextifier.pipeline.preprocessor import BasePreprocessor
 from contextifier.types import PreprocessedData
@@ -129,7 +128,12 @@ class TextPreprocessor(BasePreprocessor):
             )
 
         # Last resort
-        return (str(converted_data) if converted_data is not None else "", "utf-8", "", "")
+        return (
+            str(converted_data) if converted_data is not None else "",
+            "utf-8",
+            "",
+            "",
+        )
 
 
 __all__ = ["TextPreprocessor"]

@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import pytest
-from unittest.mock import MagicMock
 
 from contextifier.config import ProcessingConfig
 from contextifier.handlers.text.handler import TextHandler

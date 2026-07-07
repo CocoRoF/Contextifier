@@ -117,7 +117,7 @@ class TestPathTraversalDefense:
     def test_normal_subdir_allowed(self, tmp_path: Path) -> None:
         backend = LocalStorageBackend(str(tmp_path))
         full_path = str(tmp_path / "subdir" / "file.txt")
-        result = backend.save(b"data", full_path)
+        backend.save(b"data", full_path)
         assert (tmp_path / "subdir" / "file.txt").exists()
 
 

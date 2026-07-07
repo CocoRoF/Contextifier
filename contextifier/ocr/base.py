@@ -104,10 +104,12 @@ def get_ocr_prompt(language: str = "ko") -> str:
     """
     return _OCR_PROMPT_TEMPLATE.get(language, _OCR_PROMPT_TEMPLATE["en"])
 
+
 SIMPLE_OCR_PROMPT: str = "Describe the contents of this image."
 
 
 # ── Abstract Base ─────────────────────────────────────────────────────────
+
 
 class BaseOCREngine(ABC):
     """
@@ -205,7 +207,9 @@ class BaseOCREngine(ABC):
             response = self._llm_client.invoke([message])
             result = response.content.strip()
 
-            logger.info(f"[{self.provider.upper()}] OCR completed: {os.path.basename(image_path)}")
+            logger.info(
+                f"[{self.provider.upper()}] OCR completed: {os.path.basename(image_path)}"
+            )
             return f"[Figure:{result}]"
 
         except Exception as e:

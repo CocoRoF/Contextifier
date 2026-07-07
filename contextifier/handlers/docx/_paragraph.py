@@ -20,9 +20,8 @@ from dataclasses import dataclass
 from enum import Enum, unique
 from typing import Any, List, Optional, Tuple
 
-from lxml import etree
 
-from contextifier.handlers.docx._constants import NAMESPACES, ElementType
+from contextifier.handlers.docx._constants import NAMESPACES
 
 logger = logging.getLogger(__name__)
 
@@ -52,9 +51,11 @@ _QN_IMAGEDATA = f"{{{_V}}}imagedata"
 
 # ── Drawing descriptor ────────────────────────────────────────────────────
 
+
 @unique
 class DrawingKind(str, Enum):
     """Kind of drawing element detected."""
+
     IMAGE = "image"
     CHART = "chart"
     DIAGRAM = "diagram"
@@ -64,26 +65,30 @@ class DrawingKind(str, Enum):
 @dataclass
 class DrawingInfo:
     """Information about a drawing element found in a run."""
+
     kind: DrawingKind
-    rel_id: Optional[str] = None      # r:embed or r:link for images
-    uri: Optional[str] = None         # graphicData URI
-    graphic_data: Any = None          # lxml element (for diagrams)
+    rel_id: Optional[str] = None  # r:embed or r:link for images
+    uri: Optional[str] = None  # graphicData URI
+    graphic_data: Any = None  # lxml element (for diagrams)
 
 
 @dataclass
 class PictInfo:
     """Information about a legacy VML pict element in a run."""
+
     rel_id: Optional[str] = None
 
 
 # ── Run element descriptors ───────────────────────────────────────────────
 
+
 @dataclass
 class RunContent:
     """Content extracted from a single run (or hyperlink child)."""
+
     text: str = ""
     drawings: List[DrawingInfo] = None  # type: ignore[assignment]
-    picts: List[PictInfo] = None        # type: ignore[assignment]
+    picts: List[PictInfo] = None  # type: ignore[assignment]
     has_page_break: bool = False
 
     def __post_init__(self) -> None:
@@ -95,7 +100,10 @@ class RunContent:
 
 # ── Paragraph processing ─────────────────────────────────────────────────
 
-def process_paragraph(paragraph_element: Any) -> Tuple[str, List[DrawingInfo], List[PictInfo], bool]:
+
+def process_paragraph(
+    paragraph_element: Any,
+) -> Tuple[str, List[DrawingInfo], List[PictInfo], bool]:
     """
     Process a ``<w:p>`` element and extract its content.
 
@@ -115,7 +123,7 @@ def process_paragraph(paragraph_element: Any) -> Tuple[str, List[DrawingInfo], L
     has_page_break = False
 
     for child in paragraph_element:
-        tag = _local_name(child)
+        _local_name(child)
 
         if child.tag == _QN_R:
             rc = _process_run(child)
@@ -162,6 +170,7 @@ def has_page_break(paragraph_element: Any) -> bool:
 
 
 # ── Run processing (internal) ─────────────────────────────────────────────
+
 
 def _process_run(run_element: Any) -> RunContent:
     """
@@ -318,6 +327,7 @@ def extract_diagram_text(graphic_data: Any) -> str:
 
 
 # ── Utilities ─────────────────────────────────────────────────────────────
+
 
 def _local_name(element: Any) -> str:
     """Get the local name of an lxml element (without namespace)."""

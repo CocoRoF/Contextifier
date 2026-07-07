@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import re
 import logging
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Tuple, Union
 
 from contextifier.config import ProcessingConfig
 from contextifier.types import Chunk, ChunkMetadata
@@ -86,9 +86,13 @@ class PageChunkingStrategy(BaseChunkingStrategy):
 
         if not pages:
             # No page markers found → fall back to plain splitting
-            from contextifier.chunking.strategies.plain_strategy import PlainChunkingStrategy
+            from contextifier.chunking.strategies.plain_strategy import (
+                PlainChunkingStrategy,
+            )
+
             return PlainChunkingStrategy().chunk(
-                text, config,
+                text,
+                config,
                 file_extension=file_extension,
                 include_position_metadata=include_position_metadata,
                 **context,
@@ -99,7 +103,11 @@ class PageChunkingStrategy(BaseChunkingStrategy):
         # 2. Greedy page merging
         max_size = int(chunk_size * _MAX_SIZE_FACTOR)
         raw = self._merge_pages(
-            pages, chunk_size, max_size, chunk_overlap, config,
+            pages,
+            chunk_size,
+            max_size,
+            chunk_overlap,
+            config,
         )
 
         if not raw:
@@ -144,7 +152,8 @@ class PageChunkingStrategy(BaseChunkingStrategy):
 
     @staticmethod
     def _split_into_pages(
-        text: str, patterns: List[re.Pattern],
+        text: str,
+        patterns: List[re.Pattern],
     ) -> List[Tuple[int, str]]:
         """
         Split *text* by the first matching marker pattern.
@@ -256,7 +265,9 @@ class PageChunkingStrategy(BaseChunkingStrategy):
         extreme = int(max_size * 1.5)
         for chunk in chunks:
             if len(chunk) > extreme:
-                sub = self._sub_split_large_chunk(chunk, chunk_size, chunk_overlap, config)
+                sub = self._sub_split_large_chunk(
+                    chunk, chunk_size, chunk_overlap, config
+                )
                 final.extend(sub)
             else:
                 final.append(chunk)
@@ -288,7 +299,10 @@ class PageChunkingStrategy(BaseChunkingStrategy):
         Re-split an oversized merged chunk using ProtectedChunkingStrategy
         so embedded tables/charts remain intact.
         """
-        from contextifier.chunking.strategies.protected_strategy import ProtectedChunkingStrategy
+        from contextifier.chunking.strategies.protected_strategy import (
+            ProtectedChunkingStrategy,
+        )
+
         strategy = ProtectedChunkingStrategy()
         if strategy.can_handle(text, config):
             result = strategy.chunk(text, config, include_position_metadata=False)
@@ -296,6 +310,7 @@ class PageChunkingStrategy(BaseChunkingStrategy):
                 return result  # type: ignore[return-value]
         # Fallback to plain recursive split
         from langchain_text_splitters import RecursiveCharacterTextSplitter
+
         splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,

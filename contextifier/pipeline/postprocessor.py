@@ -43,8 +43,7 @@ import re
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Optional
 
-from contextifier.types import DocumentMetadata, ExtractionResult
-from contextifier.errors import PostprocessingError
+from contextifier.types import ExtractionResult
 
 if TYPE_CHECKING:
     from contextifier.config import ProcessingConfig
@@ -143,9 +142,7 @@ class DefaultPostprocessor(BasePostprocessor):
 
         # 3. Append extraction warnings as HTML comments
         if result.warnings:
-            warning_lines = "\n".join(
-                f"<!-- warning: {w} -->" for w in result.warnings
-            )
+            warning_lines = "\n".join(f"<!-- warning: {w} -->" for w in result.warnings)
             text = text + "\n\n" + warning_lines
 
         return text

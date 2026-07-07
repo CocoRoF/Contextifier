@@ -46,7 +46,6 @@ def extract_images(
     Each qualifying image is saved via *image_service* (if available),
     producing an ``<image>`` tag in the returned :class:`PageElement`.
     """
-    import fitz  # PyMuPDF
 
     elements: list[PageElement] = []
     img_list = page.get_images(full=True)
@@ -74,7 +73,9 @@ def extract_images(
             bbox = find_image_position(page, xref)
 
             # Table overlap filter
-            if bbox and is_inside_any_bbox(bbox, table_bboxes, threshold=overlap_threshold):
+            if bbox and is_inside_any_bbox(
+                bbox, table_bboxes, threshold=overlap_threshold
+            ):
                 continue
 
             # Convert to PNG
@@ -96,17 +97,22 @@ def extract_images(
             else:
                 tag = f"[Image: page {page_num + 1}, index {img_idx}]"
 
-            y_pos = bbox[1] if bbox else 0.0
-            x_pos = bbox[0] if bbox else 0.0
-            elements.append(PageElement(
-                element_type=ElementType.IMAGE,
-                content=tag,
-                bbox=bbox or (0, 0, float(width), float(height)),
-                page_num=page_num,
-            ))
+            bbox[1] if bbox else 0.0
+            bbox[0] if bbox else 0.0
+            elements.append(
+                PageElement(
+                    element_type=ElementType.IMAGE,
+                    content=tag,
+                    bbox=bbox or (0, 0, float(width), float(height)),
+                    page_num=page_num,
+                )
+            )
         except Exception as exc:
             logger.debug(
-                "[ImgExtractor] page %d xref %d error: %s", page_num + 1, xref, exc,
+                "[ImgExtractor] page %d xref %d error: %s",
+                page_num + 1,
+                xref,
+                exc,
             )
 
     return elements
@@ -115,6 +121,7 @@ def extract_images(
 # ──────────────────────────────────────────────────────────────────────
 # Helpers
 # ──────────────────────────────────────────────────────────────────────
+
 
 def _to_png(doc: Any, xref: int, base_img: dict) -> Optional[bytes]:
     """Convert extracted image data to PNG bytes."""

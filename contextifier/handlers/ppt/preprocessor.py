@@ -9,7 +9,7 @@ metadata streams from the OLE2 file. Stores them in
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
 from contextifier.pipeline.preprocessor import BasePreprocessor
 from contextifier.types import PreprocessedData

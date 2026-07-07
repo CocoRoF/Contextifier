@@ -32,8 +32,6 @@ from contextifier.chunking.constants import (
     HTML_TABLE_PATTERN,
     MARKDOWN_TABLE_PATTERN,
     TEXTBOX_BLOCK_PATTERN,
-    build_protected_patterns,
-    TABLE_SIZE_THRESHOLD_MULTIPLIER,
 )
 from contextifier.chunking.table_chunker import chunk_large_table
 from contextifier.chunking.table_parser import is_markdown_table
@@ -120,8 +118,8 @@ class ProtectedChunkingStrategy(BaseChunkingStrategy):
             md_table_positions = self._find_markdown_tables(text, regions)
 
         # Build lookup structures
-        block_regions = [(s, e) for s, e, _ in regions]
-        region_type_map: Dict[Tuple[int, int], str] = {(s, e): t for s, e, t in regions}
+        [(s, e) for s, e, _ in regions]
+        {(s, e): t for s, e, t in regions}
 
         # Merge force-chunking table regions with block regions
         all_typed: List[_Region] = list(regions)
@@ -139,7 +137,9 @@ class ProtectedChunkingStrategy(BaseChunkingStrategy):
                 merged_typed.append((s, e, t))
 
         all_block = [(s, e) for s, e, _ in merged_typed]
-        all_type_map: Dict[Tuple[int, int], str] = {(s, e): t for s, e, t in merged_typed}
+        all_type_map: Dict[Tuple[int, int], str] = {
+            (s, e): t for s, e, t in merged_typed
+        }
 
         # 4. Walk and split
         raw = self._walk_and_split(
@@ -256,7 +256,8 @@ class ProtectedChunkingStrategy(BaseChunkingStrategy):
 
     @staticmethod
     def _find_html_tables(
-        text: str, existing_regions: List[_Region],
+        text: str,
+        existing_regions: List[_Region],
     ) -> List[_Region]:
         """Find HTML tables not already covered by *existing_regions*."""
         existing_set = {(s, e) for s, e, _ in existing_regions}
@@ -269,7 +270,8 @@ class ProtectedChunkingStrategy(BaseChunkingStrategy):
 
     @staticmethod
     def _find_markdown_tables(
-        text: str, existing_regions: List[_Region],
+        text: str,
+        existing_regions: List[_Region],
     ) -> List[_Region]:
         """Find Markdown tables not already covered by *existing_regions*."""
         existing_set = {(s, e) for s, e, _ in existing_regions}
@@ -283,16 +285,26 @@ class ProtectedChunkingStrategy(BaseChunkingStrategy):
 
     @staticmethod
     def _extract_no_overlap_positions(
-        text: str, config: ProcessingConfig,
+        text: str,
+        config: ProcessingConfig,
     ) -> List[_Region]:
         """Page/slide/sheet/chart/metadata tag positions — never overlap."""
         tags = config.tags
         positions: List[_Region] = []
 
         for pat_str, rtype in [
-            (rf"{re.escape(tags.page_prefix)}\d+(?:\s*\(OCR(?:\+Ref)?\))?{re.escape(tags.page_suffix)}", "page_tag"),
-            (rf"{re.escape(tags.slide_prefix)}\d+(?:\s*\(OCR\))?{re.escape(tags.slide_suffix)}", "slide_tag"),
-            (rf"{re.escape(tags.sheet_prefix)}.+?{re.escape(tags.sheet_suffix)}", "sheet_tag"),
+            (
+                rf"{re.escape(tags.page_prefix)}\d+(?:\s*\(OCR(?:\+Ref)?\))?{re.escape(tags.page_suffix)}",
+                "page_tag",
+            ),
+            (
+                rf"{re.escape(tags.slide_prefix)}\d+(?:\s*\(OCR\))?{re.escape(tags.slide_suffix)}",
+                "slide_tag",
+            ),
+            (
+                rf"{re.escape(tags.sheet_prefix)}.+?{re.escape(tags.sheet_suffix)}",
+                "sheet_tag",
+            ),
         ]:
             for m in re.finditer(pat_str, text):
                 positions.append((m.start(), m.end(), rtype))
@@ -315,7 +327,8 @@ class ProtectedChunkingStrategy(BaseChunkingStrategy):
 
     @staticmethod
     def _extract_image_positions(
-        text: str, config: ProcessingConfig,
+        text: str,
+        config: ProcessingConfig,
     ) -> List[Tuple[int, int]]:
         """Image tag positions — never split mid-tag, never overlap."""
         tags = config.tags
@@ -373,7 +386,9 @@ class ProtectedChunkingStrategy(BaseChunkingStrategy):
                     # We're at / inside the block
                     if block_size > chunk_size:
                         block_content = text[b_start:b_end].strip()
-                        if force_chunking and self._is_table_type(b_type, block_content):
+                        if force_chunking and self._is_table_type(
+                            b_type, block_content
+                        ):
                             table_chunks = chunk_large_table(block_content, chunk_size)
                             chunks.extend(table_chunks)
                         else:
@@ -383,12 +398,18 @@ class ProtectedChunkingStrategy(BaseChunkingStrategy):
                     else:
                         # Block fits → try to extend past it
                         end_pos = min(b_end + (chunk_size - block_size), text_len)
-                        end_pos = self._clamp_to_next_block(end_pos, b_end, block_regions)
-                        end_pos = self._adjust_image_boundary(end_pos, image_positions, text_len)
+                        end_pos = self._clamp_to_next_block(
+                            end_pos, b_end, block_regions
+                        )
+                        end_pos = self._adjust_image_boundary(
+                            end_pos, image_positions, text_len
+                        )
                         chunk = text[pos:end_pos].strip()
                         if chunk:
                             chunks.append(chunk)
-                        if self._ends_with_no_overlap(end_pos, no_overlap_positions, image_positions):
+                        if self._ends_with_no_overlap(
+                            end_pos, no_overlap_positions, image_positions
+                        ):
                             pos = end_pos
                         else:
                             pos = max(b_end, end_pos - chunk_overlap)
@@ -403,12 +424,18 @@ class ProtectedChunkingStrategy(BaseChunkingStrategy):
                         extra = chunk_size - space_with
                         if extra > 0:
                             end_pos = min(b_end + extra, text_len)
-                            end_pos = self._clamp_to_next_block(end_pos, b_end, block_regions)
-                        end_pos = self._adjust_image_boundary(end_pos, image_positions, text_len)
+                            end_pos = self._clamp_to_next_block(
+                                end_pos, b_end, block_regions
+                            )
+                        end_pos = self._adjust_image_boundary(
+                            end_pos, image_positions, text_len
+                        )
                         chunk = text[pos:end_pos].strip()
                         if chunk:
                             chunks.append(chunk)
-                        if self._ends_with_no_overlap(end_pos, no_overlap_positions, image_positions):
+                        if self._ends_with_no_overlap(
+                            end_pos, no_overlap_positions, image_positions
+                        ):
                             pos = end_pos
                         else:
                             pos = max(b_end, end_pos - chunk_overlap)
@@ -417,19 +444,29 @@ class ProtectedChunkingStrategy(BaseChunkingStrategy):
                         if space_before > chunk_overlap:
                             # Cut before the block
                             end_pos = b_start
-                            end_pos = self._adjust_image_boundary(end_pos, image_positions, text_len)
+                            end_pos = self._adjust_image_boundary(
+                                end_pos, image_positions, text_len
+                            )
                             chunk = text[pos:end_pos].strip()
                             if chunk:
                                 chunks.append(chunk)
-                            if self._ends_with_no_overlap(end_pos, no_overlap_positions, image_positions):
+                            if self._ends_with_no_overlap(
+                                end_pos, no_overlap_positions, image_positions
+                            ):
                                 pos = end_pos
                             else:
                                 pos = max(pos + 1, b_start - chunk_overlap)
                         else:
                             # Block is too close → emit block directly
                             block_content = text[b_start:b_end].strip()
-                            if block_size > chunk_size and force_chunking and self._is_table_type(b_type, block_content):
-                                table_chunks = chunk_large_table(block_content, chunk_size)
+                            if (
+                                block_size > chunk_size
+                                and force_chunking
+                                and self._is_table_type(b_type, block_content)
+                            ):
+                                table_chunks = chunk_large_table(
+                                    block_content, chunk_size
+                                )
                                 chunks.extend(table_chunks)
                             else:
                                 if block_content:
@@ -437,14 +474,20 @@ class ProtectedChunkingStrategy(BaseChunkingStrategy):
                             pos = b_end  # No overlap for blocks
             else:
                 # ── No block in range → find best natural split ───────────
-                best_split = self._find_natural_split(text, pos, tentative_end, chunk_size)
-                best_split = self._adjust_image_boundary(best_split, image_positions, text_len)
+                best_split = self._find_natural_split(
+                    text, pos, tentative_end, chunk_size
+                )
+                best_split = self._adjust_image_boundary(
+                    best_split, image_positions, text_len
+                )
 
                 chunk = text[pos:best_split].strip()
                 if chunk:
                     chunks.append(chunk)
 
-                if self._ends_with_no_overlap(best_split, no_overlap_positions, image_positions):
+                if self._ends_with_no_overlap(
+                    best_split, no_overlap_positions, image_positions
+                ):
                     pos = best_split
                 else:
                     pos = max(pos + 1, best_split - chunk_overlap)
@@ -457,7 +500,9 @@ class ProtectedChunkingStrategy(BaseChunkingStrategy):
 
     @staticmethod
     def _find_block_in_range(
-        pos: int, end: int, blocks: List[Tuple[int, int]],
+        pos: int,
+        end: int,
+        blocks: List[Tuple[int, int]],
     ) -> Optional[Tuple[int, int]]:
         """Return the first block region overlapping ``[pos, end)``."""
         for b_start, b_end in blocks:
@@ -467,7 +512,9 @@ class ProtectedChunkingStrategy(BaseChunkingStrategy):
 
     @staticmethod
     def _clamp_to_next_block(
-        end_pos: int, after: int, blocks: List[Tuple[int, int]],
+        end_pos: int,
+        after: int,
+        blocks: List[Tuple[int, int]],
     ) -> int:
         """Ensure *end_pos* doesn't reach into the next block."""
         for b_start, _ in blocks:
@@ -514,7 +561,10 @@ class ProtectedChunkingStrategy(BaseChunkingStrategy):
 
     @staticmethod
     def _find_natural_split(
-        text: str, start: int, end: int, chunk_size: int,
+        text: str,
+        start: int,
+        end: int,
+        chunk_size: int,
     ) -> int:
         """Find the best natural split point in ``[start, end)``."""
         # Prefer paragraph break

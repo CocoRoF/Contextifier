@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from contextifier.handlers.pdf_plus._types import (
@@ -42,7 +42,8 @@ CFG = PdfPlusConfig
 @dataclass
 class _ContentElement:
     """One content element on a page."""
-    element_type: str            # 'text', 'image', 'drawing'
+
+    element_type: str  # 'text', 'image', 'drawing'
     bbox: Tuple[float, float, float, float]
     content: Optional[str] = None
     font_size: float = 0.0
@@ -54,6 +55,7 @@ class _ContentElement:
 @dataclass
 class _ColumnInfo:
     """Detected column region."""
+
     index: int
     x_start: float
     x_end: float
@@ -81,12 +83,12 @@ class LayoutBlockDetector:
     """
 
     # ── configuration shortcuts ──────────────────────────────────────────
-    _GAP = CFG.LBD_GAP_THRESHOLD            # 20 pt column gap
+    _GAP = CFG.LBD_GAP_THRESHOLD  # 20 pt column gap
     _HEADER_RATIO = CFG.LBD_HEADER_FOOTER_RATIO  # 10 % margin
-    _HEADER_MAX_H = CFG.LBD_HEADER_MAX_HEIGHT    # 60 pt
-    _VERT_DIST = CFG.LBD_VERT_CLUSTER_DIST       # 40 pt merge distance
-    _HORIZ_DIST = CFG.LBD_HORIZ_CLUSTER_DIST     # 15 pt
-    _MIN_BOX_AREA = CFG.LBD_MIN_BOX_AREA         # 10 000 pt²
+    _HEADER_MAX_H = CFG.LBD_HEADER_MAX_HEIGHT  # 60 pt
+    _VERT_DIST = CFG.LBD_VERT_CLUSTER_DIST  # 40 pt merge distance
+    _HORIZ_DIST = CFG.LBD_HORIZ_CLUSTER_DIST  # 15 pt
+    _MIN_BOX_AREA = CFG.LBD_MIN_BOX_AREA  # 10 000 pt²
     _MAX_BLOCKS = CFG.LBD_MAX_BLOCKS_BEFORE_MERGE  # 15
 
     _HEADLINE_MIN_SIZE = 14.0
@@ -95,9 +97,9 @@ class LayoutBlockDetector:
     _CAPTION_MAX_H = 50.0
     _SEPARATOR_LENGTH_RATIO = 0.30
     _SEPARATOR_MAX_THICK = 3.0
-    _MIN_BLOCK_W = CFG.BLOCK_MIN_REGION_WIDTH   # 80 pt
+    _MIN_BLOCK_W = CFG.BLOCK_MIN_REGION_WIDTH  # 80 pt
     _MIN_BLOCK_H = CFG.BLOCK_MIN_REGION_HEIGHT  # 60 pt
-    _MIN_BLOCK_AREA = CFG.BLOCK_MIN_AREA        # 15 000 pt²
+    _MIN_BLOCK_AREA = CFG.BLOCK_MIN_AREA  # 15 000 pt²
     _TARGET_MAX_BLOCKS = 10
     _X_CLUSTER_TOL = CFG.COLUMN_CLUSTER_TOLERANCE  # 50 pt
 
@@ -143,7 +145,9 @@ class LayoutBlockDetector:
             # Phase 4 — semantic clustering
             try:
                 blocks = self._cluster_into_blocks(
-                    columns, header_region, footer_region,
+                    columns,
+                    header_region,
+                    footer_region,
                 )
             except Exception:
                 blocks = self._create_column_fallback(columns)
@@ -157,7 +161,8 @@ class LayoutBlockDetector:
         except Exception as exc:
             logger.error(
                 "[LayoutBlockDetector] Critical error on page %d: %s",
-                self.page_num + 1, exc,
+                self.page_num + 1,
+                exc,
             )
             blocks = [
                 LayoutBlock(
@@ -202,14 +207,16 @@ class LayoutBlockDetector:
                     text += span.get("text", "")
             stripped = text.strip()
             if stripped:
-                self._elements.append(_ContentElement(
-                    element_type="text",
-                    bbox=bbox,
-                    content=stripped,
-                    font_size=max_fs,
-                    is_bold=bold,
-                    text_length=len(stripped),
-                ))
+                self._elements.append(
+                    _ContentElement(
+                        element_type="text",
+                        bbox=bbox,
+                        content=stripped,
+                        font_size=max_fs,
+                        is_bold=bold,
+                        text_length=len(stripped),
+                    )
+                )
 
         for img_info in self._get_images():
             xref = img_info[0]
@@ -217,11 +224,13 @@ class LayoutBlockDetector:
                 for rect in self.page.get_image_rects(xref):
                     b = (rect.x0, rect.y0, rect.x1, rect.y1)
                     area = (b[2] - b[0]) * (b[3] - b[1])
-                    self._elements.append(_ContentElement(
-                        element_type="image",
-                        bbox=b,
-                        image_area=area,
-                    ))
+                    self._elements.append(
+                        _ContentElement(
+                            element_type="image",
+                            bbox=b,
+                            image_area=area,
+                        )
+                    )
                     break  # first occurrence only
             except Exception:
                 pass
@@ -245,12 +254,16 @@ class LayoutBlockDetector:
                         continue
 
                 # horizontal separator
-                if (h <= self._SEPARATOR_MAX_THICK
-                        and w >= self.page_width * self._SEPARATOR_LENGTH_RATIO):
+                if (
+                    h <= self._SEPARATOR_MAX_THICK
+                    and w >= self.page_width * self._SEPARATOR_LENGTH_RATIO
+                ):
                     self._separators.append((x0, y0, x1, y1))
                 # vertical separator
-                elif (w <= self._SEPARATOR_MAX_THICK
-                      and h >= self.page_height * self._SEPARATOR_LENGTH_RATIO * 0.5):
+                elif (
+                    w <= self._SEPARATOR_MAX_THICK
+                    and h >= self.page_height * self._SEPARATOR_LENGTH_RATIO * 0.5
+                ):
                     self._separators.append((x0, y0, x1, y1))
                 # box (advertisement / infobox candidate)
                 elif w > 50 and h > 50 and w * h >= self._MIN_BOX_AREA:
@@ -313,8 +326,10 @@ class LayoutBlockDetector:
 
     def _detect_header_footer(
         self,
-    ) -> Tuple[Optional[Tuple[float, float, float, float]],
-               Optional[Tuple[float, float, float, float]]]:
+    ) -> Tuple[
+        Optional[Tuple[float, float, float, float]],
+        Optional[Tuple[float, float, float, float]],
+    ]:
         h_bound = self.page_height * self._HEADER_RATIO
         f_bound = self.page_height * (1 - self._HEADER_RATIO)
 
@@ -323,12 +338,16 @@ class LayoutBlockDetector:
         return header, footer
 
     def _region_for_band(
-        self, y_min: float, y_max: float,
+        self,
+        y_min: float,
+        y_max: float,
     ) -> Optional[Tuple[float, float, float, float]]:
         elems = [
-            e for e in self._elements
+            e
+            for e in self._elements
             if e.element_type == "text"
-            and e.bbox[1] >= y_min - 5 and e.bbox[3] <= y_max + 5
+            and e.bbox[1] >= y_min - 5
+            and e.bbox[3] <= y_max + 5
         ]
         if not elems:
             return None
@@ -363,12 +382,14 @@ class LayoutBlockDetector:
                 main_elems.append(e)
 
         if header_elems:
-            blocks.append(LayoutBlock(
-                block_type=LayoutBlockType.HEADER,
-                bbox=self._merge_bboxes([e.bbox for e in header_elems]),
-                elements=[],
-                confidence=0.9,
-            ))
+            blocks.append(
+                LayoutBlock(
+                    block_type=LayoutBlockType.HEADER,
+                    bbox=self._merge_bboxes([e.bbox for e in header_elems]),
+                    elements=[],
+                    confidence=0.9,
+                )
+            )
 
         # process per column
         for col in columns:
@@ -387,45 +408,54 @@ class LayoutBlockDetector:
                     h = bbox[3] - bbox[1]
                     if w < self._MIN_BLOCK_W or h < self._MIN_BLOCK_H:
                         continue
-                    blocks.append(LayoutBlock(
-                        block_type=LayoutBlockType.UNKNOWN,
-                        bbox=bbox,
-                        elements=[],
-                        confidence=0.7,
-                        column_index=col.index,
-                    ))
+                    blocks.append(
+                        LayoutBlock(
+                            block_type=LayoutBlockType.UNKNOWN,
+                            bbox=bbox,
+                            elements=[],
+                            confidence=0.7,
+                            column_index=col.index,
+                        )
+                    )
 
         if footer_elems:
-            blocks.append(LayoutBlock(
-                block_type=LayoutBlockType.FOOTER,
-                bbox=self._merge_bboxes([e.bbox for e in footer_elems]),
-                elements=[],
-                confidence=0.9,
-            ))
+            blocks.append(
+                LayoutBlock(
+                    block_type=LayoutBlockType.FOOTER,
+                    bbox=self._merge_bboxes([e.bbox for e in footer_elems]),
+                    elements=[],
+                    confidence=0.9,
+                )
+            )
 
         return blocks
 
     def _create_column_fallback(
-        self, columns: List[_ColumnInfo],
+        self,
+        columns: List[_ColumnInfo],
     ) -> List[LayoutBlock]:
         blocks: List[LayoutBlock] = []
         for col in columns:
             col_elems = [e for e in self._elements if self._elem_in_col(e, col)]
             if col_elems:
-                blocks.append(LayoutBlock(
-                    block_type=LayoutBlockType.COLUMN_BLOCK,
-                    bbox=self._merge_bboxes([e.bbox for e in col_elems]),
-                    elements=[],
-                    confidence=0.5,
-                    column_index=col.index,
-                ))
+                blocks.append(
+                    LayoutBlock(
+                        block_type=LayoutBlockType.COLUMN_BLOCK,
+                        bbox=self._merge_bboxes([e.bbox for e in col_elems]),
+                        elements=[],
+                        confidence=0.5,
+                        column_index=col.index,
+                    )
+                )
         if not blocks:
-            blocks.append(LayoutBlock(
-                block_type=LayoutBlockType.UNKNOWN,
-                bbox=(0, 0, self.page_width, self.page_height),
-                elements=[],
-                confidence=0.1,
-            ))
+            blocks.append(
+                LayoutBlock(
+                    block_type=LayoutBlockType.UNKNOWN,
+                    bbox=(0, 0, self.page_width, self.page_height),
+                    elements=[],
+                    confidence=0.1,
+                )
+            )
         return blocks
 
     # ── splitting / clustering helpers ───────────────────────────────────
@@ -447,7 +477,8 @@ class LayoutBlockDetector:
         groups: List[List[_ContentElement]] = []
         for i in range(len(bounds) - 1):
             g = [
-                e for e in elements
+                e
+                for e in elements
                 if e.bbox[1] >= bounds[i] - 5 and e.bbox[3] <= bounds[i + 1] + 5
             ]
             if g:
@@ -455,7 +486,8 @@ class LayoutBlockDetector:
         return groups or [elements]
 
     def _cluster_adjacent(
-        self, elements: List[_ContentElement],
+        self,
+        elements: List[_ContentElement],
     ) -> List[List[_ContentElement]]:
         if len(elements) <= 1:
             return [elements]
@@ -508,11 +540,13 @@ class LayoutBlockDetector:
     def _determine_block_type(self, block: LayoutBlock) -> LayoutBlockType:
         # re-collect elements that fall inside the block bbox
         texts = [
-            e for e in self._elements
+            e
+            for e in self._elements
             if e.element_type == "text" and self._is_inside(e.bbox, block.bbox, 5)
         ]
         images = [
-            e for e in self._elements
+            e
+            for e in self._elements
             if e.element_type == "image" and self._is_inside(e.bbox, block.bbox, 5)
         ]
 
@@ -525,10 +559,11 @@ class LayoutBlockDetector:
             return LayoutBlockType.STANDALONE_IMAGE
         if has_text:
             max_fs = max((t.font_size for t in texts), default=0)
-            avg_fs = (
-                sum(t.font_size for t in texts) / len(texts) if texts else 0
-            )
-            if max_fs >= self._HEADLINE_MIN_SIZE and max_fs >= avg_fs * self._HEADLINE_FONT_RATIO:
+            avg_fs = sum(t.font_size for t in texts) / len(texts) if texts else 0
+            if (
+                max_fs >= self._HEADLINE_MIN_SIZE
+                and max_fs >= avg_fs * self._HEADLINE_FONT_RATIO
+            ):
                 return LayoutBlockType.ARTICLE
             if self._bbox_in_box(block.bbox):
                 total_len = sum(t.text_length for t in texts)
@@ -559,7 +594,8 @@ class LayoutBlockDetector:
         headers = [b for b in blocks if b.block_type == LayoutBlockType.HEADER]
         footers = [b for b in blocks if b.block_type == LayoutBlockType.FOOTER]
         main = [
-            b for b in blocks
+            b
+            for b in blocks
             if b.block_type not in (LayoutBlockType.HEADER, LayoutBlockType.FOOTER)
         ]
 
@@ -610,7 +646,10 @@ class LayoutBlockDetector:
         return result
 
     def _should_merge(
-        self, b1: LayoutBlock, b2: LayoutBlock, aggressive: bool,
+        self,
+        b1: LayoutBlock,
+        b2: LayoutBlock,
+        aggressive: bool,
     ) -> bool:
         if not aggressive and b1.column_index != b2.column_index:
             return False
@@ -639,7 +678,10 @@ class LayoutBlockDetector:
             group: List[LayoutBlock] = []
             for i, b in enumerate(cbs):
                 group.append(b)
-                if len(group) >= per and len(result) < len(col_groups) * target_groups - 1:
+                if (
+                    len(group) >= per
+                    and len(result) < len(col_groups) * target_groups - 1
+                ):
                     result.append(self._merge_group(group))
                     group = []
             if group:

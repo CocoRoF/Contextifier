@@ -5,11 +5,9 @@ P2-3 / P2-4: Image OCR integration + Tesseract OCR engine tests.
 
 from __future__ import annotations
 
-import os
 import sys
 from unittest import mock
 
-import pytest
 
 from contextifier.ocr.engines.tesseract_engine import TesseractOCREngine
 

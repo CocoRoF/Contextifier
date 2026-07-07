@@ -27,7 +27,7 @@ import hashlib
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Protocol, Union
+from typing import Any, Dict, Optional, Protocol, Union
 
 from contextifier.config import ProcessingConfig
 from contextifier.document_processor import DocumentProcessor, ChunkResult
@@ -47,6 +47,7 @@ logger = logging.getLogger("contextifier.cache")
 
 # ── Cache backend protocol ────────────────────────────────────────────────
 
+
 class CacheBackend(Protocol):
     """Minimal interface for a cache backend."""
 
@@ -60,6 +61,7 @@ class CacheBackend(Protocol):
 
 
 # ── Built-in backends ────────────────────────────────────────────────────
+
 
 class MemoryCacheBackend:
     """
@@ -125,6 +127,7 @@ class DiskCacheBackend:
 
 # ── Cached processor ─────────────────────────────────────────────────────
 
+
 class CachedDocumentProcessor:
     """Document processor with transparent result caching."""
 
@@ -176,7 +179,10 @@ class CachedDocumentProcessor:
     ) -> ExtractionResult:
         """Process a file with cache lookup for the full ExtractionResult."""
         cache_key = self._make_key(
-            str(file_path), extract_metadata, ocr_processing, suffix="process",
+            str(file_path),
+            extract_metadata,
+            ocr_processing,
+            suffix="process",
         )
         cached = self._cache.get(cache_key)
         if cached is not None:
@@ -208,9 +214,11 @@ class CachedDocumentProcessor:
     ) -> ChunkResult:
         """Extract and chunk text with cache lookup."""
         cache_key = self._make_key(
-            str(file_path), extract_metadata, ocr_processing,
+            str(file_path),
+            extract_metadata,
+            ocr_processing,
             suffix=f"chunks|cs={chunk_size}|co={chunk_overlap}"
-                   f"|pt={preserve_tables}|pm={include_position_metadata}",
+            f"|pt={preserve_tables}|pm={include_position_metadata}",
         )
         cached = self._cache.get(cache_key)
         if cached is not None:
@@ -283,6 +291,7 @@ __all__ = [
 
 # ── Serialization helpers ─────────────────────────────────────────────────
 
+
 def _serialize_extraction_result(result: ExtractionResult) -> str:
     """Serialize an ExtractionResult to a JSON string."""
     data: Dict[str, Any] = {
@@ -302,7 +311,9 @@ def _deserialize_extraction_result(s: str) -> ExtractionResult:
     data = json.loads(s)
     return ExtractionResult(
         text=data.get("text", ""),
-        metadata=DocumentMetadata.from_dict(data["metadata"]) if data.get("metadata") else None,
+        metadata=DocumentMetadata.from_dict(data["metadata"])
+        if data.get("metadata")
+        else None,
         images=data.get("images", []),
         page_count=data.get("page_count", 0),
         warnings=data.get("warnings", []),
@@ -325,7 +336,9 @@ def _serialize_chunk_result(result: ChunkResult) -> str:
                     "line_end": c.metadata.line_end,
                     "global_start": c.metadata.global_start,
                     "global_end": c.metadata.global_end,
-                } if c.metadata else None,
+                }
+                if c.metadata
+                else None,
             }
             for c in result.chunks_with_metadata
         ]
@@ -366,17 +379,19 @@ def _deserialize_chunk_result(s: str) -> ChunkResult:
 def _table_to_dict(table: TableData) -> Dict[str, Any]:
     rows = []
     for row in table.rows:
-        rows.append([
-            {
-                "content": c.content,
-                "row_span": c.row_span,
-                "col_span": c.col_span,
-                "is_header": c.is_header,
-                "row_index": c.row_index,
-                "col_index": c.col_index,
-            }
-            for c in row
-        ])
+        rows.append(
+            [
+                {
+                    "content": c.content,
+                    "row_span": c.row_span,
+                    "col_span": c.col_span,
+                    "is_header": c.is_header,
+                    "row_index": c.row_index,
+                    "col_index": c.col_index,
+                }
+                for c in row
+            ]
+        )
     return {
         "rows": rows,
         "num_rows": table.num_rows,
@@ -389,17 +404,19 @@ def _table_to_dict(table: TableData) -> Dict[str, Any]:
 def _dict_to_table(d: Dict[str, Any]) -> TableData:
     rows = []
     for row_data in d.get("rows", []):
-        rows.append([
-            TableCell(
-                content=c["content"],
-                row_span=c.get("row_span", 1),
-                col_span=c.get("col_span", 1),
-                is_header=c.get("is_header", False),
-                row_index=c.get("row_index", 0),
-                col_index=c.get("col_index", 0),
-            )
-            for c in row_data
-        ])
+        rows.append(
+            [
+                TableCell(
+                    content=c["content"],
+                    row_span=c.get("row_span", 1),
+                    col_span=c.get("col_span", 1),
+                    is_header=c.get("is_header", False),
+                    row_index=c.get("row_index", 0),
+                    col_index=c.get("col_index", 0),
+                )
+                for c in row_data
+            ]
+        )
     return TableData(
         rows=rows,
         num_rows=d.get("num_rows", 0),
@@ -414,10 +431,7 @@ def _chart_to_dict(chart: ChartData) -> Dict[str, Any]:
         "chart_type": chart.chart_type,
         "title": chart.title,
         "categories": chart.categories,
-        "series": [
-            {"name": s.name, "values": s.values}
-            for s in chart.series
-        ],
+        "series": [{"name": s.name, "values": s.values} for s in chart.series],
     }
 
 

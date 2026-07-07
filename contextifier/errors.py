@@ -88,34 +88,42 @@ class ContextifierError(Exception):
 
 # ─── Configuration Errors ─────────────────────────────────────────────────────
 
+
 class ConfigurationError(ContextifierError):
     """Invalid or missing configuration."""
+
     pass
 
 
 # ─── File Errors ──────────────────────────────────────────────────────────────
 
+
 class FileError(ContextifierError):
     """Base class for file-related errors."""
+
     pass
 
 
 class FileNotFoundError(FileError):
     """File does not exist at the specified path."""
+
     pass
 
 
 class FileReadError(FileError):
     """Cannot read the file (permission, corruption, etc.)."""
+
     pass
 
 
 class UnsupportedFormatError(FileError):
     """File extension is not supported by any registered handler."""
+
     pass
 
 
 # ─── Pipeline Errors ─────────────────────────────────────────────────────────
+
 
 class PipelineError(ContextifierError):
     """Base class for processing pipeline failures."""
@@ -138,67 +146,82 @@ class PipelineError(ContextifierError):
 
 class ConversionError(PipelineError):
     """Failed to convert binary data to format-specific object."""
+
     pass
 
 
 class PreprocessingError(PipelineError):
     """Failed during preprocessing stage."""
+
     pass
 
 
 class ExtractionError(PipelineError):
     """Failed during content or metadata extraction."""
+
     pass
 
 
 class PostprocessingError(PipelineError):
     """Failed during postprocessing / final assembly."""
+
     pass
 
 
 # ─── Handler Errors ──────────────────────────────────────────────────────────
 
+
 class HandlerError(ContextifierError):
     """Base class for handler-level failures."""
+
     pass
 
 
 class HandlerNotFoundError(HandlerError):
     """No handler registered for the requested file extension."""
+
     pass
 
 
 class HandlerExecutionError(HandlerError):
     """Handler encountered an error during execution."""
+
     pass
 
 
 # ─── Service Errors ──────────────────────────────────────────────────────────
 
+
 class ServiceError(ContextifierError):
     """Base class for service-level failures."""
+
     pass
 
 
 class ImageServiceError(ServiceError):
     """Image processing or storage failure."""
+
     pass
 
 
 class StorageError(ServiceError):
     """Storage backend operation failure."""
+
     pass
 
 
 class OCRError(ServiceError):
     """OCR processing failure."""
+
     pass
 
 
 # ─── Chunking Errors ─────────────────────────────────────────────────────────
 
+
 class ChunkingError(ContextifierError):
     """Text chunking operation failure."""
+
     pass
 
 

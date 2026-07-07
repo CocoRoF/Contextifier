@@ -21,7 +21,6 @@ from contextifier.errors import PreprocessingError
 from contextifier.handlers.hwpx._constants import (
     HPF_PATH,
     OPF_NAMESPACES,
-    SECTION_PREFIX,
 )
 from contextifier.handlers.hwpx.converter import HwpxConvertedData
 
@@ -107,8 +106,8 @@ class HwpxPreprocessor(BasePreprocessor):
         sections = find_section_paths(zf)
 
         return PreprocessedData(
-            content=zf,                     # ZipFile for downstream stages
-            raw_content=file_data,          # Original bytes
+            content=zf,  # ZipFile for downstream stages
+            raw_content=file_data,  # Original bytes
             encoding="utf-8",
             resources={
                 "file_data": file_data,

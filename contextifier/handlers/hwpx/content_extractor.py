@@ -14,14 +14,13 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Any, Dict, List, Set
 
 import zipfile
 
 from contextifier.pipeline.content_extractor import BaseContentExtractor
 from contextifier.types import (
     ChartData,
-    ExtractionResult,
     PreprocessedData,
     TableData,
 )
@@ -33,10 +32,7 @@ from contextifier.handlers.hwpx._section import parse_hwpx_section
 from contextifier.handlers.hwpx.preprocessor import find_section_paths
 
 if TYPE_CHECKING:
-    from contextifier.services.image_service import ImageService
-    from contextifier.services.tag_service import TagService
-    from contextifier.services.chart_service import ChartService
-    from contextifier.services.table_service import TableService
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -48,14 +44,14 @@ class HwpxContentExtractor(BaseContentExtractor):
 
     # ── BaseContentExtractor interface ────────────────────────────────
 
-    def extract_text(
-        self, preprocessed: PreprocessedData, **kwargs: Any
-    ) -> str:
+    def extract_text(self, preprocessed: PreprocessedData, **kwargs: Any) -> str:
         zf, bin_item_map = self._unwrap(preprocessed)
         if zf is None:
             return ""
 
-        section_paths = preprocessed.properties.get("section_paths") or find_section_paths(zf)
+        section_paths = preprocessed.properties.get(
+            "section_paths"
+        ) or find_section_paths(zf)
         processed_images: Set[str] = set()
         parts: List[str] = []
 
@@ -80,7 +76,9 @@ class HwpxContentExtractor(BaseContentExtractor):
 
         # Process remaining BinData images not referenced inline
         remaining = self._process_remaining_images(
-            zf, bin_item_map, processed_images,
+            zf,
+            bin_item_map,
+            processed_images,
         )
         if remaining:
             parts.append(remaining)

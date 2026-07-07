@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Dict, List, NamedTuple, Optional, Tuple
+from typing import List, NamedTuple, Optional, Tuple
 
 from contextifier.types import TableCell, TableData
 from contextifier.handlers.rtf._decoder import decode_hex_escapes
@@ -47,17 +47,20 @@ _ROW_GAP_THRESHOLD = 150
 # Internal Data Structures
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class _CellDef(NamedTuple):
     """Cell definition parsed from row header (before \\cell content)."""
-    h_merge_first: bool   # \clmgf — start horizontal merge
-    h_merge_cont: bool    # \clmrg — continue horizontal merge
-    v_merge_first: bool   # \clvmgf — start vertical merge
-    v_merge_cont: bool    # \clvmrg — continue vertical merge
-    right_boundary: int   # \cellxN — right boundary in twips
+
+    h_merge_first: bool  # \clmgf — start horizontal merge
+    h_merge_cont: bool  # \clmrg — continue horizontal merge
+    v_merge_first: bool  # \clvmgf — start vertical merge
+    v_merge_cont: bool  # \clvmrg — continue vertical merge
+    right_boundary: int  # \cellxN — right boundary in twips
 
 
 class _ParsedCell(NamedTuple):
     """Cell with content + merge info, prior to TableCell conversion."""
+
     text: str
     h_merge_first: bool
     h_merge_cont: bool
@@ -68,6 +71,7 @@ class _ParsedCell(NamedTuple):
 # ═══════════════════════════════════════════════════════════════════════════
 # Public API
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def extract_tables(
     content: str,
@@ -109,10 +113,7 @@ def extract_tables_with_positions(
     excluded_regions = find_excluded_regions(content)
 
     # Find all \row end positions
-    row_ends: List[int] = [
-        m.end()
-        for m in re.finditer(r"\\row(?![a-z])", content)
-    ]
+    row_ends: List[int] = [m.end() for m in re.finditer(r"\\row(?![a-z])", content)]
     if not row_ends:
         return [], []
 
@@ -130,7 +131,8 @@ def extract_tables_with_positions(
 
         if is_in_excluded_region(row_start, excluded_regions):
             _logger.debug(
-                "Skipping table row at %d (header/footer/footnote)", row_start,
+                "Skipping table row at %d (header/footer/footnote)",
+                row_start,
             )
             continue
 
@@ -161,6 +163,7 @@ def extract_tables_with_positions(
 # ═══════════════════════════════════════════════════════════════════════════
 # Row Grouping
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def _group_rows_into_tables(
     raw_rows: List[Tuple[int, int, str]],
@@ -204,6 +207,7 @@ def _group_rows_into_tables(
 # Table Parsing (Rows → TableData)
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _parse_table(
     row_texts: List[str],
     encoding: str,
@@ -246,7 +250,8 @@ def _is_real_table(parsed_rows: List[List[_ParsedCell]]) -> bool:
     effective_counts: List[int] = []
     for row in parsed_rows:
         non_empty = [
-            i for i, cell in enumerate(row)
+            i
+            for i, cell in enumerate(row)
             if not cell.h_merge_cont and (cell.text.strip() or cell.v_merge_first)
         ]
         if non_empty:
@@ -301,7 +306,10 @@ def _build_table_data(
             if cell.v_merge_first:
                 rowspan = 1
                 for nr in range(r_idx + 1, num_rows):
-                    if c_idx < len(parsed_rows[nr]) and parsed_rows[nr][c_idx].v_merge_cont:
+                    if (
+                        c_idx < len(parsed_rows[nr])
+                        and parsed_rows[nr][c_idx].v_merge_cont
+                    ):
                         rowspan += 1
                         merge[nr][c_idx] = (0, 0)  # consumed
                     else:
@@ -330,14 +338,16 @@ def _build_table_data(
                 cs, rs = 1, 1
 
             text = re.sub(r"\s+", " ", cell.text).strip()
-            table_cells.append(TableCell(
-                content=text,
-                row_span=rs,
-                col_span=cs,
-                is_header=False,
-                row_index=r_idx,
-                col_index=c_idx,
-            ))
+            table_cells.append(
+                TableCell(
+                    content=text,
+                    row_span=rs,
+                    col_span=cs,
+                    is_header=False,
+                    row_index=r_idx,
+                    col_index=c_idx,
+                )
+            )
         table_rows.append(table_cells)
 
     return TableData(
@@ -351,6 +361,7 @@ def _build_table_data(
 # ═══════════════════════════════════════════════════════════════════════════
 # Cell Extraction (single row)
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def _extract_cells_with_merge(
     row_text: str,
@@ -377,21 +388,25 @@ def _extract_cells_with_merge(
     for i, text in enumerate(cell_texts):
         if i < len(cell_defs):
             d = cell_defs[i]
-            cells.append(_ParsedCell(
-                text=text,
-                h_merge_first=d.h_merge_first,
-                h_merge_cont=d.h_merge_cont,
-                v_merge_first=d.v_merge_first,
-                v_merge_cont=d.v_merge_cont,
-            ))
+            cells.append(
+                _ParsedCell(
+                    text=text,
+                    h_merge_first=d.h_merge_first,
+                    h_merge_cont=d.h_merge_cont,
+                    v_merge_first=d.v_merge_first,
+                    v_merge_cont=d.v_merge_cont,
+                )
+            )
         else:
-            cells.append(_ParsedCell(
-                text=text,
-                h_merge_first=False,
-                h_merge_cont=False,
-                v_merge_first=False,
-                v_merge_cont=False,
-            ))
+            cells.append(
+                _ParsedCell(
+                    text=text,
+                    h_merge_first=False,
+                    h_merge_cont=False,
+                    v_merge_first=False,
+                    v_merge_cont=False,
+                )
+            )
 
     return cells
 
@@ -445,13 +460,15 @@ def _parse_cell_definitions(def_part: str) -> List[_CellDef]:
             v_cont = True
         elif token.startswith("\\cellx"):
             boundary = int(match.group(1)) if match.group(1) else 0
-            defs.append(_CellDef(
-                h_merge_first=h_first,
-                h_merge_cont=h_cont,
-                v_merge_first=v_first,
-                v_merge_cont=v_cont,
-                right_boundary=boundary,
-            ))
+            defs.append(
+                _CellDef(
+                    h_merge_first=h_first,
+                    h_merge_cont=h_cont,
+                    v_merge_first=v_first,
+                    v_merge_cont=v_cont,
+                    right_boundary=boundary,
+                )
+            )
             # Reset for next cell definition
             h_first = h_cont = v_first = v_cont = False
 
@@ -509,6 +526,7 @@ def _extract_cell_texts(
 # ═══════════════════════════════════════════════════════════════════════════
 # Utility: Convert single-column "table" to text
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def single_column_to_text(
     row_texts: List[str],

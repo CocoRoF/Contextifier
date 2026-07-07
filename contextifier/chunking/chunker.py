@@ -29,7 +29,9 @@ from contextifier.errors import ChunkingError
 from contextifier.chunking.strategies.base import BaseChunkingStrategy
 from contextifier.chunking.strategies.page_strategy import PageChunkingStrategy
 from contextifier.chunking.strategies.table_strategy import TableChunkingStrategy
-from contextifier.chunking.strategies.protected_strategy import ProtectedChunkingStrategy
+from contextifier.chunking.strategies.protected_strategy import (
+    ProtectedChunkingStrategy,
+)
 from contextifier.chunking.strategies.plain_strategy import PlainChunkingStrategy
 
 
@@ -69,12 +71,14 @@ class TextChunker:
             self._strategies.extend(custom_strategies)
 
         # Built-in strategies
-        self._strategies.extend([
-            TableChunkingStrategy(),
-            PageChunkingStrategy(),
-            ProtectedChunkingStrategy(),
-            PlainChunkingStrategy(),
-        ])
+        self._strategies.extend(
+            [
+                TableChunkingStrategy(),
+                PageChunkingStrategy(),
+                ProtectedChunkingStrategy(),
+                PlainChunkingStrategy(),
+            ]
+        )
 
         # Sort by priority (lower = higher priority)
         self._strategies.sort(key=lambda s: s.priority)
@@ -152,11 +156,14 @@ class TextChunker:
                 from contextifier.chunking.metadata_enricher import (
                     enrich_chunk_metadata,
                 )
+
                 result = enrich_chunk_metadata(result)
             return result
         except NotImplementedError:
             # Strategy not yet implemented — try next
-            return self._fallback_chunk(text, effective_config, ext, include_meta, **kwargs)
+            return self._fallback_chunk(
+                text, effective_config, ext, include_meta, **kwargs
+            )
         except Exception as e:
             raise ChunkingError(
                 f"Chunking failed with strategy '{strategy.strategy_name}': {e}",
@@ -209,7 +216,8 @@ class TextChunker:
             try:
                 if strategy.can_handle(text, config, file_extension=ext, **context):
                     return strategy.chunk(
-                        text, config,
+                        text,
+                        config,
                         file_extension=ext,
                         include_position_metadata=include_meta,
                         **context,
@@ -220,7 +228,9 @@ class TextChunker:
                 continue
 
         # Ultimate fallback: return text as single chunk
-        self._logger.warning("All chunking strategies failed, returning text as single chunk")
+        self._logger.warning(
+            "All chunking strategies failed, returning text as single chunk"
+        )
         if include_meta:
             return [Chunk(text=text, metadata=ChunkMetadata(chunk_index=0))]
         return [text]

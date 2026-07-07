@@ -29,21 +29,24 @@ from typing import Any, Dict, List, Optional, Tuple
 
 class LineThickness(Enum):
     """Classification of a PDF drawing-line thickness."""
-    THIN = auto()       # < 0.5 pt  — inner grid / hairline
-    NORMAL = auto()     # 0.5–1.5 pt — regular border
-    THICK = auto()      # > 1.5 pt  — emphasis / header divider
+
+    THIN = auto()  # < 0.5 pt  — inner grid / hairline
+    NORMAL = auto()  # 0.5–1.5 pt — regular border
+    THICK = auto()  # > 1.5 pt  — emphasis / header divider
 
 
 class TableDetectionStrategy(Enum):
     """Which strategy found this table candidate."""
-    PYMUPDF_NATIVE = auto()        # fitz find_tables()
-    PDFPLUMBER_LINES = auto()      # pdfplumber line-based
-    HYBRID_ANALYSIS = auto()       # custom line-analysis grid
+
+    PYMUPDF_NATIVE = auto()  # fitz find_tables()
+    PDFPLUMBER_LINES = auto()  # pdfplumber line-based
+    HYBRID_ANALYSIS = auto()  # custom line-analysis grid
     BORDERLESS_HEURISTIC = auto()  # text-clustering heuristic
 
 
 class ElementType(Enum):
     """Type of page element for the position-aware merger."""
+
     TEXT = "text"
     TABLE = "table"
     IMAGE = "image"
@@ -52,31 +55,35 @@ class ElementType(Enum):
 
 class ComplexityLevel(Enum):
     """Page-level complexity classification."""
-    SIMPLE = auto()      # score < 0.35 → text extraction
-    MODERATE = auto()    # 0.35–0.65 → hybrid
-    COMPLEX = auto()     # 0.65–0.90 → hybrid (not full OCR)
-    EXTREME = auto()     # ≥ 0.90 → full-page OCR (with caveats)
+
+    SIMPLE = auto()  # score < 0.35 → text extraction
+    MODERATE = auto()  # 0.35–0.65 → hybrid
+    COMPLEX = auto()  # 0.65–0.90 → hybrid (not full OCR)
+    EXTREME = auto()  # ≥ 0.90 → full-page OCR (with caveats)
 
 
 class ProcessingStrategy(Enum):
     """Per-page processing strategy chosen by the complexity analyzer."""
-    TEXT_EXTRACTION = auto()    # standard text + table + image
-    HYBRID = auto()             # text + block-image for complex regions
-    BLOCK_IMAGE_OCR = auto()    # block-image dominant + remaining text
-    FULL_PAGE_OCR = auto()      # smart blocks / grid / full-page image
+
+    TEXT_EXTRACTION = auto()  # standard text + table + image
+    HYBRID = auto()  # text + block-image for complex regions
+    BLOCK_IMAGE_OCR = auto()  # block-image dominant + remaining text
+    FULL_PAGE_OCR = auto()  # smart blocks / grid / full-page image
 
 
 class TableQuality(Enum):
     """Processability grade for a table region."""
-    EXCELLENT = auto()      # ≥ 0.95  → must text-extract
-    GOOD = auto()           # ≥ 0.85  → recommended text
-    MODERATE = auto()       # ≥ 0.65  → attempt text
-    POOR = auto()           # ≥ 0.40  → image recommended
+
+    EXCELLENT = auto()  # ≥ 0.95  → must text-extract
+    GOOD = auto()  # ≥ 0.85  → recommended text
+    MODERATE = auto()  # ≥ 0.65  → attempt text
+    POOR = auto()  # ≥ 0.40  → image recommended
     UNPROCESSABLE = auto()  # < 0.40  → must image
 
 
 class LayoutBlockType(Enum):
     """Semantic block type detected by the layout detector."""
+
     ARTICLE = auto()
     IMAGE_WITH_CAPTION = auto()
     STANDALONE_IMAGE = auto()
@@ -91,9 +98,10 @@ class LayoutBlockType(Enum):
 
 class BlockProcessingStrategy(Enum):
     """Strategy used by the block image engine."""
-    SEMANTIC_BLOCKS = auto()    # layout detector → per-block images
-    GRID_BLOCKS = auto()        # NxM grid division
-    FULL_PAGE = auto()          # single full-page image
+
+    SEMANTIC_BLOCKS = auto()  # layout detector → per-block images
+    GRID_BLOCKS = auto()  # NxM grid division
+    FULL_PAGE = auto()  # single full-page image
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -111,7 +119,7 @@ class PdfPlusConfig:
     # ── Line analysis ────────────────────────────────────────────────────
     THIN_LINE_MAX: float = 0.5
     NORMAL_LINE_MAX: float = 1.5
-    DOUBLE_LINE_TOLERANCE: float = 3.0      # merge lines within 5 pt
+    DOUBLE_LINE_TOLERANCE: float = 3.0  # merge lines within 5 pt
     DOUBLE_LINE_OVERLAP_RATIO: float = 0.5  # positional overlap threshold
 
     # ── Table detection ──────────────────────────────────────────────────
@@ -157,7 +165,15 @@ class PdfPlusConfig:
     MERGE_X_OVERLAP: float = 0.80
     ANNOTATION_Y_MARGIN: float = 30.0
     ANNOTATION_PATTERNS: tuple = (
-        "주)", "주 )", "※", "*", "†", "‡", "¹", "²", "³",
+        "주)",
+        "주 )",
+        "※",
+        "*",
+        "†",
+        "‡",
+        "¹",
+        "²",
+        "³",
     )
     CONTINUITY_TOP_RATIO: float = 0.30
     CONTINUITY_BOTTOM_RATIO: float = 0.70
@@ -245,7 +261,7 @@ class PdfPlusConfig:
 
     # ── OCR common ───────────────────────────────────────────────────────
     OCR_LANGUAGE: str = "kor+eng"
-    BLOCK_IMAGE_DPI: int = 300             # alias for BLOCK_DPI
+    BLOCK_IMAGE_DPI: int = 300  # alias for BLOCK_DPI
 
     # ═════════════════════════════════════════════════════════════════════
     # Aliases — used by modules that reference slightly different names.
@@ -253,71 +269,71 @@ class PdfPlusConfig:
     # ═════════════════════════════════════════════════════════════════════
 
     # _line_analysis.py
-    LINE_MERGE_TOLERANCE: float = 5.0       # ≡ TABLE_MERGE_TOLERANCE
-    BORDER_EXTENSION_MARGIN: float = 2.0    # page-border extension buffer
-    THIN_LINE_THRESHOLD: float = 0.5        # ≡ THIN_LINE_MAX
-    THICK_LINE_THRESHOLD: float = 1.5       # ≡ NORMAL_LINE_MAX
-    DOUBLE_LINE_GAP: float = 3.0            # ≡ DOUBLE_LINE_TOLERANCE
+    LINE_MERGE_TOLERANCE: float = 5.0  # ≡ TABLE_MERGE_TOLERANCE
+    BORDER_EXTENSION_MARGIN: float = 2.0  # page-border extension buffer
+    THIN_LINE_THRESHOLD: float = 0.5  # ≡ THIN_LINE_MAX
+    THICK_LINE_THRESHOLD: float = 1.5  # ≡ NORMAL_LINE_MAX
+    DOUBLE_LINE_GAP: float = 3.0  # ≡ DOUBLE_LINE_TOLERANCE
 
     # _graphic_detector.py
-    GRAPHIC_CURVE_RATIO_THRESHOLD: float = 0.3   # ≡ GRAPHIC_CURVE_RATIO
-    GRAPHIC_MIN_CURVE_COUNT: int = 10             # ≡ GRAPHIC_MIN_CURVES
-    GRAPHIC_FILL_RATIO_THRESHOLD: float = 0.2    # ≡ GRAPHIC_FILL_RATIO
-    GRAPHIC_COLOR_VARIETY_THRESHOLD: int = 3      # ≡ GRAPHIC_COLOR_VARIETY
+    GRAPHIC_CURVE_RATIO_THRESHOLD: float = 0.3  # ≡ GRAPHIC_CURVE_RATIO
+    GRAPHIC_MIN_CURVE_COUNT: int = 10  # ≡ GRAPHIC_MIN_CURVES
+    GRAPHIC_FILL_RATIO_THRESHOLD: float = 0.2  # ≡ GRAPHIC_FILL_RATIO
+    GRAPHIC_COLOR_VARIETY_THRESHOLD: int = 3  # ≡ GRAPHIC_COLOR_VARIETY
 
     # _table_detection.py
-    TABLE_CONFIDENCE_THRESHOLD: float = 0.35      # minimum to accept a table
-    PYMUPDF_SNAP_TOLERANCE: float = 7.0           # ≡ PYMUPDF_SNAP
-    PYMUPDF_JOIN_TOLERANCE: float = 7.0           # ≡ PYMUPDF_JOIN
-    PYMUPDF_EDGE_MIN_LENGTH: float = 10.0         # ≡ PYMUPDF_EDGE_MIN
-    PYMUPDF_INTERSECTION_TOLERANCE: float = 7.0   # ≡ PYMUPDF_INTERSECTION
-    PYMUPDF_CONFIDENCE_BASE: float = 0.6          # ≡ PYMUPDF_BASE_CONFIDENCE
-    PDFPLUMBER_CONFIDENCE_BASE: float = 0.4       # ≡ PDFPLUMBER_BASE_CONFIDENCE
-    LINE_CONFIDENCE_BASE: float = 0.3             # ≡ LINE_ANALYSIS_BASE_CONFIDENCE
+    TABLE_CONFIDENCE_THRESHOLD: float = 0.35  # minimum to accept a table
+    PYMUPDF_SNAP_TOLERANCE: float = 7.0  # ≡ PYMUPDF_SNAP
+    PYMUPDF_JOIN_TOLERANCE: float = 7.0  # ≡ PYMUPDF_JOIN
+    PYMUPDF_EDGE_MIN_LENGTH: float = 10.0  # ≡ PYMUPDF_EDGE_MIN
+    PYMUPDF_INTERSECTION_TOLERANCE: float = 7.0  # ≡ PYMUPDF_INTERSECTION
+    PYMUPDF_CONFIDENCE_BASE: float = 0.6  # ≡ PYMUPDF_BASE_CONFIDENCE
+    PDFPLUMBER_CONFIDENCE_BASE: float = 0.4  # ≡ PDFPLUMBER_BASE_CONFIDENCE
+    LINE_CONFIDENCE_BASE: float = 0.3  # ≡ LINE_ANALYSIS_BASE_CONFIDENCE
 
     # _table_validator.py
-    TABLE_MIN_FILLED_CELL_RATIO: float = 0.15     # ≡ MIN_FILLED_CELL_RATIO
-    TABLE_MAX_EMPTY_ROW_RATIO: float = 0.7        # ≡ MAX_EMPTY_ROW_RATIO
-    TABLE_MIN_MEANINGFUL_CELLS: int = 2            # ≡ MIN_MEANINGFUL_CELLS
-    TABLE_MIN_VALID_ROWS: int = 2                  # ≡ MIN_VALID_ROWS
-    TABLE_MIN_TEXT_DENSITY: float = 0.005          # ≡ MIN_TEXT_DENSITY
-    TABLE_MAX_LONG_CELLS_RATIO: float = 0.4        # ≡ MAX_LONG_CELLS_RATIO
-    TABLE_EXTREME_CELL_LENGTH: int = 800           # ≡ EXTREME_CELL_LENGTH
-    TABLE_MAX_CELL_TEXT_LENGTH: int = 300           # ≡ MAX_CELL_TEXT_LENGTH
+    TABLE_MIN_FILLED_CELL_RATIO: float = 0.15  # ≡ MIN_FILLED_CELL_RATIO
+    TABLE_MAX_EMPTY_ROW_RATIO: float = 0.7  # ≡ MAX_EMPTY_ROW_RATIO
+    TABLE_MIN_MEANINGFUL_CELLS: int = 2  # ≡ MIN_MEANINGFUL_CELLS
+    TABLE_MIN_VALID_ROWS: int = 2  # ≡ MIN_VALID_ROWS
+    TABLE_MIN_TEXT_DENSITY: float = 0.005  # ≡ MIN_TEXT_DENSITY
+    TABLE_MAX_LONG_CELLS_RATIO: float = 0.4  # ≡ MAX_LONG_CELLS_RATIO
+    TABLE_EXTREME_CELL_LENGTH: int = 800  # ≡ EXTREME_CELL_LENGTH
+    TABLE_MAX_CELL_TEXT_LENGTH: int = 300  # ≡ MAX_CELL_TEXT_LENGTH
 
     # _table_quality_analyzer.py
-    QUALITY_WEIGHT_SIMPLE: float = 0.20            # ≡ QUALITY_WEIGHT_ELEMENT
-    QUALITY_BORDER_TOLERANCE: float = 3.0          # snap tolerance for border scoring
-    QUALITY_MIN_ORTHOGONAL_RATIO: float = 0.7      # ratio of orthogonal lines
-    QUALITY_MIN_CELL_SIZE: float = 8.0             # minimum cell dimension
-    QUALITY_MAX_CELL_ASPECT_RATIO: float = 20.0    # reject excessively narrow cells
-    QUALITY_LINE_ANGLE_TOLERANCE: float = 5.0      # degrees from hor/vert
-    QUALITY_MAX_CURVE_RATIO: float = 0.3           # max curve-to-total-line ratio
-    QUALITY_MAX_DIAGONAL_RATIO: float = 0.2        # max diagonal-to-total ratio
-    QUALITY_EXCELLENT_THRESHOLD: float = 0.95      # ≡ QUALITY_EXCELLENT
-    QUALITY_GOOD_THRESHOLD: float = 0.85           # ≡ QUALITY_GOOD
-    QUALITY_MODERATE_THRESHOLD: float = 0.65       # ≡ QUALITY_MODERATE
-    QUALITY_POOR_THRESHOLD: float = 0.40           # ≡ QUALITY_POOR
+    QUALITY_WEIGHT_SIMPLE: float = 0.20  # ≡ QUALITY_WEIGHT_ELEMENT
+    QUALITY_BORDER_TOLERANCE: float = 3.0  # snap tolerance for border scoring
+    QUALITY_MIN_ORTHOGONAL_RATIO: float = 0.7  # ratio of orthogonal lines
+    QUALITY_MIN_CELL_SIZE: float = 8.0  # minimum cell dimension
+    QUALITY_MAX_CELL_ASPECT_RATIO: float = 20.0  # reject excessively narrow cells
+    QUALITY_LINE_ANGLE_TOLERANCE: float = 5.0  # degrees from hor/vert
+    QUALITY_MAX_CURVE_RATIO: float = 0.3  # max curve-to-total-line ratio
+    QUALITY_MAX_DIAGONAL_RATIO: float = 0.2  # max diagonal-to-total ratio
+    QUALITY_EXCELLENT_THRESHOLD: float = 0.95  # ≡ QUALITY_EXCELLENT
+    QUALITY_GOOD_THRESHOLD: float = 0.85  # ≡ QUALITY_GOOD
+    QUALITY_MODERATE_THRESHOLD: float = 0.65  # ≡ QUALITY_MODERATE
+    QUALITY_POOR_THRESHOLD: float = 0.40  # ≡ QUALITY_POOR
 
     # _cell_analysis.py
-    CELL_GRID_TOLERANCE: float = 3.0       # snap cells to grid lines
-    CELL_OVERLAP_THRESHOLD: float = 0.5    # overlap ratio for cell merging
+    CELL_GRID_TOLERANCE: float = 3.0  # snap cells to grid lines
+    CELL_OVERLAP_THRESHOLD: float = 0.5  # overlap ratio for cell merging
 
     # _table_processor.py
-    TABLE_CONTINUITY_BOTTOM_RATIO: float = 0.70   # ≡ CONTINUITY_BOTTOM_RATIO
-    TABLE_CONTINUITY_TOP_RATIO: float = 0.30       # ≡ CONTINUITY_TOP_RATIO
-    TABLE_ANNOTATION_GAP: float = 30.0             # ≡ ANNOTATION_Y_MARGIN
+    TABLE_CONTINUITY_BOTTOM_RATIO: float = 0.70  # ≡ CONTINUITY_BOTTOM_RATIO
+    TABLE_CONTINUITY_TOP_RATIO: float = 0.30  # ≡ CONTINUITY_TOP_RATIO
+    TABLE_ANNOTATION_GAP: float = 30.0  # ≡ ANNOTATION_Y_MARGIN
 
     # _text_quality_analyzer.py
-    PUA_RANGES: list = [                   # for tuple-based iteration
+    PUA_RANGES: list = [  # for tuple-based iteration
         (0xE000, 0xF8FF),
         (0xF0000, 0xFFFFD),
     ]
-    OCR_QUALITY_THRESHOLD: float = 0.7     # ≡ QUALITY_OCR_THRESHOLD
+    OCR_QUALITY_THRESHOLD: float = 0.7  # ≡ QUALITY_OCR_THRESHOLD
 
     # _vector_text_ocr.py
     VECTOR_TEXT_MAX_GLYPH_AREA: float = 2500.0  # max area for a single glyph path
-    VECTOR_TEXT_MIN_GLYPH_CLUSTER: int = 5       # ≡ VECTOR_MIN_ITEMS
+    VECTOR_TEXT_MIN_GLYPH_CLUSTER: int = 5  # ≡ VECTOR_MIN_ITEMS
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -328,6 +344,7 @@ class PdfPlusConfig:
 @dataclass
 class LineInfo:
     """A single detected line from page drawings."""
+
     x0: float
     y0: float
     x1: float
@@ -349,8 +366,9 @@ class LineInfo:
 @dataclass
 class GridInfo:
     """Grid constructed from horizontal / vertical lines."""
-    h_lines: List[float] = field(default_factory=list)   # Y positions
-    v_lines: List[float] = field(default_factory=list)   # X positions
+
+    h_lines: List[float] = field(default_factory=list)  # Y positions
+    v_lines: List[float] = field(default_factory=list)  # X positions
     cells: List["CellInfo"] = field(default_factory=list)
     bbox: Tuple[float, float, float, float] = (0, 0, 0, 0)
     is_complete: bool = False
@@ -368,6 +386,7 @@ class GridInfo:
 @dataclass
 class CellInfo:
     """A single table cell with grid position and span info."""
+
     row: int
     col: int
     bbox: Tuple[float, float, float, float]
@@ -381,6 +400,7 @@ class CellInfo:
 @dataclass
 class AnnotationInfo:
     """Annotation (footnote / endnote) associated with a table."""
+
     text: str = ""
     bbox: Tuple[float, float, float, float] = (0.0, 0.0, 0.0, 0.0)
     annotation_type: str = "annotation"
@@ -390,6 +410,7 @@ class AnnotationInfo:
 @dataclass
 class VectorTextRegion:
     """Region containing outlined / vector-path text."""
+
     bbox: Tuple[float, float, float, float]
     drawing_count: int
     curve_count: int
@@ -402,6 +423,7 @@ class VectorTextRegion:
 @dataclass
 class GraphicRegionInfo:
     """Detected graphic region (chart, diagram, icon)."""
+
     bbox: Tuple[float, float, float, float]
     curve_count: int = 0
     line_count: int = 0
@@ -416,6 +438,7 @@ class GraphicRegionInfo:
 @dataclass
 class TableCandidate:
     """A candidate table found by one of the detection strategies."""
+
     strategy: TableDetectionStrategy
     confidence: float
     bbox: Tuple[float, float, float, float]
@@ -440,6 +463,7 @@ class PageElement:
 
     Sortable by ``(page_num, y0, x0)`` for reading-order assembly.
     """
+
     element_type: ElementType
     content: str
     bbox: Tuple[float, float, float, float]
@@ -452,18 +476,24 @@ class PageElement:
 
     def __lt__(self, other: "PageElement") -> bool:
         return (self.page_num, self.bbox[1], self.bbox[0]) < (
-            other.page_num, other.bbox[1], other.bbox[0]
+            other.page_num,
+            other.bbox[1],
+            other.bbox[0],
         )
 
 
 @dataclass
 class PageBorderInfo:
     """Whether the page has a decorative border frame."""
+
     has_border: bool = False
     border_bbox: Optional[Tuple[float, float, float, float]] = None
     border_lines: Dict[str, bool] = field(
         default_factory=lambda: {
-            "top": False, "bottom": False, "left": False, "right": False,
+            "top": False,
+            "bottom": False,
+            "left": False,
+            "right": False,
         }
     )
 
@@ -474,6 +504,7 @@ class PageBorderInfo:
 @dataclass
 class RegionComplexity:
     """Complexity analysis for a single page region (grid cell)."""
+
     bbox: Tuple[float, float, float, float]
     complexity_level: ComplexityLevel
     complexity_score: float
@@ -488,6 +519,7 @@ class RegionComplexity:
 @dataclass
 class PageComplexity:
     """Full-page complexity analysis result."""
+
     page_num: int
     page_size: Tuple[float, float]
     overall_complexity: ComplexityLevel
@@ -509,6 +541,7 @@ class PageComplexity:
 @dataclass
 class BlockResult:
     """Result of rendering one block as an image."""
+
     success: bool
     image_tag: Optional[str] = None
     bbox: Tuple[float, float, float, float] = (0, 0, 0, 0)
@@ -519,6 +552,7 @@ class BlockResult:
 @dataclass
 class MultiBlockResult:
     """Result of rendering multiple blocks (smart processing)."""
+
     success: bool
     strategy_used: BlockProcessingStrategy = BlockProcessingStrategy.FULL_PAGE
     block_results: List[BlockResult] = field(default_factory=list)
@@ -532,6 +566,7 @@ class MultiBlockResult:
 @dataclass
 class TableQualityResult:
     """Assessment of a table region's processability."""
+
     quality: TableQuality
     score: float
     border_score: float = 0.0
@@ -547,6 +582,7 @@ class TableQualityResult:
 @dataclass
 class LayoutBlock:
     """Semantic layout block detected by the layout detector."""
+
     block_type: LayoutBlockType
     bbox: Tuple[float, float, float, float]
     elements: List[Dict] = field(default_factory=list)
@@ -557,6 +593,7 @@ class LayoutBlock:
 @dataclass
 class LayoutAnalysisResult:
     """Full layout analysis for a page."""
+
     blocks: List[LayoutBlock] = field(default_factory=list)
     columns: List[Tuple[float, float]] = field(default_factory=list)
     has_header: bool = False
@@ -569,7 +606,8 @@ class LayoutAnalysisResult:
 @dataclass
 class TextQualityResult:
     """Quality analysis for a text fragment."""
-    quality_score: float         # 0.0 – 1.0
+
+    quality_score: float  # 0.0 – 1.0
     total_chars: int = 0
     pua_chars: int = 0
     garbled_ratio: float = 0.0
@@ -580,6 +618,7 @@ class TextQualityResult:
 @dataclass
 class PageTextAnalysis:
     """Quality-aware text extraction result for a single page."""
+
     text: str = ""
     quality: Optional[TextQualityResult] = None
     used_ocr: bool = False

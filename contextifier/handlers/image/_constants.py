@@ -15,7 +15,7 @@ MAGIC_GIF87 = b"GIF87a"
 MAGIC_GIF89 = b"GIF89a"
 MAGIC_BMP = b"BM"
 MAGIC_WEBP_RIFF = b"RIFF"
-MAGIC_WEBP_TAG = b"WEBP"      # bytes 8..12
+MAGIC_WEBP_TAG = b"WEBP"  # bytes 8..12
 MAGIC_TIFF_LE = b"II\x2a\x00"
 MAGIC_TIFF_BE = b"MM\x00\x2a"
 
@@ -40,16 +40,36 @@ MAGIC_TABLE: list[tuple[int, bytes, str]] = [
 # Supported extensions (from handler.py skeleton)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-IMAGE_EXTENSIONS: frozenset[str] = frozenset({
-    "jpg", "jpeg", "png", "gif", "bmp", "webp",
-    "tiff", "tif", "ico", "heic", "heif",
-    # Note: SVG is handled by TextHandler as it is XML-based text.
-})
+IMAGE_EXTENSIONS: frozenset[str] = frozenset(
+    {
+        "jpg",
+        "jpeg",
+        "png",
+        "gif",
+        "bmp",
+        "webp",
+        "tiff",
+        "tif",
+        "ico",
+        "heic",
+        "heif",
+        # Note: SVG is handled by TextHandler as it is XML-based text.
+    }
+)
 
 # Subset for which we can validate magic bytes
-MAGIC_VALIDATED_EXTENSIONS: frozenset[str] = frozenset({
-    "jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff", "tif",
-})
+MAGIC_VALIDATED_EXTENSIONS: frozenset[str] = frozenset(
+    {
+        "jpg",
+        "jpeg",
+        "png",
+        "gif",
+        "bmp",
+        "webp",
+        "tiff",
+        "tif",
+    }
+)
 
 
 def detect_image_format(data: bytes) -> str | None:

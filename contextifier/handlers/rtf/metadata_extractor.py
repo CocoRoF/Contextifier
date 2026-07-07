@@ -35,11 +35,11 @@ _logger = logging.getLogger("contextifier.rtf.metadata")
 # ── Field extraction patterns (within \info group) ──────────────────────
 # RTF structure: {\title content} — the { precedes the control word
 _METADATA_FIELDS: Dict[str, str] = {
-    "title":         r"\{\\title\s+([^}]*)\}",
-    "subject":       r"\{\\subject\s+([^}]*)\}",
-    "author":        r"\{\\author\s+([^}]*)\}",
-    "keywords":      r"\{\\keywords\s+([^}]*)\}",
-    "comments":      r"\{\\doccomm\s+([^}]*)\}",
+    "title": r"\{\\title\s+([^}]*)\}",
+    "subject": r"\{\\subject\s+([^}]*)\}",
+    "author": r"\{\\author\s+([^}]*)\}",
+    "keywords": r"\{\\keywords\s+([^}]*)\}",
+    "comments": r"\{\\doccomm\s+([^}]*)\}",
     "last_saved_by": r"\{\\operator\s+([^}]*)\}",
 }
 
@@ -94,7 +94,9 @@ class RtfMetadataExtractor(BaseMetadataExtractor):
         fields: Dict[str, Optional[str]] = {}
         for field_name, pattern in _METADATA_FIELDS.items():
             fields[field_name] = self._extract_field(
-                info_content, pattern, encoding,
+                info_content,
+                pattern,
+                encoding,
             )
 
         # Extract date fields (search full content, not just \info)

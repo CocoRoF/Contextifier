@@ -93,7 +93,9 @@ class XlsMetadataExtractor(BaseMetadataExtractor):
             comments = self._safe_str(getattr(meta_obj, "comments", None))
             last_saved_by = self._safe_str(getattr(meta_obj, "last_saved_by", None))
             create_time = self._safe_datetime(getattr(meta_obj, "create_time", None))
-            last_saved_time = self._safe_datetime(getattr(meta_obj, "last_saved_time", None))
+            last_saved_time = self._safe_datetime(
+                getattr(meta_obj, "last_saved_time", None)
+            )
             category = self._safe_str(getattr(meta_obj, "category", None))
             revision = self._safe_str(getattr(meta_obj, "revision_number", None))
 

@@ -24,10 +24,9 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any
 
 from contextifier.types import DocumentMetadata
-from contextifier.errors import ExtractionError
 
 
 class BaseMetadataExtractor(ABC):

@@ -40,7 +40,9 @@ class LayoutRange:
         return self.rows * self.cols
 
     def contains(self, row: int, col: int) -> bool:
-        return self.min_row <= row <= self.max_row and self.min_col <= col <= self.max_col
+        return (
+            self.min_row <= row <= self.max_row and self.min_col <= col <= self.max_col
+        )
 
     def overlaps(self, other: LayoutRange) -> bool:
         return not (
@@ -123,7 +125,9 @@ def layout_detect_range(sheet: object) -> Optional[LayoutRange]:
 # ── Object detection ─────────────────────────────────────────────────────────
 
 
-def object_detect(sheet: object, book: object = None, layout: Optional[LayoutRange] = None) -> List[LayoutRange]:
+def object_detect(
+    sheet: object, book: object = None, layout: Optional[LayoutRange] = None
+) -> List[LayoutRange]:
     """
     Detect individual data regions in an xlrd sheet.
 
@@ -140,7 +144,9 @@ def object_detect(sheet: object, book: object = None, layout: Optional[LayoutRan
             if layout is None:
                 return []
 
-        bordered = _detect_bordered_regions(sheet, book, layout) if book is not None else []
+        bordered = (
+            _detect_bordered_regions(sheet, book, layout) if book is not None else []
+        )
         value_regions = _detect_value_regions(sheet, layout, bordered)
 
         all_regions = bordered + value_regions
@@ -162,7 +168,12 @@ def _has_border(sheet: object, book: object, row0: int, col0: int) -> bool:
     try:
         xf_idx = sheet.cell_xf_index(row0, col0)  # type: ignore[attr-defined]
         xf = book.xf_list[xf_idx]  # type: ignore[attr-defined]
-        for attr in ("top_line_style", "bottom_line_style", "left_line_style", "right_line_style"):
+        for attr in (
+            "top_line_style",
+            "bottom_line_style",
+            "left_line_style",
+            "right_line_style",
+        ):
             val = getattr(xf.border, attr, 0)
             if val and val > 0:
                 return True
@@ -171,7 +182,9 @@ def _has_border(sheet: object, book: object, row0: int, col0: int) -> bool:
     return False
 
 
-def _detect_bordered_regions(sheet: object, book: object, layout: LayoutRange) -> List[LayoutRange]:
+def _detect_bordered_regions(
+    sheet: object, book: object, layout: LayoutRange
+) -> List[LayoutRange]:
     bordered: Set[Tuple[int, int]] = set()
     for r1 in range(layout.min_row, layout.max_row + 1):
         for c1 in range(layout.min_col, layout.max_col + 1):
@@ -185,7 +198,9 @@ def _detect_bordered_regions(sheet: object, book: object, layout: LayoutRange) -
 # ── Value detection ──────────────────────────────────────────────────────────
 
 
-def _detect_value_regions(sheet: object, layout: LayoutRange, exclude: List[LayoutRange]) -> List[LayoutRange]:
+def _detect_value_regions(
+    sheet: object, layout: LayoutRange, exclude: List[LayoutRange]
+) -> List[LayoutRange]:
     def _excluded(r: int, c: int) -> bool:
         return any(reg.contains(r, c) for reg in exclude)
 
@@ -232,7 +247,9 @@ def _bfs_group(cells: Set[Tuple[int, int]]) -> List[LayoutRange]:
             max_r = max(r for r, _ in group)
             min_c = min(c for _, c in group)
             max_c = max(c for _, c in group)
-            regions.append(LayoutRange(min_row=min_r, max_row=max_r, min_col=min_c, max_col=max_c))
+            regions.append(
+                LayoutRange(min_row=min_r, max_row=max_r, min_col=min_c, max_col=max_c)
+            )
 
     return regions
 

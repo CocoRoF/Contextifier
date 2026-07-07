@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 # Public API
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def parse_hwpx_table(
     tbl_elem: ET.Element,
     ns: Optional[Dict[str, str]] = None,
@@ -85,6 +86,7 @@ def parse_hwpx_table(
 # ═══════════════════════════════════════════════════════════════════════════════
 # Internal Grid Builder
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _build_grid(
     tbl_elem: ET.Element,
@@ -178,6 +180,7 @@ def _extract_cell_text(tc: ET.Element, ns: Dict[str, str]) -> str:
 # HTML Renderer
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def _render_html(
     grid: Dict[Tuple[int, int], Dict],
     total_rows: int,
@@ -216,7 +219,12 @@ def _render_html(
                 attrs.append(f'colspan="{info["colspan"]}"')
 
             attr_str = (" " + " ".join(attrs)) if attrs else ""
-            text = info["text"].replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            text = (
+                info["text"]
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+            )
             cells_html.append(f"<td{attr_str}>{text}</td>")
 
         if cells_html:

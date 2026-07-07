@@ -5,6 +5,7 @@
 ## Key Features
 
 - **Broad Format Support**: PDF, DOCX, DOC, PPTX, PPT, XLSX, XLS, HWP, HWPX, RTF, CSV, TSV, TXT, MD, HTML, images, code files, and 80+ extensions
+- **Two Views of Every Document**: the AI-friendly pipeline (lightweight, normalized text for LLMs) *and* `open_raw()` — a lossless, addressable, **writable** view of OOXML files where saving keeps untouched parts byte-identical
 - **Intelligent Text Extraction**: Preserves document structure (headings, tables, image positions) with automatic metadata extraction
 - **Table Processing**: Converts tables to HTML/Markdown/Text with `rowspan`/`colspan` support for merged cells
 - **OCR Integration**: 5 Vision LLM engines — OpenAI, Anthropic, Google Gemini, AWS Bedrock, vLLM
@@ -35,7 +36,39 @@ text = processor.extract_text("document.pdf")
 print(text)
 ```
 
-### 2. Extract + Chunk in One Step
+### 2. Raw Access — Read *and Write* OOXML Losslessly
+
+The extraction pipeline renders an AI-friendly view and discards the
+rest. `open_raw()` is its lossless twin: the full package stays
+available, edits are surgical, and **untouched parts round-trip
+byte-identically** — charts, pivot tables, sparklines, styles and
+custom XML all survive (unlike a load→save round-trip through the
+usual Office libraries).
+
+```python
+from contextifier import open_raw
+
+raw = open_raw("report.xlsx")              # XlsxRawDocument
+raw.sheets["Sales"].set_cell("B3", 142)    # surgical edit
+raw.charts[0].set_data(                    # real chart-data editing
+    categories=["Q1", "Q2", "Q3"],
+    series=[("Sales", [120, 135, 150])],
+)
+raw.save("report-edited.xlsx")
+
+raw = open_raw("paper.docx")               # DocxRawDocument
+raw.set_paragraph_text(3, "Revised text")  # runs & inline images preserved
+raw.tables[0].insert_row(2)
+
+raw = open_raw("deck.pptx")                # PptxRawDocument
+raw.slides[0].set_text(shape_id=2, new_text="New title")
+raw.save("deck2.pptx")
+```
+
+Supported raw formats: `.xlsx` / `.docx` / `.pptx` (the OOXML trio).
+Every model also exposes `.package` for part-level OPC access.
+
+### 3. Extract + Chunk in One Step
 
 ```python
 from contextifier import DocumentProcessor
@@ -50,7 +83,7 @@ for i, chunk in enumerate(result.chunks, 1):
 result.save_to_md("output/chunks")
 ```
 
-### 3. Custom Configuration
+### 4. Custom Configuration
 
 ```python
 from contextifier import DocumentProcessor
@@ -65,7 +98,7 @@ processor = DocumentProcessor(config=config)
 text = processor.extract_text("report.xlsx")
 ```
 
-### 4. OCR Integration
+### 5. OCR Integration
 
 ```python
 from contextifier import DocumentProcessor

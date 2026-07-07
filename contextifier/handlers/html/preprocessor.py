@@ -13,9 +13,9 @@ from __future__ import annotations
 import base64
 import logging
 import re
-from typing import Any, Dict, List, NamedTuple, Optional
+from typing import Any, Dict, List, NamedTuple
 
-from bs4 import BeautifulSoup, Tag
+from bs4 import BeautifulSoup
 
 from contextifier.pipeline.preprocessor import BasePreprocessor
 from contextifier.types import PreprocessedData
@@ -28,13 +28,12 @@ logger = logging.getLogger(__name__)
 # memory exhaustion from maliciously crafted HTML.
 _MAX_IMAGE_DECODE_BYTES = 50 * 1024 * 1024
 
-_DATA_URI_RE = re.compile(
-    r"data:image/([a-zA-Z0-9+.-]+);base64,([A-Za-z0-9+/=\s]+)"
-)
+_DATA_URI_RE = re.compile(r"data:image/([a-zA-Z0-9+.-]+);base64,([A-Za-z0-9+/=\s]+)")
 
 
 class HtmlParsedData(NamedTuple):
     """Preprocessed HTML payload."""
+
     soup: BeautifulSoup
     title: str
     encoding: str
@@ -43,9 +42,7 @@ class HtmlParsedData(NamedTuple):
 class HtmlPreprocessor(BasePreprocessor):
     """Parse HTML, strip scripts/styles, extract embedded images."""
 
-    def preprocess(
-        self, converted_data: Any, **kwargs: Any
-    ) -> PreprocessedData:
+    def preprocess(self, converted_data: Any, **kwargs: Any) -> PreprocessedData:
         html_text, encoding, file_ext = self._unpack(converted_data)
 
         if not html_text:
@@ -69,6 +66,7 @@ class HtmlPreprocessor(BasePreprocessor):
 
         # Remove HTML comments
         from bs4 import Comment
+
         for comment in soup.find_all(string=lambda t: isinstance(t, Comment)):
             comment.extract()
 
@@ -127,7 +125,11 @@ class HtmlPreprocessor(BasePreprocessor):
     @staticmethod
     def _unpack(converted_data: Any):
         if isinstance(converted_data, HtmlConvertedData):
-            return converted_data.html_text, converted_data.encoding, converted_data.file_extension
+            return (
+                converted_data.html_text,
+                converted_data.encoding,
+                converted_data.file_extension,
+            )
         if isinstance(converted_data, str):
             return converted_data, "utf-8", "html"
         return "", "utf-8", "html"

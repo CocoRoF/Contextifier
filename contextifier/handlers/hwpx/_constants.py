@@ -40,11 +40,11 @@ MANIFEST_NAMESPACES: dict[str, str] = {
 # Standard Paths Inside the ZIP Archive
 # ═══════════════════════════════════════════════════════════════════════════════
 
-HPF_PATH = "Contents/content.hpf"           # OPF manifest — bin_item_id → file path
-HEADER_PATH = "Contents/header.xml"         # Document metadata / docInfo
-VERSION_PATH = "version.xml"                # Version information
-MANIFEST_PATH = "META-INF/manifest.xml"     # MIME type information
-MIMETYPE_PATH = "mimetype"                  # Plain text MIME type file
+HPF_PATH = "Contents/content.hpf"  # OPF manifest — bin_item_id → file path
+HEADER_PATH = "Contents/header.xml"  # Document metadata / docInfo
+VERSION_PATH = "version.xml"  # Version information
+MANIFEST_PATH = "META-INF/manifest.xml"  # MIME type information
+MIMETYPE_PATH = "mimetype"  # Plain text MIME type file
 
 # Alternative header paths (for older/variant HWPX files)
 HEADER_FILE_PATHS: list[str] = [
@@ -54,7 +54,7 @@ HEADER_FILE_PATHS: list[str] = [
 ]
 
 # Section XML pattern prefix
-SECTION_PREFIX = "Contents/section"         # Sections are Contents/section0.xml, etc.
+SECTION_PREFIX = "Contents/section"  # Sections are Contents/section0.xml, etc.
 
 # BinData directory prefix
 BINDATA_PREFIX = "BinData/"
@@ -70,13 +70,25 @@ CHART_PREFIXES: list[str] = [
 # Image Extensions
 # ═══════════════════════════════════════════════════════════════════════════════
 
-SUPPORTED_IMAGE_EXTENSIONS: frozenset[str] = frozenset({
-    ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff", ".tif", ".webp",
-})
+SUPPORTED_IMAGE_EXTENSIONS: frozenset[str] = frozenset(
+    {
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".bmp",
+        ".tiff",
+        ".tif",
+        ".webp",
+    }
+)
 
-SKIP_IMAGE_EXTENSIONS: frozenset[str] = frozenset({
-    ".wmf", ".emf",
-})
+SKIP_IMAGE_EXTENSIONS: frozenset[str] = frozenset(
+    {
+        ".wmf",
+        ".emf",
+    }
+)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # OOXML Chart Namespaces (for embedded charts)

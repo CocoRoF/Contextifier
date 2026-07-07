@@ -39,6 +39,7 @@ class RtfConvertedData(NamedTuple):
         encoding: Detected encoding from \\ansicpg (hint for preprocessor).
         file_extension: From FileContext ("rtf").
     """
+
     raw_bytes: bytes
     encoding: str
     file_extension: str
@@ -85,7 +86,7 @@ class RtfConverter(BaseConverter):
         stripped = file_data.lstrip()
         if not stripped.startswith(_RTF_MAGIC):
             raise ConversionError(
-                f"Not a valid RTF file (missing {{\\rtf header)",
+                "Not a valid RTF file (missing {\\rtf header)",
                 stage="convert",
                 handler="RtfConverter",
             )

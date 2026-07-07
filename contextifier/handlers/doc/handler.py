@@ -50,8 +50,8 @@ from contextifier.handlers.doc.metadata_extractor import DocMetadataExtractor
 from contextifier.handlers.doc.content_extractor import DocContentExtractor
 
 # Magic bytes for format detection
-_ZIP_MAGIC = b"PK"                              # ZIP/OOXML (DOCX)
-_RTF_MAGIC = b"{\\rtf"                           # RTF
+_ZIP_MAGIC = b"PK"  # ZIP/OOXML (DOCX)
+_RTF_MAGIC = b"{\\rtf"  # RTF
 _OLE2_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"  # OLE2/CFBF (genuine DOC)
 _HTML_MARKERS = (b"<html", b"<!doctype", b"<HTML", b"<!DOCTYPE")
 
@@ -98,7 +98,8 @@ class DOCHandler(BaseHandler):
         if data[:2] == _ZIP_MAGIC:
             self._logger.info("DOC file is actually DOCX (ZIP magic detected)")
             return self._delegate_to(
-                "docx", file_context,
+                "docx",
+                file_context,
                 include_metadata=kwargs.get("include_metadata", True),
                 **{k: v for k, v in kwargs.items() if k != "include_metadata"},
             )
@@ -107,7 +108,8 @@ class DOCHandler(BaseHandler):
         if data[:5] == _RTF_MAGIC:
             self._logger.info("DOC file is actually RTF (RTF magic detected)")
             return self._delegate_to(
-                "rtf", file_context,
+                "rtf",
+                file_context,
                 include_metadata=kwargs.get("include_metadata", True),
                 **{k: v for k, v in kwargs.items() if k != "include_metadata"},
             )
@@ -117,7 +119,8 @@ class DOCHandler(BaseHandler):
         if any(header.startswith(marker) for marker in _HTML_MARKERS):
             self._logger.info("DOC file is actually HTML (HTML markers detected)")
             return self._delegate_to(
-                "html", file_context,
+                "html",
+                file_context,
                 include_metadata=kwargs.get("include_metadata", True),
                 **{k: v for k, v in kwargs.items() if k != "include_metadata"},
             )

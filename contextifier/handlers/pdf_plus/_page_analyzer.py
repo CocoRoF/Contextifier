@@ -9,7 +9,7 @@ PDF Plus — page-level analysis helpers.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Tuple
+from typing import Any, Tuple
 
 from contextifier.handlers.pdf_plus._types import (
     PageBorderInfo,
@@ -44,8 +44,12 @@ def detect_page_border(page: Any) -> PageBorderInfo:
             h = y1 - y0
 
             # Must be very thin — one dimension tiny
-            is_h_line = h <= CFG.PAGE_BORDER_LINE_MAX_SIZE and w >= pw * CFG.PAGE_SPANNING_RATIO
-            is_v_line = w <= CFG.PAGE_BORDER_LINE_MAX_SIZE and h >= ph * CFG.PAGE_SPANNING_RATIO
+            is_h_line = (
+                h <= CFG.PAGE_BORDER_LINE_MAX_SIZE and w >= pw * CFG.PAGE_SPANNING_RATIO
+            )
+            is_v_line = (
+                w <= CFG.PAGE_BORDER_LINE_MAX_SIZE and h >= ph * CFG.PAGE_SPANNING_RATIO
+            )
 
             if is_h_line:
                 if y0 < margin_y:
@@ -87,7 +91,7 @@ def is_table_likely_border(
     pw, ph = page.rect.width, page.rect.height
     tw = table_bbox[2] - table_bbox[0]
     th = table_bbox[3] - table_bbox[1]
-    return (tw / pw > CFG.PAGE_SPANNING_RATIO and th / ph > CFG.PAGE_SPANNING_RATIO)
+    return tw / pw > CFG.PAGE_SPANNING_RATIO and th / ph > CFG.PAGE_SPANNING_RATIO
 
 
 __all__ = ["detect_page_border", "is_table_likely_border"]

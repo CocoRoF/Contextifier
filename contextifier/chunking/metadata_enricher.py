@@ -32,6 +32,7 @@ _SHEET_RE = re.compile(r"\[Sheet:\s*([^\]]+)\]")
 # collides because extraction renders headings with markdown hashes.
 _HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$", re.MULTILINE)
 
+
 def _heading_breadcrumb(stack: Dict[int, str]) -> Optional[str]:
     if not stack:
         return None

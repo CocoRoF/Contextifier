@@ -8,7 +8,6 @@ access both the xlrd Book and raw bytes (for OLE metadata).
 
 from __future__ import annotations
 
-import io
 import logging
 from typing import Any, NamedTuple
 
@@ -25,8 +24,9 @@ logger = logging.getLogger(__name__)
 
 class XlsConvertedData(NamedTuple):
     """Wrapper returned by XlsConverter.convert()."""
-    book: Any           # xlrd.Book
-    file_data: bytes    # original bytes (for OLE metadata)
+
+    book: Any  # xlrd.Book
+    file_data: bytes  # original bytes (for OLE metadata)
 
 
 class XlsConverter(BaseConverter):

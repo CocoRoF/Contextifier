@@ -20,9 +20,7 @@ PDF_MAGIC = b"%PDF"
 
 # ── PDF Date Parsing ─────────────────────────────────────────────────────────
 
-_PDF_DATE_RE = re.compile(
-    r"D:(\d{4})(\d{2})?(\d{2})?(\d{2})?(\d{2})?(\d{2})?"
-)
+_PDF_DATE_RE = re.compile(r"D:(\d{4})(\d{2})?(\d{2})?(\d{2})?(\d{2})?(\d{2})?")
 
 
 def parse_pdf_date(date_str: Optional[str]) -> Optional[datetime]:
@@ -37,9 +35,13 @@ def parse_pdf_date(date_str: Optional[str]) -> Optional[datetime]:
     if not m:
         return None
     try:
-        parts = [int(g) if g else d for g, d in zip(
-            m.groups(), (0, 1, 1, 0, 0, 0),
-        )]
+        parts = [
+            int(g) if g else d
+            for g, d in zip(
+                m.groups(),
+                (0, 1, 1, 0, 0, 0),
+            )
+        ]
         return datetime(*parts)  # type: ignore[arg-type]
     except (ValueError, TypeError):
         return None

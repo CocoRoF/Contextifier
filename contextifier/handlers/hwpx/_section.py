@@ -33,18 +33,15 @@ XML element hierarchy::
 from __future__ import annotations
 
 import logging
-import os
 import xml.etree.ElementTree as ET
 import zipfile
 from typing import TYPE_CHECKING, Dict, List, Optional, Set
 
 from contextifier.handlers.hwpx._constants import (
-    BINDATA_PREFIX,
     CHART_PREFIXES,
     HWPX_NAMESPACES,
     OOXML_CHART_NS,
     CHART_TYPE_MAP,
-    SUPPORTED_IMAGE_EXTENSIONS,
 )
 from contextifier.handlers.hwpx._table import parse_hwpx_table
 
@@ -58,6 +55,7 @@ logger = logging.getLogger(__name__)
 # ═══════════════════════════════════════════════════════════════════════════════
 # Public API
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def parse_hwpx_section(
     section_xml: bytes,
@@ -103,7 +101,10 @@ def parse_hwpx_section(
     paragraphs = root.findall(".//hp:p", ns)
     for para in paragraphs:
         para_text = _process_paragraph(
-            para, zf, bin_item_map, ns,
+            para,
+            zf,
+            bin_item_map,
+            ns,
             image_service=image_service,
             chart_service=chart_service,
             processed_images=processed_images,
@@ -117,6 +118,7 @@ def parse_hwpx_section(
 # ═══════════════════════════════════════════════════════════════════════════════
 # Paragraph Processing
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _process_paragraph(
     para: ET.Element,
@@ -136,7 +138,10 @@ def _process_paragraph(
 
         if tag == "run":
             run_text = _process_run(
-                child, zf, bin_item_map, ns,
+                child,
+                zf,
+                bin_item_map,
+                ns,
                 image_service=image_service,
                 processed_images=processed_images,
             )
@@ -150,7 +155,10 @@ def _process_paragraph(
 
         elif tag == "switch":
             switch_text = _process_switch(
-                child, zf, bin_item_map, ns,
+                child,
+                zf,
+                bin_item_map,
+                ns,
                 chart_service=chart_service,
                 image_service=image_service,
                 processed_images=processed_images,
@@ -160,7 +168,10 @@ def _process_paragraph(
 
         elif tag == "ctrl":
             ctrl_text = _process_ctrl(
-                child, zf, bin_item_map, ns,
+                child,
+                zf,
+                bin_item_map,
+                ns,
                 image_service=image_service,
                 processed_images=processed_images,
             )
@@ -169,7 +180,10 @@ def _process_paragraph(
 
         elif tag == "pic":
             img_text = _process_picture_element(
-                child, zf, bin_item_map, ns,
+                child,
+                zf,
+                bin_item_map,
+                ns,
                 image_service=image_service,
                 processed_images=processed_images,
             )
@@ -178,7 +192,8 @@ def _process_paragraph(
 
         elif tag == "chart":
             chart_text = _process_chart_ref(
-                child, zf,
+                child,
+                zf,
                 chart_service=chart_service,
             )
             if chart_text:
@@ -190,6 +205,7 @@ def _process_paragraph(
 # ═══════════════════════════════════════════════════════════════════════════════
 # Run / Control / Switch Processing
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _process_run(
     run: ET.Element,
@@ -216,7 +232,10 @@ def _process_run(
 
         elif tag == "ctrl":
             ctrl_text = _process_ctrl(
-                child, zf, bin_item_map, ns,
+                child,
+                zf,
+                bin_item_map,
+                ns,
                 image_service=image_service,
                 processed_images=processed_images,
             )
@@ -225,7 +244,10 @@ def _process_run(
 
         elif tag == "pic":
             img_text = _process_picture_element(
-                child, zf, bin_item_map, ns,
+                child,
+                zf,
+                bin_item_map,
+                ns,
                 image_service=image_service,
                 processed_images=processed_images,
             )
@@ -249,7 +271,10 @@ def _process_ctrl(
     # hc:pic is in the 'hc' namespace
     for pic in ctrl.findall("hc:pic", ns):
         img_text = _process_picture_element(
-            pic, zf, bin_item_map, ns,
+            pic,
+            zf,
+            bin_item_map,
+            ns,
             image_service=image_service,
             processed_images=processed_images,
         )
@@ -258,7 +283,10 @@ def _process_ctrl(
     # Also direct hp:pic
     for pic in ctrl.findall("hp:pic", ns):
         img_text = _process_picture_element(
-            pic, zf, bin_item_map, ns,
+            pic,
+            zf,
+            bin_item_map,
+            ns,
             image_service=image_service,
             processed_images=processed_images,
         )
@@ -290,14 +318,19 @@ def _process_switch(
 
             if tag == "chart":
                 chart_text = _process_chart_ref(
-                    child, zf, chart_service=chart_service,
+                    child,
+                    zf,
+                    chart_service=chart_service,
                 )
                 if chart_text:
                     parts.append(chart_text)
 
             elif tag == "p":
                 para_text = _process_paragraph(
-                    child, zf, bin_item_map, ns,
+                    child,
+                    zf,
+                    bin_item_map,
+                    ns,
                     image_service=image_service,
                     chart_service=chart_service,
                     processed_images=processed_images,
@@ -307,7 +340,10 @@ def _process_switch(
 
             elif tag == "pic":
                 img_text = _process_picture_element(
-                    child, zf, bin_item_map, ns,
+                    child,
+                    zf,
+                    bin_item_map,
+                    ns,
                     image_service=image_service,
                     processed_images=processed_images,
                 )
@@ -320,7 +356,10 @@ def _process_switch(
             tag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
             if tag == "p":
                 para_text = _process_paragraph(
-                    child, zf, bin_item_map, ns,
+                    child,
+                    zf,
+                    bin_item_map,
+                    ns,
                     image_service=image_service,
                     chart_service=chart_service,
                     processed_images=processed_images,
@@ -334,6 +373,7 @@ def _process_switch(
 # ═══════════════════════════════════════════════════════════════════════════════
 # Image Processing
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _process_picture_element(
     pic: ET.Element,
@@ -410,6 +450,7 @@ def _resolve_zip_path(zf: zipfile.ZipFile, href: str) -> Optional[str]:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Chart Processing
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _process_chart_ref(
     chart_elem: ET.Element,

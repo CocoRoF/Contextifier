@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import types
 from dataclasses import dataclass, field, replace
-from typing import Any, Dict, FrozenSet, Literal, Optional
+from typing import Any, Dict, Literal, Optional
 
 from contextifier.errors import ConfigurationError
 from contextifier.types import (
@@ -39,6 +39,7 @@ from contextifier.types import (
 
 # ─── Tag Configuration ────────────────────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class TagConfig:
     """
@@ -47,6 +48,7 @@ class TagConfig:
     Controls the prefix/suffix wrapping for page numbers, slide numbers,
     sheet names, image references, and chart blocks.
     """
+
     # Page tags: e.g., "[Page Number: 1]"
     page_prefix: str = "[Page Number: "
     page_suffix: str = "]"
@@ -74,11 +76,13 @@ class TagConfig:
 
 # ─── Image Configuration ──────────────────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class ImageConfig:
     """
     Configuration for image extraction and storage.
     """
+
     directory_path: str = "temp/images"
     naming_strategy: NamingStrategy = NamingStrategy.HASH
     default_format: str = "png"
@@ -90,11 +94,13 @@ class ImageConfig:
 
 # ─── Chart Configuration ──────────────────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class ChartConfig:
     """
     Configuration for chart data formatting.
     """
+
     use_html_table: bool = True
     include_chart_type: bool = True
     include_chart_title: bool = True
@@ -102,23 +108,27 @@ class ChartConfig:
 
 # ─── Metadata Configuration ──────────────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class MetadataConfig:
     """
     Configuration for metadata formatting.
     """
-    language: str = "ko"              # "ko" or "en"
+
+    language: str = "ko"  # "ko" or "en"
     date_format: str = "%Y-%m-%d %H:%M:%S"
     indent: str = "  "
 
 
 # ─── Table Configuration ─────────────────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class TableConfig:
     """
     Configuration for table output formatting.
     """
+
     output_format: OutputFormat = OutputFormat.HTML
     clean_whitespace: bool = True
     preserve_merged_cells: bool = True
@@ -126,11 +136,13 @@ class TableConfig:
 
 # ─── Chunking Configuration ──────────────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class ChunkingConfig:
     """
     Configuration for text chunking.
     """
+
     chunk_size: int = 1000
     chunk_overlap: int = 200
     preserve_tables: bool = True
@@ -149,18 +161,23 @@ class ChunkingConfig:
 
 # ─── OCR Configuration ───────────────────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class OCRConfig:
     """
     Configuration for OCR processing.
     """
+
     enabled: bool = False
-    provider: Optional[str] = None    # "openai", "anthropic", "gemini", "vllm", "bedrock", "tesseract"
-    prompt: Optional[str] = None      # Custom OCR prompt (None = use default)
-    prompt_language: str = "ko"       # Prompt output language: "ko", "en", etc.
+    provider: Optional[str] = (
+        None  # "openai", "anthropic", "gemini", "vllm", "bedrock", "tesseract"
+    )
+    prompt: Optional[str] = None  # Custom OCR prompt (None = use default)
+    prompt_language: str = "ko"  # Prompt output language: "ko", "en", etc.
 
 
 # ─── Encoding Configuration ──────────────────────────────────────────────────
+
 
 @dataclass(frozen=True)
 class EncodingConfig:
@@ -179,14 +196,21 @@ class EncodingConfig:
             detection. If confidence is below this, fallback_encodings
             are tried instead. (Reserved for future chardet integration.)
     """
+
     fallback_encodings: tuple[str, ...] = (
-        "utf-8", "utf-8-sig", "cp949", "euc-kr", "latin-1", "ascii",
+        "utf-8",
+        "utf-8-sig",
+        "cp949",
+        "euc-kr",
+        "latin-1",
+        "ascii",
     )
     force_encoding: Optional[str] = None
     min_confidence: float = 0.7
 
 
 # ─── Root Configuration ──────────────────────────────────────────────────────
+
 
 @dataclass(frozen=True)
 class ProcessingConfig:
@@ -210,6 +234,7 @@ class ProcessingConfig:
         # Modify existing config
         config2 = config.with_tags(page_prefix="<!-- Page ", page_suffix=" -->")
     """
+
     tags: TagConfig = field(default_factory=TagConfig)
     images: ImageConfig = field(default_factory=ImageConfig)
     charts: ChartConfig = field(default_factory=ChartConfig)
@@ -225,7 +250,11 @@ class ProcessingConfig:
     def __post_init__(self) -> None:
         # Deep-freeze format_options so external code cannot mutate
         # the internal state of this frozen dataclass.
-        raw = self.format_options if isinstance(self.format_options, dict) else dict(self.format_options)
+        raw = (
+            self.format_options
+            if isinstance(self.format_options, dict)
+            else dict(self.format_options)
+        )
         frozen = types.MappingProxyType(
             {k: types.MappingProxyType(dict(v)) for k, v in raw.items()}
         )
@@ -282,7 +311,8 @@ class ProcessingConfig:
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize config to dictionary."""
-        from dataclasses import asdict, fields
+        from dataclasses import asdict
+
         # asdict() fails on MappingProxyType (not deepcopy-able).
         # Temporarily swap format_options to a plain dict for serialization.
         plain_opts = dict(self.format_options)
@@ -290,11 +320,11 @@ class ProcessingConfig:
         try:
             d = asdict(self)
         finally:
-            object.__setattr__(self, "format_options", types.MappingProxyType(plain_opts))
+            object.__setattr__(
+                self, "format_options", types.MappingProxyType(plain_opts)
+            )
         # Ensure format_options values are plain dicts
-        d["format_options"] = {
-            k: dict(v) for k, v in plain_opts.items()
-        }
+        d["format_options"] = {k: dict(v) for k, v in plain_opts.items()}
         return d
 
     @classmethod
@@ -302,23 +332,48 @@ class ProcessingConfig:
         """Deserialize config from dictionary."""
         tags = TagConfig(**data.get("tags", {})) if "tags" in data else TagConfig()
         images_data = data.get("images", {})
-        if "naming_strategy" in images_data and isinstance(images_data["naming_strategy"], str):
-            images_data["naming_strategy"] = NamingStrategy(images_data["naming_strategy"])
-        if "storage_type" in images_data and isinstance(images_data["storage_type"], str):
+        if "naming_strategy" in images_data and isinstance(
+            images_data["naming_strategy"], str
+        ):
+            images_data["naming_strategy"] = NamingStrategy(
+                images_data["naming_strategy"]
+            )
+        if "storage_type" in images_data and isinstance(
+            images_data["storage_type"], str
+        ):
             images_data["storage_type"] = StorageType(images_data["storage_type"])
         images = ImageConfig(**images_data) if "images" in data else ImageConfig()
-        charts = ChartConfig(**data.get("charts", {})) if "charts" in data else ChartConfig()
-        meta = MetadataConfig(**data.get("metadata", {})) if "metadata" in data else MetadataConfig()
+        charts = (
+            ChartConfig(**data.get("charts", {})) if "charts" in data else ChartConfig()
+        )
+        meta = (
+            MetadataConfig(**data.get("metadata", {}))
+            if "metadata" in data
+            else MetadataConfig()
+        )
         tables_data = data.get("tables", {})
-        if "output_format" in tables_data and isinstance(tables_data["output_format"], str):
+        if "output_format" in tables_data and isinstance(
+            tables_data["output_format"], str
+        ):
             tables_data["output_format"] = OutputFormat(tables_data["output_format"])
         tables = TableConfig(**tables_data) if "tables" in data else TableConfig()
-        chunking = ChunkingConfig(**data.get("chunking", {})) if "chunking" in data else ChunkingConfig()
+        chunking = (
+            ChunkingConfig(**data.get("chunking", {}))
+            if "chunking" in data
+            else ChunkingConfig()
+        )
         ocr = OCRConfig(**data.get("ocr", {})) if "ocr" in data else OCRConfig()
         encoding_data = data.get("encoding", {})
-        if "fallback_encodings" in encoding_data and isinstance(encoding_data["fallback_encodings"], list):
-            encoding_data = {**encoding_data, "fallback_encodings": tuple(encoding_data["fallback_encodings"])}
-        encoding = EncodingConfig(**encoding_data) if "encoding" in data else EncodingConfig()
+        if "fallback_encodings" in encoding_data and isinstance(
+            encoding_data["fallback_encodings"], list
+        ):
+            encoding_data = {
+                **encoding_data,
+                "fallback_encodings": tuple(encoding_data["fallback_encodings"]),
+            }
+        encoding = (
+            EncodingConfig(**encoding_data) if "encoding" in data else EncodingConfig()
+        )
         fmt_opts = data.get("format_options", {})
 
         return cls(

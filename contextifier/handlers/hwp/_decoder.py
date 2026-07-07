@@ -46,9 +46,7 @@ def is_compressed(ole: olefile.OleFileIO) -> bool:
         header = stream.read()
         if len(header) < FILE_HEADER_FLAGS_OFFSET + 4:
             return False
-        flags = struct.unpack_from(
-            "<I", header, FILE_HEADER_FLAGS_OFFSET
-        )[0]
+        flags = struct.unpack_from("<I", header, FILE_HEADER_FLAGS_OFFSET)[0]
         return bool(flags & COMPRESS_FLAG)
     except Exception:
         return False

@@ -13,7 +13,7 @@ Public API:
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from contextifier.types import TableCell, TableData
 
@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 # ═══════════════════════════════════════════════════════════════════════════════
 # Public helpers
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def is_simple_table(table: Any) -> bool:
     """
@@ -143,6 +144,7 @@ def extract_table(table: Any) -> TableData:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Merge detection
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _get_merge_info(
     cell: Any,

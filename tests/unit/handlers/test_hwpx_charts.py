@@ -12,18 +12,13 @@ from __future__ import annotations
 
 import io
 import zipfile
-import xml.etree.ElementTree as ET
-from unittest import mock
 
-import pytest
 
 from contextifier.handlers.hwpx._section import (
     _parse_ooxml_chart,
-    _process_chart_ref,
     _format_chart_simple,
     parse_hwpx_section,
 )
-from contextifier.handlers.hwpx._constants import OOXML_CHART_NS
 
 
 # ═══════════════════════════════════════════════════════════════════════════

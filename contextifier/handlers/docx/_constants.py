@@ -39,6 +39,7 @@ NAMESPACES: dict[str, str] = {
 
 # ── Element type enum ────────────────────────────────────────────────────
 
+
 @unique
 class ElementType(str, Enum):
     """Classification of document body elements."""

@@ -16,10 +16,10 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, List, Union
 
-from contextifier.config import ProcessingConfig, ChunkingConfig
-from contextifier.types import Chunk, ChunkMetadata
+from contextifier.config import ProcessingConfig
+from contextifier.types import Chunk
 
 
 class BaseChunkingStrategy(ABC):

@@ -20,7 +20,7 @@ import logging
 import os
 import re
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Pattern, Protocol, Union
+from typing import Any, Callable, List, Optional, Pattern, Protocol
 
 from contextifier.config import ProcessingConfig
 from contextifier.ocr.base import BaseOCREngine
@@ -30,26 +30,27 @@ logger = logging.getLogger("contextifier.ocr")
 
 # ── Progress Protocol ─────────────────────────────────────────────────────
 
+
 class OCRProgressCallback(Protocol):
     """Protocol for OCR progress reporting."""
 
-    def __call__(self, event: OCRProgressEvent) -> None:
-        ...
+    def __call__(self, event: OCRProgressEvent) -> None: ...
 
 
 @dataclass(frozen=True)
 class OCRProgressEvent:
     """Structured progress event (replaces raw dict from old code)."""
 
-    event_type: str          # 'tag_processing' | 'tag_processed' | 'completed'
-    current_index: int       # 0-based index of current image
-    total_count: int         # Total number of images
-    image_path: str = ""     # Path of image being processed
-    status: str = ""         # 'success' | 'failed' | ''
-    error: str = ""          # Error message if failed
+    event_type: str  # 'tag_processing' | 'tag_processed' | 'completed'
+    current_index: int  # 0-based index of current image
+    total_count: int  # Total number of images
+    image_path: str = ""  # Path of image being processed
+    status: str = ""  # 'success' | 'failed' | ''
+    error: str = ""  # Error message if failed
 
 
 # ── OCRProcessor ──────────────────────────────────────────────────────────
+
 
 class OCRProcessor:
     """
@@ -140,12 +141,14 @@ class OCRProcessor:
 
         # Final notification
         if progress_callback:
-            progress_callback(OCRProgressEvent(
-                event_type="completed",
-                current_index=total,
-                total_count=total,
-                status=f"{success_count}/{total} succeeded",
-            ))
+            progress_callback(
+                OCRProgressEvent(
+                    event_type="completed",
+                    current_index=total,
+                    total_count=total,
+                    status=f"{success_count}/{total} succeeded",
+                )
+            )
 
         return result
 
@@ -176,7 +179,11 @@ class OCRProcessor:
         ) as executor:
             future_to_idx = {
                 executor.submit(
-                    self._ocr_single, idx, img_path, total, progress_callback,
+                    self._ocr_single,
+                    idx,
+                    img_path,
+                    total,
+                    progress_callback,
                 ): idx
                 for idx, img_path in enumerate(image_paths)
             }
@@ -202,37 +209,46 @@ class OCRProcessor:
         """
         # Notify: processing started
         if progress_callback:
-            progress_callback(OCRProgressEvent(
-                event_type="tag_processing",
-                current_index=idx,
-                total_count=total,
-                image_path=img_path,
-            ))
+            progress_callback(
+                OCRProgressEvent(
+                    event_type="tag_processing",
+                    current_index=idx,
+                    total_count=total,
+                    image_path=img_path,
+                )
+            )
 
         # Resolve and convert
         local_path = self._resolve_image_path(img_path)
         if local_path is None:
             logger.warning(f"Image not found, keeping original tag: {img_path}")
-            self._notify_failed(progress_callback, idx, total, img_path, "File not found")
+            self._notify_failed(
+                progress_callback, idx, total, img_path, "File not found"
+            )
             return (img_path, None)
 
         ocr_text = self._engine.convert_image_to_text(local_path)
         if ocr_text is None or ocr_text.startswith("[Image conversion error:"):
             logger.warning(f"OCR failed, keeping original tag: {img_path}")
             self._notify_failed(
-                progress_callback, idx, total, img_path,
+                progress_callback,
+                idx,
+                total,
+                img_path,
                 ocr_text or "OCR returned None",
             )
             return (img_path, None)
 
         if progress_callback:
-            progress_callback(OCRProgressEvent(
-                event_type="tag_processed",
-                current_index=idx,
-                total_count=total,
-                image_path=img_path,
-                status="success",
-            ))
+            progress_callback(
+                OCRProgressEvent(
+                    event_type="tag_processed",
+                    current_index=idx,
+                    total_count=total,
+                    image_path=img_path,
+                    status="success",
+                )
+            )
 
         return (img_path, ocr_text)
 
@@ -261,7 +277,10 @@ class OCRProcessor:
         # Replace the capture group with the escaped literal path.
         # Use a lambda to avoid backslash interpretation in replacement strings.
         tag_pattern_str = re.sub(
-            r"\([^)]+\)", lambda _: escaped, pattern_str, count=1,
+            r"\([^)]+\)",
+            lambda _: escaped,
+            pattern_str,
+            count=1,
         )
         tag_re = re.compile(tag_pattern_str)
         return tag_re.sub(lambda _: replacement, text)
@@ -275,14 +294,16 @@ class OCRProcessor:
         error: str,
     ) -> None:
         if callback:
-            callback(OCRProgressEvent(
-                event_type="tag_processed",
-                current_index=idx,
-                total_count=total,
-                image_path=path,
-                status="failed",
-                error=error,
-            ))
+            callback(
+                OCRProgressEvent(
+                    event_type="tag_processed",
+                    current_index=idx,
+                    total_count=total,
+                    image_path=path,
+                    status="failed",
+                    error=error,
+                )
+            )
 
 
 __all__ = [

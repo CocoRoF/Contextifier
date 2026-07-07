@@ -25,7 +25,9 @@ NS_CHART = "http://schemas.openxmlformats.org/drawingml/2006/chart"
 NS_DRAWING_MAIN = "http://schemas.openxmlformats.org/drawingml/2006/main"
 NS_SPREADSHEET = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 NS_RELATIONSHIPS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
-NS_SPREADSHEET_DRAWING = "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"
+NS_SPREADSHEET_DRAWING = (
+    "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"
+)
 NS_PACKAGE = "http://schemas.openxmlformats.org/package/2006/relationships"
 
 OOXML_NS = {
@@ -64,7 +66,9 @@ CHART_TYPE_MAP: dict[str, str] = {
 # Image file extensions
 # ═══════════════════════════════════════════════════════════════════════════════
 
-SUPPORTED_IMAGE_EXTENSIONS = frozenset({".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff"})
+SUPPORTED_IMAGE_EXTENSIONS = frozenset(
+    {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff"}
+)
 UNSUPPORTED_IMAGE_EXTENSIONS = frozenset({".emf", ".wmf"})
 
 # ═══════════════════════════════════════════════════════════════════════════════

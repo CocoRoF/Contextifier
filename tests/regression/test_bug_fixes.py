@@ -7,7 +7,6 @@ do not regress after future changes.
 
 from __future__ import annotations
 
-import html as html_mod
 
 import pytest
 
@@ -102,7 +101,7 @@ class TestP1_HandlerFinalMethods:
 
     def test_process_is_final(self) -> None:
         from contextifier.handlers.base import BaseHandler
-        process_method = getattr(BaseHandler.process, "__final__", None)
+        getattr(BaseHandler.process, "__final__", None)
         # @final sets __final__ attribute (Python 3.11+) or we check via typing
         # The decorator is applied — we verify it doesn't raise at import
         assert BaseHandler.process is not None

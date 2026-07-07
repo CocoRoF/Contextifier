@@ -121,7 +121,11 @@ class PdfPlusContentExtractor(BaseContentExtractor):
         for page_num in range(page_count):
             page = doc.load_page(page_num)
             page_text = self._process_page(
-                doc, page, page_num, processed_images, file_data,
+                doc,
+                page,
+                page_num,
+                processed_images,
+                file_data,
             )
             if page_text.strip():
                 tag = self._make_page_tag(page_num + 1)
@@ -189,30 +193,49 @@ class PdfPlusContentExtractor(BaseContentExtractor):
             # 2. Dispatch to strategy
             if strategy == ProcessingStrategy.TEXT_EXTRACTION:
                 return self._strategy_text(
-                    doc, page, page_num, processed_images, file_data,
+                    doc,
+                    page,
+                    page_num,
+                    processed_images,
+                    file_data,
                 )
             elif strategy == ProcessingStrategy.HYBRID:
                 return self._strategy_hybrid(
-                    doc, page, page_num, processed_images, file_data,
+                    doc,
+                    page,
+                    page_num,
+                    processed_images,
+                    file_data,
                     complexity,
                 )
             elif strategy == ProcessingStrategy.BLOCK_IMAGE_OCR:
                 return self._strategy_block_ocr(
-                    doc, page, page_num, processed_images, file_data,
+                    doc,
+                    page,
+                    page_num,
+                    processed_images,
+                    file_data,
                     complexity,
                 )
             else:  # FULL_PAGE_OCR
                 return self._strategy_full_ocr(
-                    page, page_num, processed_images,
+                    page,
+                    page_num,
+                    processed_images,
                 )
 
         except Exception as exc:
             logger.error(
                 "[PdfPlus] Error on page %d, falling back to text: %s",
-                page_num + 1, exc,
+                page_num + 1,
+                exc,
             )
             return self._strategy_text(
-                doc, page, page_num, processed_images, file_data,
+                doc,
+                page,
+                page_num,
+                processed_images,
+                file_data,
             )
 
     # ─────────────────────────────────────────────────────────────────────
@@ -234,33 +257,36 @@ class PdfPlusContentExtractor(BaseContentExtractor):
         tp = TableProcessor(page, page_num, file_data)
         for pt in tp.process():
             if pt.html:
-                elements.append(PageElement(
-                    element_type=ElementType.TABLE,
-                    content=pt.html,
-                    bbox=pt.bbox,
-                    page_num=page_num,
-                    table_data=pt.data,
-                    confidence=pt.confidence,
-                ))
+                elements.append(
+                    PageElement(
+                        element_type=ElementType.TABLE,
+                        content=pt.html,
+                        bbox=pt.bbox,
+                        page_num=page_num,
+                        table_data=pt.data,
+                        confidence=pt.confidence,
+                    )
+                )
                 table_bboxes.append(pt.bbox)
             if pt.annotations:
                 for ann in pt.annotations:
-                    elements.append(PageElement(
-                        element_type=ElementType.ANNOTATION,
-                        content=ann.text,
-                        bbox=ann.bbox,
-                        page_num=page_num,
-                    ))
+                    elements.append(
+                        PageElement(
+                            element_type=ElementType.ANNOTATION,
+                            content=ann.text,
+                            bbox=ann.bbox,
+                            page_num=page_num,
+                        )
+                    )
 
         # text blocks
-        elements.extend(
-            extract_text_blocks(page, page_num, table_bboxes)
-        )
+        elements.extend(extract_text_blocks(page, page_num, table_bboxes))
 
         # images
         elements.extend(
             extract_images(
-                page, page_num,
+                page,
+                page_num,
                 table_bboxes=table_bboxes,
                 image_service=self._image_service,
             )
@@ -288,33 +314,36 @@ class PdfPlusContentExtractor(BaseContentExtractor):
         tp = TableProcessor(page, page_num, file_data)
         for pt in tp.process():
             if pt.html:
-                elements.append(PageElement(
-                    element_type=ElementType.TABLE,
-                    content=pt.html,
-                    bbox=pt.bbox,
-                    page_num=page_num,
-                    table_data=pt.data,
-                    confidence=pt.confidence,
-                ))
+                elements.append(
+                    PageElement(
+                        element_type=ElementType.TABLE,
+                        content=pt.html,
+                        bbox=pt.bbox,
+                        page_num=page_num,
+                        table_data=pt.data,
+                        confidence=pt.confidence,
+                    )
+                )
                 table_bboxes.append(pt.bbox)
             if pt.annotations:
                 for ann in pt.annotations:
-                    elements.append(PageElement(
-                        element_type=ElementType.ANNOTATION,
-                        content=ann.text,
-                        bbox=ann.bbox,
-                        page_num=page_num,
-                    ))
+                    elements.append(
+                        PageElement(
+                            element_type=ElementType.ANNOTATION,
+                            content=ann.text,
+                            bbox=ann.bbox,
+                            page_num=page_num,
+                        )
+                    )
 
         # text blocks
-        elements.extend(
-            extract_text_blocks(page, page_num, table_bboxes)
-        )
+        elements.extend(extract_text_blocks(page, page_num, table_bboxes))
 
         # images
         elements.extend(
             extract_images(
-                page, page_num,
+                page,
+                page_num,
                 table_bboxes=table_bboxes,
                 image_service=self._image_service,
             )
@@ -325,17 +354,20 @@ class PdfPlusContentExtractor(BaseContentExtractor):
             engine = VectorTextOCREngine(page, page_num)
             for region in engine.detect_and_ocr():
                 if region.ocr_text.strip():
-                    elements.append(PageElement(
-                        element_type=ElementType.TEXT,
-                        content=region.ocr_text,
-                        bbox=region.bbox,
-                        page_num=page_num,
-                        confidence=region.confidence,
-                    ))
+                    elements.append(
+                        PageElement(
+                            element_type=ElementType.TEXT,
+                            content=region.ocr_text,
+                            bbox=region.bbox,
+                            page_num=page_num,
+                            confidence=region.confidence,
+                        )
+                    )
         except Exception as exc:
             logger.debug(
                 "[PdfPlus] Vector OCR skipped on page %d: %s",
-                page_num + 1, exc,
+                page_num + 1,
+                exc,
             )
 
         # block-image complex regions (if significant complex area)
@@ -343,20 +375,25 @@ class PdfPlusContentExtractor(BaseContentExtractor):
             complex_regions = complexity.complex_regions
             if complex_regions and self._image_service is not None:
                 engine = BlockImageEngine(
-                    page, page_num, image_service=self._image_service,
+                    page,
+                    page_num,
+                    image_service=self._image_service,
                 )
                 for bbox in complex_regions:
                     br = engine.process_region(bbox, region_type="complex")
                     if br.success and br.image_tag:
-                        elements.append(PageElement(
-                            element_type=ElementType.IMAGE,
-                            content=br.image_tag,
-                            bbox=br.bbox,
-                            page_num=page_num,
-                        ))
+                        elements.append(
+                            PageElement(
+                                element_type=ElementType.IMAGE,
+                                content=br.image_tag,
+                                bbox=br.bbox,
+                                page_num=page_num,
+                            )
+                        )
         except Exception as exc:
             logger.debug(
-                "[PdfPlus] Block-image for complex regions skipped: %s", exc,
+                "[PdfPlus] Block-image for complex regions skipped: %s",
+                exc,
             )
 
         return merge_page_elements(elements)
@@ -389,31 +426,37 @@ class PdfPlusContentExtractor(BaseContentExtractor):
                 tp = TableProcessor(page, page_num, file_data)
                 for pt in tp.process():
                     if pt.html:
-                        elements.append(PageElement(
-                            element_type=ElementType.TABLE,
-                            content=pt.html,
-                            bbox=pt.bbox,
-                            page_num=page_num,
-                            table_data=pt.data,
-                        ))
+                        elements.append(
+                            PageElement(
+                                element_type=ElementType.TABLE,
+                                content=pt.html,
+                                bbox=pt.bbox,
+                                page_num=page_num,
+                                table_data=pt.data,
+                            )
+                        )
                         table_bboxes.append(pt.bbox)
                 break  # processor handles all tables at once
 
         # remaining content → block-image
         if self._image_service is not None:
             engine = BlockImageEngine(
-                page, page_num, image_service=self._image_service,
+                page,
+                page_num,
+                image_service=self._image_service,
             )
             result = engine.process_page_smart()
             if result.success:
                 combined = combine_block_output(result)
                 if combined.strip():
-                    elements.append(PageElement(
-                        element_type=ElementType.IMAGE,
-                        content=combined,
-                        bbox=(0, 0, page.rect.width, page.rect.height),
-                        page_num=page_num,
-                    ))
+                    elements.append(
+                        PageElement(
+                            element_type=ElementType.IMAGE,
+                            content=combined,
+                            bbox=(0, 0, page.rect.width, page.rect.height),
+                            page_num=page_num,
+                        )
+                    )
 
         return merge_page_elements(elements)
 
@@ -433,7 +476,9 @@ class PdfPlusContentExtractor(BaseContentExtractor):
             return text
 
         engine = BlockImageEngine(
-            page, page_num, image_service=self._image_service,
+            page,
+            page_num,
+            image_service=self._image_service,
         )
         result = engine.process_page_smart()
         if result.success:

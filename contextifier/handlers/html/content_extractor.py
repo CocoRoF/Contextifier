@@ -18,16 +18,15 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, List, Optional
 
-from bs4 import BeautifulSoup, NavigableString, Tag
+from bs4 import NavigableString, Tag
 
 from contextifier.pipeline.content_extractor import BaseContentExtractor
 from contextifier.types import (
     PreprocessedData,
     TableData,
     TableCell,
-    ChartData,
 )
 from contextifier.handlers.html.preprocessor import HtmlParsedData
 
@@ -35,9 +34,22 @@ logger = logging.getLogger(__name__)
 
 _HEADING_TAGS = {"h1", "h2", "h3", "h4", "h5", "h6"}
 _BLOCK_TAGS = {
-    "p", "div", "section", "article", "aside", "main", "header",
-    "footer", "nav", "blockquote", "figure", "figcaption", "details",
-    "summary", "address", "hgroup",
+    "p",
+    "div",
+    "section",
+    "article",
+    "aside",
+    "main",
+    "header",
+    "footer",
+    "nav",
+    "blockquote",
+    "figure",
+    "figcaption",
+    "details",
+    "summary",
+    "address",
+    "hgroup",
 }
 _LIST_TAGS = {"ul", "ol"}
 _SKIP_TAGS = {"script", "style", "noscript", "template", "svg", "math"}
@@ -242,9 +254,9 @@ class HtmlContentExtractor(BaseContentExtractor):
         if not rows_data:
             return None
 
-        num_cols = max(
-            sum(c.col_span for c in r) for r in rows_data
-        ) if rows_data else 0
+        num_cols = (
+            max(sum(c.col_span for c in r) for r in rows_data) if rows_data else 0
+        )
 
         has_header = bool(rows_data) and all(c.is_header for c in rows_data[0])
 

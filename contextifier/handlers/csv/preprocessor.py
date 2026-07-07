@@ -53,6 +53,7 @@ DELIMITER_CANDIDATES: List[str] = [",", "\t", ";", "|"]
 
 # ── Parsed data structure ────────────────────────────────────────────────
 
+
 class CsvParsedData(NamedTuple):
     """
     Structured output of the CsvPreprocessor.
@@ -60,6 +61,7 @@ class CsvParsedData(NamedTuple):
     Stored in PreprocessedData.content and consumed by
     CsvMetadataExtractor and CsvContentExtractor.
     """
+
     rows: List[List[str]]
     has_header: bool
     delimiter: str
@@ -71,6 +73,7 @@ class CsvParsedData(NamedTuple):
 
 
 # ── Preprocessor ─────────────────────────────────────────────────────────
+
 
 class CsvPreprocessor(BasePreprocessor):
     """
@@ -120,10 +123,7 @@ class CsvPreprocessor(BasePreprocessor):
         text = text.replace("\r\n", "\n").replace("\r", "\n")
 
         # Determine delimiter
-        delimiter = (
-            kwargs.get("delimiter")
-            or self._default_delimiter
-        )
+        delimiter = kwargs.get("delimiter") or self._default_delimiter
         delimiter_confidence = 1.0  # forced delimiter = full confidence
         if delimiter is None:
             delimiter, delimiter_confidence = _detect_delimiter(
@@ -318,7 +318,8 @@ def _parse_csv_content(
         for i, row in enumerate(reader):
             if i >= max_rows:
                 _logger.warning(
-                    "CSV row limit reached: %d", max_rows,
+                    "CSV row limit reached: %d",
+                    max_rows,
                 )
                 truncated = True
                 break
@@ -389,12 +390,8 @@ def _detect_header(rows: List[List[str]]) -> bool:
     first_row = rows[0]
     second_row = rows[1]
 
-    first_all_text = all(
-        not _is_numeric(cell) for cell in first_row if cell.strip()
-    )
-    second_has_numbers = any(
-        _is_numeric(cell) for cell in second_row if cell.strip()
-    )
+    first_all_text = all(not _is_numeric(cell) for cell in first_row if cell.strip())
+    second_has_numbers = any(_is_numeric(cell) for cell in second_row if cell.strip())
     first_unique = len(set(first_row)) == len(first_row)
 
     return first_all_text and (second_has_numbers or first_unique)
@@ -402,12 +399,12 @@ def _detect_header(rows: List[List[str]]) -> bool:
 
 # Compiled numeric patterns for performance
 _NUMERIC_PATTERNS = [
-    re.compile(r"^-?\d+$"),                         # Integer
-    re.compile(r"^-?\d+\.\d+$"),                    # Float
-    re.compile(r"^-?\d{1,3}(,\d{3})*(\.\d+)?$"),   # Thousands separators
-    re.compile(r"^-?\d+(\.\d+)?%$"),                # Percentage
-    re.compile(r"^\$-?\d+(\.\d+)?$"),               # USD
-    re.compile(r"^₩-?\d+(,\d{3})*$"),               # KRW
+    re.compile(r"^-?\d+$"),  # Integer
+    re.compile(r"^-?\d+\.\d+$"),  # Float
+    re.compile(r"^-?\d{1,3}(,\d{3})*(\.\d+)?$"),  # Thousands separators
+    re.compile(r"^-?\d+(\.\d+)?%$"),  # Percentage
+    re.compile(r"^\$-?\d+(\.\d+)?$"),  # USD
+    re.compile(r"^₩-?\d+(,\d{3})*$"),  # KRW
 ]
 
 

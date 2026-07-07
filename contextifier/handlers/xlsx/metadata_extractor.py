@@ -56,7 +56,9 @@ class XlsxMetadataExtractor(BaseMetadataExtractor):
                 create_time=self._safe_datetime(props.created),
                 last_saved_time=self._safe_datetime(props.modified),
                 category=self._safe_str(props.category),
-                revision=self._safe_str(props.revision) if hasattr(props, "revision") else None,
+                revision=self._safe_str(props.revision)
+                if hasattr(props, "revision")
+                else None,
                 page_count=len(wb.sheetnames),
             )
         except Exception as exc:

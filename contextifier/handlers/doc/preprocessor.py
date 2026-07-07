@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import struct
 import logging
-from typing import Any, Dict, List, NamedTuple, Optional
+from typing import Any, List, NamedTuple, Optional
 
 from contextifier.pipeline.preprocessor import BasePreprocessor
 from contextifier.types import PreprocessedData
@@ -37,12 +37,13 @@ logger = logging.getLogger(__name__)
 
 class DocStreamData(NamedTuple):
     """Intermediate data extracted from OLE2 streams."""
-    word_data: bytes                    # Raw WordDocument stream
-    table_stream: Optional[bytes]       # 0Table or 1Table (if present)
-    table_stream_name: Optional[str]    # Name of the table stream used
-    fib_magic: int                      # FIB magic number (0xA5EC / 0xA5DC)
-    image_streams: List[str]            # OLE entry paths that may contain images
-    encoding: str                       # Inferred text encoding
+
+    word_data: bytes  # Raw WordDocument stream
+    table_stream: Optional[bytes]  # 0Table or 1Table (if present)
+    table_stream_name: Optional[str]  # Name of the table stream used
+    fib_magic: int  # FIB magic number (0xA5EC / 0xA5DC)
+    image_streams: List[str]  # OLE entry paths that may contain images
+    encoding: str  # Inferred text encoding
 
 
 class DocPreprocessor(BasePreprocessor):
@@ -164,9 +165,7 @@ class DocPreprocessor(BasePreprocessor):
             for entry in ole.listdir():
                 entry_path = "/".join(entry)
                 if any(
-                    kw in part.lower()
-                    for part in entry
-                    for kw in IMAGE_STREAM_KEYWORDS
+                    kw in part.lower() for part in entry for kw in IMAGE_STREAM_KEYWORDS
                 ):
                     image_streams.append(entry_path)
         except Exception as exc:

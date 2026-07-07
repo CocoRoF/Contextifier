@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import logging
 from typing import (
-    Callable,
     Dict,
     FrozenSet,
     List,
@@ -100,10 +99,10 @@ class HandlerRegistry:
         Raises:
             TypeError: If handler_class is not a BaseHandler subclass.
         """
-        if not (isinstance(handler_class, type) and issubclass(handler_class, BaseHandler)):
-            raise TypeError(
-                f"Expected BaseHandler subclass, got {handler_class}"
-            )
+        if not (
+            isinstance(handler_class, type) and issubclass(handler_class, BaseHandler)
+        ):
+            raise TypeError(f"Expected BaseHandler subclass, got {handler_class}")
 
         try:
             handler = handler_class(
@@ -115,9 +114,7 @@ class HandlerRegistry:
                 metadata_service=self._services.get("metadata_service"),
             )
         except Exception as e:
-            logger.warning(
-                f"Failed to instantiate {handler_class.__name__}: {e}"
-            )
+            logger.warning(f"Failed to instantiate {handler_class.__name__}: {e}")
             return
 
         # Inject registry reference so handler can use delegation
@@ -176,13 +173,12 @@ class HandlerRegistry:
         for module_path, class_name in default_handlers:
             try:
                 import importlib
+
                 module = importlib.import_module(module_path)
                 handler_class = getattr(module, class_name)
                 self.register(handler_class)
             except (ImportError, AttributeError) as e:
-                logger.warning(
-                    f"Handler {class_name} not available: {e}"
-                )
+                logger.warning(f"Handler {class_name} not available: {e}")
 
         # Discover third-party handler plugins
         self._discover_plugins()
@@ -265,12 +261,19 @@ class HandlerRegistry:
         for ep in group:
             try:
                 handler_class = ep.load()
-                if isinstance(handler_class, type) and issubclass(handler_class, BaseHandler):
+                if isinstance(handler_class, type) and issubclass(
+                    handler_class, BaseHandler
+                ):
                     self.register(handler_class)
-                    logger.info("Loaded plugin handler: %s (%s)", ep.name, handler_class.__name__)
+                    logger.info(
+                        "Loaded plugin handler: %s (%s)",
+                        ep.name,
+                        handler_class.__name__,
+                    )
                 else:
                     logger.warning(
-                        "Plugin '%s' does not provide a BaseHandler subclass", ep.name,
+                        "Plugin '%s' does not provide a BaseHandler subclass",
+                        ep.name,
                     )
             except Exception as exc:
                 logger.warning("Failed to load plugin '%s': %s", ep.name, exc)

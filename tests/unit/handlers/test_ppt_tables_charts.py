@@ -15,7 +15,6 @@ import struct
 from typing import List, Tuple
 from unittest.mock import MagicMock
 
-import pytest
 
 from contextifier.handlers.ppt.content_extractor import (
     PptContentExtractor,
@@ -23,7 +22,7 @@ from contextifier.handlers.ppt.content_extractor import (
     _detect_tabular_text,
     _rows_to_table_data,
 )
-from contextifier.types import PreprocessedData, TableCell
+from contextifier.types import PreprocessedData
 
 
 # ═════════════════════════════════════════════════════════════════════════════

@@ -113,7 +113,9 @@ class BlockImageEngine:
         except Exception as exc:
             logger.error(
                 "[BlockImageEngine] Error processing %s on page %d: %s",
-                region_type, self.page_num + 1, exc,
+                region_type,
+                self.page_num + 1,
+                exc,
             )
             return BlockResult(success=False, bbox=bbox, error=str(exc))
 
@@ -167,6 +169,7 @@ class BlockImageEngine:
             from contextifier.handlers.pdf_plus._layout_block_detector import (
                 LayoutBlockDetector,
             )
+
             detector = LayoutBlockDetector(self.page, self.page_num)
             layout = detector.detect()
 
@@ -175,15 +178,14 @@ class BlockImageEngine:
 
             results: List[BlockResult] = []
             for block in layout.blocks:
-                area = (
-                    (block.bbox[2] - block.bbox[0])
-                    * (block.bbox[3] - block.bbox[1])
-                )
+                area = (block.bbox[2] - block.bbox[0]) * (block.bbox[3] - block.bbox[1])
                 if area < CFG.BLOCK_MIN_AREA:
                     continue
                 br = self.process_region(
                     block.bbox,
-                    region_type=block.block_type.name if block.block_type else "unknown",
+                    region_type=block.block_type.name
+                    if block.block_type
+                    else "unknown",
                 )
                 if br.success:
                     results.append(br)
@@ -201,12 +203,15 @@ class BlockImageEngine:
         except Exception as exc:
             logger.warning(
                 "[BlockImageEngine] Semantic strategy failed on page %d: %s",
-                self.page_num + 1, exc,
+                self.page_num + 1,
+                exc,
             )
             return self._fullpage_fallback()
 
     def _try_grid(
-        self, rows: int = 2, cols: int = 2,
+        self,
+        rows: int = 2,
+        cols: int = 2,
     ) -> MultiBlockResult:
         try:
             cell_w = self.page_width / cols
@@ -238,7 +243,8 @@ class BlockImageEngine:
         except Exception as exc:
             logger.warning(
                 "[BlockImageEngine] Grid strategy failed on page %d: %s",
-                self.page_num + 1, exc,
+                self.page_num + 1,
+                exc,
             )
             return self._fullpage_fallback()
 
@@ -297,7 +303,8 @@ class BlockImageEngine:
                 return None
 
     def _is_empty_region(
-        self, bbox: Tuple[float, float, float, float],
+        self,
+        bbox: Tuple[float, float, float, float],
     ) -> bool:
         """Check if a region is nearly all white (skip rendering)."""
         try:
@@ -311,9 +318,7 @@ class BlockImageEngine:
             if not pixels:
                 return True
             thr = CFG.BLOCK_EMPTY_PIXEL_MIN  # 240
-            whites = sum(
-                1 for p in pixels if p[0] > thr and p[1] > thr and p[2] > thr
-            )
+            whites = sum(1 for p in pixels if p[0] > thr and p[1] > thr and p[2] > thr)
             return whites / len(pixels) >= CFG.BLOCK_EMPTY_THRESHOLD  # 0.95
         except Exception:
             return False

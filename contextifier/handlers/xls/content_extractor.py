@@ -22,14 +22,11 @@ import olefile
 from contextifier.pipeline.content_extractor import BaseContentExtractor
 from contextifier.types import (
     ChartData,
-    ExtractionResult,
     PreprocessedData,
     TableData,
 )
 
 from contextifier.handlers.xls._layout import (
-    LayoutRange,
-    layout_detect_range,
     object_detect,
 )
 from contextifier.handlers.xls._table import (
@@ -41,21 +38,28 @@ logger = logging.getLogger(__name__)
 
 # Image signatures for OLE stream scanning (same as DOC handler)
 _IMAGE_SIGNATURES: dict[str, tuple[bytes, int]] = {
-    "png":     (b"\x89PNG\r\n\x1a\n", 8),
-    "jpeg":    (b"\xff\xd8",           2),
-    "gif87":   (b"GIF87a",             6),
-    "gif89":   (b"GIF89a",             6),
-    "bmp":     (b"BM",                 2),
-    "tiff_le": (b"II\x2a\x00",        4),
-    "tiff_be": (b"MM\x00\x2a",        4),
-    "emf":     (b"\x01\x00\x00\x00",  4),
+    "png": (b"\x89PNG\r\n\x1a\n", 8),
+    "jpeg": (b"\xff\xd8", 2),
+    "gif87": (b"GIF87a", 6),
+    "gif89": (b"GIF89a", 6),
+    "bmp": (b"BM", 2),
+    "tiff_le": (b"II\x2a\x00", 4),
+    "tiff_be": (b"MM\x00\x2a", 4),
+    "emf": (b"\x01\x00\x00\x00", 4),
 }
 
 # OLE stream keywords that may contain images
-_IMAGE_STREAM_KEYWORDS: frozenset[str] = frozenset({
-    "pictures", "data", "object", "oleobject", "objectpool",
-    "mbd", "workbook",  # Some images are embedded in Drawing records
-})
+_IMAGE_STREAM_KEYWORDS: frozenset[str] = frozenset(
+    {
+        "pictures",
+        "data",
+        "object",
+        "oleobject",
+        "objectpool",
+        "mbd",
+        "workbook",  # Some images are embedded in Drawing records
+    }
+)
 
 # BIFF sheet type for charts
 _XL_CHART_SHEET = 2
@@ -109,7 +113,9 @@ class XlsContentExtractor(BaseContentExtractor):
 
     # ── tables ───────────────────────────────────────────────────────────
 
-    def extract_tables(self, preprocessed: PreprocessedData, **kw: Any) -> List[TableData]:
+    def extract_tables(
+        self, preprocessed: PreprocessedData, **kw: Any
+    ) -> List[TableData]:
         book = self._get_book(preprocessed)
         if book is None:
             return []
@@ -154,7 +160,7 @@ class XlsContentExtractor(BaseContentExtractor):
 
         try:
             for entry in ole.listdir():
-                entry_path = "/".join(entry)
+                "/".join(entry)
                 if not any(
                     kw in part.lower()
                     for part in entry
@@ -195,7 +201,9 @@ class XlsContentExtractor(BaseContentExtractor):
 
     # ── charts (BIFF sheet type detection) ───────────────────────────────
 
-    def extract_charts(self, preprocessed: PreprocessedData, **kw: Any) -> List[ChartData]:
+    def extract_charts(
+        self, preprocessed: PreprocessedData, **kw: Any
+    ) -> List[ChartData]:
         """
         Detect chart sheets in the XLS workbook.
 
@@ -216,16 +224,20 @@ class XlsContentExtractor(BaseContentExtractor):
                 sheet = book.sheet_by_index(idx)
                 # xlrd Sheet objects have a `sheet_type` attribute in
                 # the internal book.sheet_types list
-                sheet_type = book.sheet_type(idx) if hasattr(book, "sheet_type") else None
+                sheet_type = (
+                    book.sheet_type(idx) if hasattr(book, "sheet_type") else None
+                )
             except Exception:
                 continue
 
             if sheet_type == _XL_CHART_SHEET:
-                charts.append(ChartData(
-                    chart_type="biff_chart_sheet",
-                    title=sheet.name,
-                    raw_content=f"BIFF chart sheet: {sheet.name}",
-                ))
+                charts.append(
+                    ChartData(
+                        chart_type="biff_chart_sheet",
+                        title=sheet.name,
+                        raw_content=f"BIFF chart sheet: {sheet.name}",
+                    )
+                )
 
         return charts
 
@@ -234,7 +246,11 @@ class XlsContentExtractor(BaseContentExtractor):
     def _get_book(self, preprocessed: PreprocessedData) -> Any:
         if preprocessed is None:
             return None
-        content = preprocessed.content if isinstance(preprocessed, PreprocessedData) else preprocessed
+        content = (
+            preprocessed.content
+            if isinstance(preprocessed, PreprocessedData)
+            else preprocessed
+        )
         if content is None:
             return None
         if hasattr(content, "nsheets"):
@@ -251,6 +267,7 @@ class XlsContentExtractor(BaseContentExtractor):
 
 
 # ── Module-level helpers ─────────────────────────────────────────────────────
+
 
 def _detect_image_format(data: bytes) -> Optional[str]:
     """Detect image format from binary data using header signatures."""

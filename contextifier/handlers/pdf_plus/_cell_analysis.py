@@ -16,7 +16,7 @@ Algorithm priority:
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional
 
 from contextifier.handlers.pdf_plus._types import CellInfo, PdfPlusConfig
 
@@ -31,7 +31,13 @@ class CellAnalysisEngine:
     GRID_TOLERANCE: float = CFG.CELL_GRID_TOLERANCE
     OVERLAP_THRESHOLD: float = CFG.CELL_OVERLAP_THRESHOLD
 
-    def __init__(self, data: List[List], cells_info: List[CellInfo], bbox: Optional[tuple] = None, page: Any = None) -> None:
+    def __init__(
+        self,
+        data: List[List],
+        cells_info: List[CellInfo],
+        bbox: Optional[tuple] = None,
+        page: Any = None,
+    ) -> None:
         self.data = data or []
         self.cells_info = cells_info or []
         self.bbox = bbox
@@ -82,12 +88,8 @@ class CellAnalysisEngine:
     def _has_valid_spans(self) -> bool:
         if not self.cells_info:
             return False
-        has_span = any(
-            (c.rowspan > 1 or c.colspan > 1) for c in self.cells_info
-        )
-        has_pos = all(
-            c.row is not None and c.col is not None for c in self.cells_info
-        )
+        has_span = any((c.rowspan > 1 or c.colspan > 1) for c in self.cells_info)
+        has_pos = all(c.row is not None and c.col is not None for c in self.cells_info)
         return has_span or has_pos
 
     def _use_existing(self, nr: int, nc: int) -> List[Dict]:
@@ -101,7 +103,9 @@ class CellAnalysisEngine:
             cs = min(max(1, c.colspan), nc - co)
             if (r, co) in covered:
                 continue
-            out.append({"row": r, "col": co, "rowspan": rs, "colspan": cs, "bbox": c.bbox})
+            out.append(
+                {"row": r, "col": co, "rowspan": rs, "colspan": cs, "bbox": c.bbox}
+            )
             for ri in range(r, r + rs):
                 for ci in range(co, co + cs):
                     covered.add((ri, ci))
@@ -109,7 +113,9 @@ class CellAnalysisEngine:
         for ri in range(nr):
             for ci in range(nc):
                 if (ri, ci) not in covered:
-                    out.append({"row": ri, "col": ci, "rowspan": 1, "colspan": 1, "bbox": None})
+                    out.append(
+                        {"row": ri, "col": ci, "rowspan": 1, "colspan": 1, "bbox": None}
+                    )
         return out
 
     # ------------------------------------------------------------------
@@ -118,7 +124,13 @@ class CellAnalysisEngine:
 
     def _cells_as_dicts(self) -> List[Dict]:
         return [
-            {"row": c.row, "col": c.col, "rowspan": c.rowspan, "colspan": c.colspan, "bbox": c.bbox}
+            {
+                "row": c.row,
+                "col": c.col,
+                "rowspan": c.rowspan,
+                "colspan": c.colspan,
+                "bbox": c.bbox,
+            }
             for c in self.cells_info
         ]
 
@@ -166,7 +178,9 @@ class CellAnalysisEngine:
             cspan = min(max(1, ce_idx - cs_idx), nc - dc)
             if (dr, dc) in covered:
                 continue
-            out.append({"row": dr, "col": dc, "rowspan": rspan, "colspan": cspan, "bbox": bb})
+            out.append(
+                {"row": dr, "col": dc, "rowspan": rspan, "colspan": cspan, "bbox": bb}
+            )
             for ri in range(dr, min(dr + rspan, nr)):
                 for ci in range(dc, min(dc + cspan, nc)):
                     covered.add((ri, ci))
@@ -174,7 +188,9 @@ class CellAnalysisEngine:
         for ri in range(nr):
             for ci in range(nc):
                 if (ri, ci) not in covered:
-                    out.append({"row": ri, "col": ci, "rowspan": 1, "colspan": 1, "bbox": None})
+                    out.append(
+                        {"row": ri, "col": ci, "rowspan": 1, "colspan": 1, "bbox": None}
+                    )
         return out
 
     # ------------------------------------------------------------------
@@ -192,14 +208,24 @@ class CellAnalysisEngine:
             cs = min(c.get("colspan", 1), nc - co)
             if (r, co) in covered:
                 continue
-            out.append({"row": r, "col": co, "rowspan": max(1, rs), "colspan": max(1, cs), "bbox": c.get("bbox")})
+            out.append(
+                {
+                    "row": r,
+                    "col": co,
+                    "rowspan": max(1, rs),
+                    "colspan": max(1, cs),
+                    "bbox": c.get("bbox"),
+                }
+            )
             for ri in range(r, min(r + rs, nr)):
                 for ci in range(co, min(co + cs, nc)):
                     covered.add((ri, ci))
         for ri in range(nr):
             for ci in range(nc):
                 if (ri, ci) not in covered:
-                    out.append({"row": ri, "col": ci, "rowspan": 1, "colspan": 1, "bbox": None})
+                    out.append(
+                        {"row": ri, "col": ci, "rowspan": 1, "colspan": 1, "bbox": None}
+                    )
         return out
 
     # ------------------------------------------------------------------
@@ -210,7 +236,8 @@ class CellAnalysisEngine:
     def _default_cells(nr: int, nc: int) -> list[dict]:
         return [
             {"row": r, "col": c, "rowspan": 1, "colspan": 1, "bbox": None}
-            for r in range(nr) for c in range(nc)
+            for r in range(nr)
+            for c in range(nc)
         ]
 
     # ------------------------------------------------------------------

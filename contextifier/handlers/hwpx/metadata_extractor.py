@@ -20,7 +20,6 @@ from contextifier.types import DocumentMetadata, PreprocessedData
 from contextifier.handlers.hwpx._constants import (
     HEADER_FILE_PATHS,
     HWPX_NAMESPACES,
-    MANIFEST_NAMESPACES,
     MANIFEST_PATH,
     VERSION_PATH,
 )
@@ -53,8 +52,14 @@ class HwpxMetadataExtractor(BaseMetadataExtractor):
 
         # Map standard fields
         standard_keys = {
-            "title", "subject", "author", "keywords", "comments",
-            "last_saved_by", "create_time", "last_saved_time",
+            "title",
+            "subject",
+            "author",
+            "keywords",
+            "comments",
+            "last_saved_by",
+            "create_time",
+            "last_saved_time",
         }
         custom = {k: v for k, v in raw.items() if k not in standard_keys}
 
@@ -124,20 +129,14 @@ class HwpxMetadataExtractor(BaseMetadataExtractor):
             for child in root:
                 tag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
                 if tag == "file-entry":
-                    full_path = (
-                        child.get("full-path")
-                        or child.get(
-                            "{urn:oasis:names:tc:opendocument:xmlns:manifest:1.0}full-path",
-                            "",
-                        )
+                    full_path = child.get("full-path") or child.get(
+                        "{urn:oasis:names:tc:opendocument:xmlns:manifest:1.0}full-path",
+                        "",
                     )
                     if full_path == "/":
-                        media_type = (
-                            child.get("media-type")
-                            or child.get(
-                                "{urn:oasis:names:tc:opendocument:xmlns:manifest:1.0}media-type",
-                                "",
-                            )
+                        media_type = child.get("media-type") or child.get(
+                            "{urn:oasis:names:tc:opendocument:xmlns:manifest:1.0}media-type",
+                            "",
                         )
                         if media_type:
                             raw["media_type"] = media_type

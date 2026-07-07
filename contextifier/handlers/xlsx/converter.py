@@ -30,8 +30,9 @@ logger = logging.getLogger(__name__)
 
 class XlsxConvertedData(NamedTuple):
     """Result of the XLSX conversion stage."""
-    workbook: openpyxl.Workbook   # Opened openpyxl Workbook
-    file_data: bytes              # Original file bytes (for ZIP re-reading)
+
+    workbook: openpyxl.Workbook  # Opened openpyxl Workbook
+    file_data: bytes  # Original file bytes (for ZIP re-reading)
 
 
 class XlsxConverter(BaseConverter):

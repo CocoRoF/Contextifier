@@ -117,9 +117,7 @@ class TableQualityValidator:
             confidence -= 0.15
 
         # --- 5. valid rows ---
-        valid_rows = sum(
-            1 for row in data if any(c and str(c).strip() for c in row)
-        )
+        valid_rows = sum(1 for row in data if any(c and str(c).strip() for c in row))
         if valid_rows < CFG.TABLE_MIN_VALID_ROWS:
             penalties.append(f"few_valid_rows({valid_rows})")
             confidence -= 0.15
@@ -145,7 +143,10 @@ class TableQualityValidator:
         long_cnt, extreme_cnt = self._cell_lengths(data)
         if extreme_cnt > 0:
             return False, 0.0, f"extreme_long_cell({extreme_cnt})"
-        if filled_cells > 0 and long_cnt / filled_cells > CFG.TABLE_MAX_LONG_CELLS_RATIO:
+        if (
+            filled_cells > 0
+            and long_cnt / filled_cells > CFG.TABLE_MAX_LONG_CELLS_RATIO
+        ):
             penalties.append(f"long_cells({long_cnt / filled_cells:.2f})")
             confidence -= 0.2
 
@@ -178,7 +179,9 @@ class TableQualityValidator:
         if not is_valid:
             logger.debug(
                 "[TableValidator] Rejected: %s  reason=%s  conf=%.2f",
-                bbox, reason, confidence,
+                bbox,
+                reason,
+                confidence,
             )
         return is_valid, confidence, reason
 
@@ -186,13 +189,35 @@ class TableQualityValidator:
     # Helpers
     # ------------------------------------------------------------------
 
-    _SIMPLE_SYMS = frozenset(["", "-", "–", "—", ".", ":", ";", "|", "/",
-                               "\\", "*", "#", "@", "!", "?", ",", " "])
+    _SIMPLE_SYMS = frozenset(
+        [
+            "",
+            "-",
+            "–",
+            "—",
+            ".",
+            ":",
+            ";",
+            "|",
+            "/",
+            "\\",
+            "*",
+            "#",
+            "@",
+            "!",
+            "?",
+            ",",
+            " ",
+        ]
+    )
 
     def _count_meaningful(self, data: list) -> int:
         return sum(
-            1 for row in data for cell in row
-            if cell and len(str(cell).strip()) >= 2
+            1
+            for row in data
+            for cell in row
+            if cell
+            and len(str(cell).strip()) >= 2
             and str(cell).strip() not in self._SIMPLE_SYMS
         )
 
@@ -253,11 +278,17 @@ class TableQualityValidator:
                 c1_short += 1
             if len(c2) > 80:
                 c2_long += 1
-                if any(p in c2 for p in [".", "。", ",", "、"]) and len(c2.split()) >= 5:
+                if (
+                    any(p in c2 for p in [".", "。", ",", "、"])
+                    and len(c2.split()) >= 5
+                ):
                     c2_para += 1
         if nr > 0:
             if c1_empty / nr >= 0.6 and c2_long / nr >= 0.3:
-                return False, f"empty_col1({c1_empty / nr:.0%})_long_col2({c2_long / nr:.0%})"
+                return (
+                    False,
+                    f"empty_col1({c1_empty / nr:.0%})_long_col2({c2_long / nr:.0%})",
+                )
         if nr > 5 and c2_para >= 2:
             return False, f"col2_paragraphs({c2_para})"
         if nr > 10 and (c1_empty + c1_short) / nr >= 0.8 and c2_long >= 5:

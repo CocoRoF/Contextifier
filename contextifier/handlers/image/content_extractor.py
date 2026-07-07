@@ -25,7 +25,6 @@ returned so downstream processing always has something.
 from __future__ import annotations
 
 import logging
-import os
 from typing import Any, Optional
 
 from contextifier.pipeline.content_extractor import BaseContentExtractor
@@ -49,7 +48,9 @@ class ImageContentExtractor(BaseContentExtractor):
         preprocessed: PreprocessedData,
         **kwargs: Any,
     ) -> str:
-        image_data: bytes = preprocessed.content if isinstance(preprocessed.content, bytes) else b""
+        image_data: bytes = (
+            preprocessed.content if isinstance(preprocessed.content, bytes) else b""
+        )
 
         if not image_data:
             return ""

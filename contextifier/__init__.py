@@ -24,11 +24,17 @@ Architecture:
       └── OCR (optional vision-based extraction)
 
 Usage:
-    from contextifier import DocumentProcessor
+    from contextifier import DocumentProcessor, open_raw
 
+    # AI-friendly view (lightweight, normalized)
     processor = DocumentProcessor()
     text = processor.extract_text("document.pdf")
     chunks = processor.extract_chunks("document.pdf", chunk_size=1000)
+
+    # Raw view (lossless, addressable, WRITABLE — xlsx/docx/pptx)
+    raw = open_raw("report.xlsx")
+    raw.sheets["Sales"].set_cell("B3", 142)
+    raw.save("report-edited.xlsx")     # untouched parts stay byte-identical
 """
 
 from importlib.metadata import version, PackageNotFoundError
@@ -43,6 +49,7 @@ from contextifier.config import ProcessingConfig, ChunkingConfig
 from contextifier.types import ExtractionResult, FileContext, Chunk, ChunkMetadata
 from contextifier.chunking.chunker import TextChunker
 from contextifier.errors import ContextifierError, UnsupportedFormatError
+from contextifier.raw import open_raw
 from contextifier.async_processor import AsyncDocumentProcessor
 from contextifier.cached_processor import CachedDocumentProcessor
 
@@ -63,6 +70,8 @@ __all__ = [
     "ChunkMetadata",
     # Chunking
     "TextChunker",
+    # Raw (lossless, writable) access
+    "open_raw",
     # Errors
     "ContextifierError",
     "UnsupportedFormatError",

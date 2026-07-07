@@ -36,7 +36,10 @@ class LocalStorageBackend(BaseStorageBackend):
             resolved_path = os.path.realpath(file_path)
 
             # Path-traversal guard: resolved path must be inside base dir
-            if not resolved_path.startswith(resolved_base + os.sep) and resolved_path != resolved_base:
+            if (
+                not resolved_path.startswith(resolved_base + os.sep)
+                and resolved_path != resolved_base
+            ):
                 raise StorageError(
                     f"Path traversal blocked: {file_path!r} resolves outside base directory",
                 )

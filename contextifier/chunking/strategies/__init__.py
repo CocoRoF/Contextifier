@@ -10,7 +10,9 @@ on the content characteristics and configuration.
 from contextifier.chunking.strategies.base import BaseChunkingStrategy
 from contextifier.chunking.strategies.page_strategy import PageChunkingStrategy
 from contextifier.chunking.strategies.table_strategy import TableChunkingStrategy
-from contextifier.chunking.strategies.protected_strategy import ProtectedChunkingStrategy
+from contextifier.chunking.strategies.protected_strategy import (
+    ProtectedChunkingStrategy,
+)
 from contextifier.chunking.strategies.plain_strategy import PlainChunkingStrategy
 
 __all__ = [

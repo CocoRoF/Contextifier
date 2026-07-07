@@ -8,8 +8,6 @@ import pytest
 from contextifier.config import (
     ChunkingConfig,
     ProcessingConfig,
-    TagConfig,
-    ImageConfig,
 )
 from contextifier.errors import ConfigurationError
 

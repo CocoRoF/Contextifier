@@ -31,8 +31,14 @@ Exports:
 
 from contextifier.pipeline.converter import BaseConverter, NullConverter
 from contextifier.pipeline.preprocessor import BasePreprocessor, NullPreprocessor
-from contextifier.pipeline.metadata_extractor import BaseMetadataExtractor, NullMetadataExtractor
-from contextifier.pipeline.content_extractor import BaseContentExtractor, NullContentExtractor
+from contextifier.pipeline.metadata_extractor import (
+    BaseMetadataExtractor,
+    NullMetadataExtractor,
+)
+from contextifier.pipeline.content_extractor import (
+    BaseContentExtractor,
+    NullContentExtractor,
+)
 from contextifier.pipeline.postprocessor import BasePostprocessor, NullPostprocessor
 
 __all__ = [

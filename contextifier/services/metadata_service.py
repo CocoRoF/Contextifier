@@ -76,9 +76,7 @@ class MetadataService:
         self._logger = logging.getLogger("contextifier.services.metadata")
 
         # Select label set
-        self._labels = (
-            _LABELS_KO if self._meta_config.language == "ko" else _LABELS_EN
-        )
+        self._labels = _LABELS_KO if self._meta_config.language == "ko" else _LABELS_EN
 
     def format_metadata(self, metadata: Optional[DocumentMetadata]) -> str:
         """

@@ -263,8 +263,10 @@ class TestImageSizeLimit:
 
         t1 = threading.Thread(target=worker, args=("t1",))
         t2 = threading.Thread(target=worker, args=("t2",))
-        t1.start(); t1.join()
-        t2.start(); t2.join()
+        t1.start()
+        t1.join()
+        t2.start()
+        t2.join()
 
         # Both should get img_0001 (independent counters)
         assert "img_0001" in paths["t1"]

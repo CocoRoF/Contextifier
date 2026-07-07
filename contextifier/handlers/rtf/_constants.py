@@ -33,26 +33,30 @@ CODEPAGE_ENCODING_MAP: Dict[int, str] = {
     866: "cp866",
     869: "cp869",
     874: "cp874",
-    932: "cp932",      # Japanese Shift-JIS
-    936: "gb2312",     # Simplified Chinese
-    949: "cp949",      # Korean
-    950: "big5",       # Traditional Chinese
-    1250: "cp1250",    # Central European
-    1251: "cp1251",    # Cyrillic
-    1252: "cp1252",    # Western European
-    1253: "cp1253",    # Greek
-    1254: "cp1254",    # Turkish
-    1255: "cp1255",    # Hebrew
-    1256: "cp1256",    # Arabic
-    1257: "cp1257",    # Baltic
-    1258: "cp1258",    # Vietnamese
+    932: "cp932",  # Japanese Shift-JIS
+    936: "gb2312",  # Simplified Chinese
+    949: "cp949",  # Korean
+    950: "big5",  # Traditional Chinese
+    1250: "cp1250",  # Central European
+    1251: "cp1251",  # Cyrillic
+    1252: "cp1252",  # Western European
+    1253: "cp1253",  # Greek
+    1254: "cp1254",  # Turkish
+    1255: "cp1255",  # Hebrew
+    1256: "cp1256",  # Arabic
+    1257: "cp1257",  # Baltic
+    1258: "cp1258",  # Vietnamese
     10000: "mac_roman",
     65001: "utf-8",
 }
 
 # Default encoding fallback list
 DEFAULT_ENCODINGS: List[str] = [
-    "utf-8", "cp949", "euc-kr", "cp1252", "latin-1",
+    "utf-8",
+    "cp949",
+    "euc-kr",
+    "cp1252",
+    "latin-1",
 ]
 
 
@@ -60,18 +64,41 @@ DEFAULT_ENCODINGS: List[str] = [
 # RTF Destination Groups (to skip during text extraction)
 # ═══════════════════════════════════════════════════════════════════════════
 
-SKIP_DESTINATIONS: FrozenSet[str] = frozenset({
-    "fonttbl", "colortbl", "stylesheet", "listtable",
-    "listoverridetable", "revtbl", "rsidtbl", "generator",
-    "xmlnstbl", "mmathPr", "themedata", "colorschememapping",
-    "datastore", "latentstyles", "pgptbl", "protusertbl",
-    "bookmarkstart", "bookmarkend", "bkmkstart", "bkmkend",
-    "fldinst", "fldrslt",
-})
+SKIP_DESTINATIONS: FrozenSet[str] = frozenset(
+    {
+        "fonttbl",
+        "colortbl",
+        "stylesheet",
+        "listtable",
+        "listoverridetable",
+        "revtbl",
+        "rsidtbl",
+        "generator",
+        "xmlnstbl",
+        "mmathPr",
+        "themedata",
+        "colorschememapping",
+        "datastore",
+        "latentstyles",
+        "pgptbl",
+        "protusertbl",
+        "bookmarkstart",
+        "bookmarkend",
+        "bkmkstart",
+        "bkmkend",
+        "fldinst",
+        "fldrslt",
+    }
+)
 
-IMAGE_DESTINATIONS: FrozenSet[str] = frozenset({
-    "pict", "shppict", "nonshppict", "blipuid",
-})
+IMAGE_DESTINATIONS: FrozenSet[str] = frozenset(
+    {
+        "pict",
+        "shppict",
+        "nonshppict",
+        "blipuid",
+    }
+)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -79,23 +106,61 @@ IMAGE_DESTINATIONS: FrozenSet[str] = frozenset({
 # ═══════════════════════════════════════════════════════════════════════════
 
 SHAPE_PROPERTY_NAMES: List[str] = [
-    "shapeType", "fFlipH", "fFlipV", "rotation",
-    "posh", "posrelh", "posv", "posrelv",
-    "fLayoutInCell", "fAllowOverlap", "fBehindDocument",
-    "fPseudoInline", "fLockAnchor", "fLockPosition",
-    "fLockAspectRatio", "fLockRotation", "fLockAgainstSelect",
-    "fLockCropping", "fLockVerticies", "fLockText",
-    "fLockAdjustHandles", "fLockAgainstGrouping",
-    "geoLeft", "geoTop", "geoRight", "geoBottom",
-    "shapePath", "pWrapPolygonVertices", "dxWrapDistLeft",
-    "dyWrapDistTop", "dxWrapDistRight", "dyWrapDistBottom",
-    "fLine", "fFilled", "fillType", "fillColor",
-    "fillOpacity", "fillBackColor", "fillBackOpacity",
-    "lineColor", "lineOpacity", "lineWidth", "lineStyle",
-    "lineDashing", "lineStartArrowhead", "lineStartArrowWidth",
-    "lineStartArrowLength", "lineEndArrowhead", "lineEndArrowWidth",
-    "lineEndArrowLength", "shadowType", "shadowColor",
-    "shadowOpacity", "shadowOffsetX", "shadowOffsetY",
+    "shapeType",
+    "fFlipH",
+    "fFlipV",
+    "rotation",
+    "posh",
+    "posrelh",
+    "posv",
+    "posrelv",
+    "fLayoutInCell",
+    "fAllowOverlap",
+    "fBehindDocument",
+    "fPseudoInline",
+    "fLockAnchor",
+    "fLockPosition",
+    "fLockAspectRatio",
+    "fLockRotation",
+    "fLockAgainstSelect",
+    "fLockCropping",
+    "fLockVerticies",
+    "fLockText",
+    "fLockAdjustHandles",
+    "fLockAgainstGrouping",
+    "geoLeft",
+    "geoTop",
+    "geoRight",
+    "geoBottom",
+    "shapePath",
+    "pWrapPolygonVertices",
+    "dxWrapDistLeft",
+    "dyWrapDistTop",
+    "dxWrapDistRight",
+    "dyWrapDistBottom",
+    "fLine",
+    "fFilled",
+    "fillType",
+    "fillColor",
+    "fillOpacity",
+    "fillBackColor",
+    "fillBackOpacity",
+    "lineColor",
+    "lineOpacity",
+    "lineWidth",
+    "lineStyle",
+    "lineDashing",
+    "lineStartArrowhead",
+    "lineStartArrowWidth",
+    "lineStartArrowLength",
+    "lineEndArrowhead",
+    "lineEndArrowWidth",
+    "lineEndArrowLength",
+    "shadowType",
+    "shadowColor",
+    "shadowOpacity",
+    "shadowOffsetX",
+    "shadowOffsetY",
 ]
 
 
@@ -123,6 +188,11 @@ RTF_IMAGE_TYPES: Dict[str, str] = {
     "wbitmap": "bmp",
 }
 
-SUPPORTED_IMAGE_FORMATS: FrozenSet[str] = frozenset({
-    "jpeg", "png", "gif", "bmp",
-})
+SUPPORTED_IMAGE_FORMATS: FrozenSet[str] = frozenset(
+    {
+        "jpeg",
+        "png",
+        "gif",
+        "bmp",
+    }
+)

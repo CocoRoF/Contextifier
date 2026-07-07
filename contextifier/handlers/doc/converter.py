@@ -31,8 +31,9 @@ logger = logging.getLogger(__name__)
 
 class DocConvertedData(NamedTuple):
     """Result of the DOC conversion stage."""
-    ole: olefile.OleFileIO          # Opened OLE2 compound file
-    file_extension: str             # Original extension (always "doc")
+
+    ole: olefile.OleFileIO  # Opened OLE2 compound file
+    file_extension: str  # Original extension (always "doc")
 
 
 class DocConverter(BaseConverter):

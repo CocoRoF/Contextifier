@@ -112,7 +112,9 @@ class DocxPreprocessor(BasePreprocessor):
                 chart_xml_map: Dict[str, bytes] = {}
                 with zipfile.ZipFile(zip_stream, "r") as zf:
                     for name in zf.namelist():
-                        if name.startswith("word/charts/chart") and name.endswith(".xml"):
+                        if name.startswith("word/charts/chart") and name.endswith(
+                            ".xml"
+                        ):
                             chart_xml_map[name] = zf.read(name)
 
                 for rel_id, rel in rels.items():
@@ -162,8 +164,7 @@ class DocxPreprocessor(BasePreprocessor):
                 chart_files = sorted(
                     name
                     for name in zf.namelist()
-                    if name.startswith("word/charts/chart")
-                    and name.endswith(".xml")
+                    if name.startswith("word/charts/chart") and name.endswith(".xml")
                 )
 
                 for chart_file in chart_files:
@@ -224,7 +225,11 @@ class DocxPreprocessor(BasePreprocessor):
 
         # Extract title
         title_elem = chart_elem.find(".//c:title//c:tx//c:rich//a:t", ns)
-        title = title_elem.text.strip() if title_elem is not None and title_elem.text else None
+        title = (
+            title_elem.text.strip()
+            if title_elem is not None and title_elem.text
+            else None
+        )
 
         # Detect chart type
         chart_type = "Chart"

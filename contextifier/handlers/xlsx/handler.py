@@ -17,7 +17,7 @@ Pipeline:
 
 from __future__ import annotations
 
-from typing import Any, FrozenSet
+from typing import FrozenSet
 
 from contextifier.handlers.base import BaseHandler
 from contextifier.pipeline.converter import BaseConverter

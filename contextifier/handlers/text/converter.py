@@ -23,12 +23,10 @@ v1.0 Issues resolved:
 
 from __future__ import annotations
 
-import logging
 from typing import Any, List, NamedTuple, Optional
 
 from contextifier.pipeline.converter import BaseConverter
 from contextifier.types import FileContext
-from contextifier.errors import ConversionError
 
 
 class TextConvertedData(NamedTuple):
@@ -38,6 +36,7 @@ class TextConvertedData(NamedTuple):
     Carries decoded text along with metadata that downstream
     pipeline stages need for format-aware processing.
     """
+
     text: str
     encoding: str
     file_extension: str

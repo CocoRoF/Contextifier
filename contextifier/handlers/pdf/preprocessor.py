@@ -45,8 +45,8 @@ class PdfPreprocessor(BasePreprocessor):
         needs_ocr = self._detect_scan(doc, page_count)
 
         return PreprocessedData(
-            content=doc,              # fitz.Document
-            raw_content=file_data,    # original bytes
+            content=doc,  # fitz.Document
+            raw_content=file_data,  # original bytes
             encoding="binary",
             resources={"document": doc},
             properties={
@@ -89,7 +89,8 @@ class PdfPreprocessor(BasePreprocessor):
         if is_scan:
             logger.info(
                 "PDF appears to be a scan (avg %.1f chars/page across %d sample pages)",
-                avg, sample_size,
+                avg,
+                sample_size,
             )
         return is_scan
 

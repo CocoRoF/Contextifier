@@ -10,7 +10,6 @@ Verifies that:
 
 from __future__ import annotations
 
-import pytest
 
 from contextifier.config import OCRConfig
 from contextifier.ocr.base import (
