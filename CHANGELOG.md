@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.4.0] — 2026-07-07
+
+### Added — the raw layer (`contextifier.raw`)
+
+Contextifier now offers **two views of every document**: the existing
+AI-friendly extraction pipeline, and `open_raw()` — a lossless,
+addressable, **writable** view of OOXML files (`.xlsx` / `.docx` /
+`.pptx`).
+
+- **`open_raw(source)`** (top-level export) and
+  `DocumentProcessor.open_raw()` — dispatch to `XlsxRawDocument` /
+  `DocxRawDocument` / `PptxRawDocument` by extension or package sniffing.
+- **Byte-preservation contract** (`raw/opc.py`): saving writes untouched
+  parts back byte-identically (BOM, whitespace, extensions and all).
+  Charts, pivot tables, sparklines, custom XML, styles — everything the
+  usual Office libraries destroy on a load→save round-trip — survives.
+  Contract-tested against synthetic and real files, including a contrast
+  test showing openpyxl 3.1.5 dropping sparklines/customXml/chart styles
+  that the raw layer preserves.
+- **XLSX** (`raw/xlsx.py`): surgical `set_cell` (style attribute
+  preserved, strings as `inlineStr`, rows/cells kept sorted),
+  `append_rows`, cached-formula reads + `get_formula`, merged ranges,
+  defined names, `charts`; overwriting a formula sets
+  `calcPr fullCalcOnLoad` so Excel recalculates on open.
+- **DOCX** (`raw/docx.py`): python-docx-compatible paragraph/table
+  addressing (incl. gridSpan/vMerge grid semantics and nested tables),
+  **run-preserving** `set_paragraph_text` and `cell.set_text` (inline
+  images, drawings, bookmarks and hyperlink elements survive; hyperlinks
+  are emptied, never deleted — `strip_empty_hyperlinks()` when you want
+  them gone), `insert_paragraph_after`/`delete_paragraph`,
+  `insert_row`/`delete_row`, headers/footers, `body_order()`.
+- **PPTX** (`raw/pptx.py`): slide/shape inventory (tables, charts,
+  diagrams, groups), format-preserving `set_text`, table cell edits +
+  row insert/delete, `notes_text`, **`replace_content(new_xml,
+  preserve_native=True)`** — swap a slide's XML while carrying over its
+  native charts/tables/pictures (id-renumbered), and `remove_slide()`
+  with transitive orphan-part sweeping (chart XML, embedded workbooks,
+  media) that provably spares shared layouts/masters.
+- **Charts** (`raw/chart.py`): one `ChartModel` for all three formats —
+  reads kind/title/series from classic `c:` charts (incl. scatter/bubble
+  x/y, literals, multi-level caches) and chartEx; **writes** titles and
+  full data (`set_data`) with schema-valid cache/ref rewriting, series
+  grow/shrink keeping styling, and embedded-workbook regeneration —
+  verified by reopening with python-pptx/openpyxl.
+- `lxml` promoted to an explicit dependency.
+
+99 new tests (598 total).
+
+---
+
 ## [0.3.0] — 2025-07-19 (released 2026-07-07)
 
 ### Added (RAG provenance & payload ingestion — 2026-07-07)
