@@ -148,6 +148,11 @@ class TextChunker:
                 include_position_metadata=include_meta,
                 **kwargs,
             )
+            if include_meta and result and not isinstance(result[0], str):
+                from contextifier.chunking.metadata_enricher import (
+                    enrich_chunk_metadata,
+                )
+                result = enrich_chunk_metadata(result)
             return result
         except NotImplementedError:
             # Strategy not yet implemented — try next

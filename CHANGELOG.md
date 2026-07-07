@@ -7,7 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [0.3.0] — 2025-07-19
+## [0.3.0] — 2025-07-19 (released 2026-07-07)
+
+### Added (RAG provenance & payload ingestion — 2026-07-07)
+
+- **Chunk metadata enrichment** (`chunking/metadata_enricher.py`): with
+  `include_position_metadata=True`, every `Chunk` now carries real
+  structural context — `page_number` (promoted from `[Page Number: N]` /
+  `[Slide Number: N]` markers, inherited across marker-less chunks),
+  `sheet_name` (`[Sheet: …]`), and a new `heading_path` breadcrumb
+  ("H1 > H2 > H3") tracking markdown headings. RAG pipelines no longer
+  re-parse chunk text for provenance. `ChunkMetadata` gains
+  `heading_path` / `sheet_name` fields (additive).
+- **Structure-aware JSON rendering**: `.json` inputs (API payloads,
+  exports) extract as one `dotted.path[i]: value` line per leaf with
+  blank-line record boundaries between array elements, so chunking
+  respects object boundaries. Invalid JSON falls back to plain text.
 
 ### Security (Phase 0)
 

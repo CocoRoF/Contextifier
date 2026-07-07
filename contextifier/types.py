@@ -339,6 +339,9 @@ class ChunkMetadata:
     line_end: int = 0
     global_start: int = 0
     global_end: int = 0
+    # Structural context (populated by chunking.metadata_enricher):
+    heading_path: Optional[str] = None
+    sheet_name: Optional[str] = None
 
 
 @dataclass

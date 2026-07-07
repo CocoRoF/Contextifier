@@ -78,6 +78,15 @@ class TextContentExtractor(BaseContentExtractor):
         if not text:
             return ""
 
+        # JSON payloads (API responses, exports) render structure-aware:
+        # one line per leaf path so downstream chunking respects object
+        # boundaries instead of splitting mid-structure. Non-JSON content
+        # in a .json file falls through to plain handling.
+        if str(preprocessed.properties.get("file_extension", "")).lower() == "json":
+            rendered = _render_json_context(text)
+            if rendered is not None:
+                return rendered
+
         # Determine code mode
         is_code = kwargs.get("is_code", None)
         if is_code is None:
@@ -128,3 +137,56 @@ def _clean_code_text(text: str) -> str:
 
 
 __all__ = ["TextContentExtractor"]
+
+# ── JSON context rendering ────────────────────────────────────────────
+
+_JSON_MAX_ITEMS = 20_000  # runaway-payload backstop
+
+
+def _render_json_context(text: str) -> "str | None":
+    """Render a JSON document as structure-aware context text.
+
+    Objects/arrays become ``dotted.path[i]: value`` lines grouped in
+    document order; arrays of objects get a blank-line boundary per
+    element so chunkers keep records intact. Returns ``None`` when the
+    content is not valid JSON (caller falls back to plain text).
+    """
+    import json as _json
+
+    try:
+        data = _json.loads(text)
+    except (ValueError, TypeError):
+        return None
+
+    lines: list = []
+    count = 0
+
+    def _walk(node, path):
+        nonlocal count
+        if count >= _JSON_MAX_ITEMS:
+            return
+        if isinstance(node, dict):
+            if not node:
+                lines.append(f"{path or '$'}: {{}}")
+                count += 1
+                return
+            for key, value in node.items():
+                _walk(value, f"{path}.{key}" if path else str(key))
+        elif isinstance(node, list):
+            if not node:
+                lines.append(f"{path or '$'}: []")
+                count += 1
+                return
+            for i, value in enumerate(node):
+                if isinstance(value, (dict, list)) and lines:
+                    lines.append("")  # record boundary for chunkers
+                _walk(value, f"{path}[{i}]")
+        else:
+            rendered = _json.dumps(node, ensure_ascii=False)
+            lines.append(f"{path or '$'}: {rendered}")
+            count += 1
+
+    _walk(data, "")
+    if count >= _JSON_MAX_ITEMS:
+        lines.append(f"[JSON truncated at {_JSON_MAX_ITEMS} values]")
+    return "\n".join(lines).strip() + "\n"
