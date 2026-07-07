@@ -24,9 +24,7 @@ from typing import (
     FrozenSet,
     List,
     Optional,
-    Sequence,
     TypedDict,
-    Union,
 )
 
 
