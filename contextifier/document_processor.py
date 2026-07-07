@@ -354,6 +354,30 @@ class DocumentProcessor:
     # Public API — Chunking
     # ═══════════════════════════════════════════════════════════════════════
 
+    def open_raw(self, file_path, *, file_extension=None):
+        """Open a document for lossless, writable access (raw twin of process()).
+
+        Unlike :meth:`extract_text` — which renders an AI-friendly view and
+        discards the rest — this returns a raw document model over the full
+        OPC package: every part stays available, edits are surgical, and
+        saving keeps untouched parts byte-identical.
+
+        Args:
+            file_path: path, bytes, or binary stream of the document.
+            file_extension: override format detection (e.g. "xlsx").
+
+        Returns:
+            XlsxRawDocument | DocxRawDocument | PptxRawDocument
+            (see :mod:`contextifier.raw`).
+
+        Raises:
+            RawUnsupportedError: the format has no raw model yet
+                (supported today: xlsx, docx, pptx).
+        """
+        from contextifier.raw import open_raw as _open_raw
+
+        return _open_raw(file_path, extension=file_extension)
+
     def chunk_text(
         self,
         text: str,
