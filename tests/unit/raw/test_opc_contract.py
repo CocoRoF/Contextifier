@@ -163,3 +163,16 @@ class TestQn:
     def test_qn_rejects_unknown_prefix(self):
         with pytest.raises(KeyError, match="prefix"):
             qn("zz:nope")
+
+
+class TestRepeatedSave:
+    def test_double_to_bytes_is_stable(self):
+        """writestr must not mutate source ZipInfo state (regression:
+        header_offset corruption made the second save raise BadZipFile)."""
+        pkg = OpcPackage.open(_mini_package())
+        pkg.get_part("xl/workbook.xml").write(b"<workbook/>")
+        first = pkg.to_bytes()
+        second = pkg.to_bytes()  # must not raise
+        a, b = zipfile.ZipFile(io.BytesIO(first)), zipfile.ZipFile(io.BytesIO(second))
+        for name in a.namelist():
+            assert a.read(name) == b.read(name)

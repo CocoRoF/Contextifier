@@ -323,12 +323,18 @@ class OpcPackage:
                     )
                 else:
                     # Clean part: original decompressed bytes, original
-                    # compression method, original timestamp.
-                    out.writestr(
-                        src_info,
-                        self._zip.read(name),
-                        compress_type=src_info.compress_type,
+                    # compression method, original timestamp. COPY the
+                    # ZipInfo — writestr mutates it (header_offset/sizes),
+                    # which would corrupt the source reader on a second
+                    # to_bytes() call.
+                    info_copy = zipfile.ZipInfo(
+                        src_info.filename, date_time=src_info.date_time
                     )
+                    info_copy.compress_type = src_info.compress_type
+                    info_copy.external_attr = src_info.external_attr
+                    info_copy.internal_attr = src_info.internal_attr
+                    info_copy.create_system = src_info.create_system
+                    out.writestr(info_copy, self._zip.read(name))
         return buf.getvalue()
 
     def save(self, target: str | Path | BinaryIO | None = None) -> bytes:
