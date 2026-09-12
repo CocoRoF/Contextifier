@@ -21,7 +21,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterator, List, Optional
 
 from contextifier.pipeline.content_extractor import BaseContentExtractor
 from contextifier.services.table_service import TableService
@@ -105,7 +105,7 @@ class DocxContentExtractor(BaseContentExtractor):
         if body is None:
             return ""
 
-        for element in body:
+        for element in iter_block_elements(body):
             local = _local_name(element)
 
             if local == "p":
@@ -184,7 +184,7 @@ class DocxContentExtractor(BaseContentExtractor):
         if body is None:
             return tables
 
-        for element in body:
+        for element in iter_block_elements(body):
             if _local_name(element) == "tbl":
                 td = extract_table(element)
                 if td is not None:
@@ -365,8 +365,36 @@ class DocxContentExtractor(BaseContentExtractor):
 
     # ── Supplementary content (headers, footers, footnotes) ─────────────
 
-    @staticmethod
-    def _extract_supplementary(doc: Any) -> str:
+    def _extract_part_text(self, part: Any) -> str:
+        """
+        Text of a header/footer part, in document order.
+
+        A header is an ordinary block container — paragraphs, tables, content
+        controls and shapes all appear there, and a table is the usual way a
+        document header carries its number, revision and classification.
+        Reading ``part.paragraphs`` alone drops every one of those, so the part
+        is walked with the same block iterator the body uses.
+        """
+        element = getattr(part, "_element", None)
+        if element is None:
+            return "\n".join(p.text.strip() for p in part.paragraphs if p.text.strip())
+
+        pieces: List[str] = []
+        for block in iter_block_elements(element):
+            name = _local_name(block)
+            if name == "p":
+                text, _, _, _ = process_paragraph(block)
+                if text.strip():
+                    pieces.append(text.strip())
+            elif name == "tbl":
+                table_data = extract_table(block)
+                if table_data is not None:
+                    formatted = self._format_table(table_data)
+                    if formatted:
+                        pieces.append(formatted)
+        return "\n".join(pieces)
+
+    def _extract_supplementary(self, doc: Any) -> str:
         """Extract header, footer, and footnote text from the document."""
         sections: List[str] = []
 
@@ -378,31 +406,23 @@ class DocxContentExtractor(BaseContentExtractor):
 
         try:
             for section in doc.sections:
-                # Header
-                try:
-                    header = section.header
-                    if header and not header.is_linked_to_previous:
-                        text = "\n".join(
-                            p.text.strip() for p in header.paragraphs if p.text.strip()
-                        )
-                        if text and text not in seen_headers:
-                            seen_headers.add(text)
-                            header_texts.append(text)
-                except Exception:
-                    pass
-
-                # Footer
-                try:
-                    footer = section.footer
-                    if footer and not footer.is_linked_to_previous:
-                        text = "\n".join(
-                            p.text.strip() for p in footer.paragraphs if p.text.strip()
-                        )
-                        if text and text not in seen_footers:
-                            seen_footers.add(text)
-                            footer_texts.append(text)
-                except Exception:
-                    pass
+                # A part that is linked to the previous section has no content
+                # of its own — it renders what an earlier section defined, and
+                # that section contributed it already.
+                for part_name, texts, seen in (
+                    ("header", header_texts, seen_headers),
+                    ("footer", footer_texts, seen_footers),
+                ):
+                    try:
+                        part = getattr(section, part_name, None)
+                        if part is None or part.is_linked_to_previous:
+                            continue
+                        text = self._extract_part_text(part)
+                        if text and text not in seen:
+                            seen.add(text)
+                            texts.append(text)
+                    except Exception as exc:
+                        logger.debug("Failed to extract %s: %s", part_name, exc)
         except Exception as exc:
             logger.debug("Failed to extract headers/footers: %s", exc)
 
@@ -470,6 +490,29 @@ class DocxContentExtractor(BaseContentExtractor):
         if hasattr(raw, "element") and hasattr(raw.element, "body"):
             return raw
         return None
+
+
+def iter_block_elements(container: Any) -> Iterator[Any]:
+    """
+    Yield the block-level children of *container* in document order,
+    descending through content controls.
+
+    A ``<w:sdt>`` (Structured Document Tag) is a wrapper, not content: tables
+    of contents, bibliographies, cover-page fields and anything a user inserted
+    as a content control put their real paragraphs and tables inside
+    ``<w:sdtContent>``. A walk that only recognises ``w:p`` and ``w:tbl`` skips
+    the wrapper and loses everything it holds, so the wrapper is unwrapped here
+    — recursively, because content controls nest.
+    """
+    for child in container:
+        if not isinstance(child.tag, str):
+            continue  # comments / processing instructions
+        if _local_name(child) != "sdt":
+            yield child
+            continue
+        for sdt_child in child:
+            if _local_name(sdt_child) == "sdtContent":
+                yield from iter_block_elements(sdt_child)
 
 
 def _local_name(element: Any) -> str:
