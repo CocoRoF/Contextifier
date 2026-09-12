@@ -27,10 +27,12 @@ from contextifier.chunking.constants import (
     TableRow,
 )
 from contextifier.chunking.table_parser import (
+    compute_carried_cells,
     parse_html_table,
     has_complex_spans,
     parse_markdown_table,
     is_markdown_table,
+    reissue_carried_cells,
 )
 
 logger = logging.getLogger("contextifier.chunking.table_chunker")
@@ -132,29 +134,37 @@ def _split_table_preserving_rowspan(
     context_prefix: str,
 ) -> List[str]:
     """
-    Split a table with complex rowspans.
+    Split a table whose cells span rows.
 
-    For simplicity and correctness, when a table has active rowspans
-    at a split boundary, we adjust the rowspan values down to reflect
-    the rows remaining in that chunk.
+    Two things have to happen at a cut. The obvious one is clamping: a
+    ``rowspan`` that reached past the cut would now point at rows that are not
+    in the chunk. The one that actually loses content is the opposite
+    direction — a cell written *before* the cut is simply absent from the
+    continuation chunk's markup, so its text is gone and every row below it is
+    a column short. For the common shape, a left-hand category column spanning
+    its group of rows, that is the most useful cell in the table.
+
+    Each chunk therefore re-issues the cells that span into its first row,
+    then clamps every span to the rows the chunk actually holds.
     """
-    groups: List[List[TableRow]] = []
     overhead = len(context_prefix) + TABLE_WRAPPER_OVERHEAD + CHUNK_INDEX_OVERHEAD
     available = chunk_size - overhead - parsed.header_size
 
     if available <= 0:
         return [f"{context_prefix}{parsed.original_html}".strip()]
 
-    current_group: List[TableRow] = []
+    # Group row INDICES so the carry-over table can be addressed per row.
+    groups: List[List[int]] = []
+    current_group: List[int] = []
     current_size = 0
 
-    for row in parsed.data_rows:
+    for index, row in enumerate(parsed.data_rows):
         if current_group and current_size + row.char_length > available:
             groups.append(current_group)
-            current_group = [row]
+            current_group = [index]
             current_size = row.char_length
         else:
-            current_group.append(row)
+            current_group.append(index)
             current_size += row.char_length
 
     if current_group:
@@ -164,35 +174,38 @@ def _split_table_preserving_rowspan(
     if total_chunks <= 1:
         return [f"{context_prefix}{parsed.original_html}".strip()]
 
+    carried = compute_carried_cells(parsed.data_rows)
+
     chunks: List[str] = []
-    for idx, group in enumerate(groups, start=1):
-        adjusted_rows = [
-            _adjust_row_rowspan(r, len(group), i) for i, r in enumerate(group)
-        ]
-        body_rows = "\n".join(adjusted_rows)
+    for chunk_index, group in enumerate(groups, start=1):
+        rows_html: List[str] = []
+        for position, row_index in enumerate(group):
+            html = parsed.data_rows[row_index].html
+            if position == 0:
+                html = reissue_carried_cells(html, carried[row_index])
+            rows_html.append(_clamp_row_rowspan(html, len(group), position))
+
+        body_rows = "\n".join(rows_html)
         header_part = f"\n{parsed.header_html}" if parsed.header_html else ""
         table_str = f"<table>{header_part}\n{body_rows}\n</table>"
-        index_tag = f"[Table Chunk {idx}/{total_chunks}]"
-        chunk = f"{context_prefix}{index_tag}\n{table_str}".strip()
-        chunks.append(chunk)
+        index_tag = f"[Table Chunk {chunk_index}/{total_chunks}]"
+        chunks.append(f"{context_prefix}{index_tag}\n{table_str}".strip())
 
     return chunks
 
 
-def _adjust_row_rowspan(row: TableRow, group_size: int, row_idx: int) -> str:
+def _clamp_row_rowspan(row_html: str, group_size: int, row_idx: int) -> str:
     """Reduce rowspan values that would exceed the remaining rows in this chunk."""
     remaining = group_size - row_idx
-    html = row.html
 
-    def _clamp_rowspan(match: re.Match) -> str:
-        val = int(match.group(1))
-        clamped = min(val, remaining)
+    def _clamp(match: re.Match) -> str:
+        clamped = min(int(match.group(1)), remaining)
         if clamped <= 1:
-            return ""  # Remove rowspan="1"
+            return ""  # a rowspan of 1 is the default; drop the attribute
         return f'rowspan="{clamped}"'
 
     return re.sub(
-        r'rowspan\s*=\s*["\']?(\d+)["\']?', _clamp_rowspan, html, flags=re.IGNORECASE
+        r'rowspan\s*=\s*["\']?(\d+)["\']?', _clamp, row_html, flags=re.IGNORECASE
     )
 
 
