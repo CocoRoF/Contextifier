@@ -26,6 +26,8 @@ from contextifier.errors import PreprocessingError
 
 from contextifier.handlers.docx._constants import CHART_TYPE_MAP
 
+from contextifier.handlers._ooxml import extract_chart_title
+
 logger = logging.getLogger(__name__)
 
 # OOXML chart namespace
@@ -224,12 +226,7 @@ class DocxPreprocessor(BasePreprocessor):
             return "[Chart]"
 
         # Extract title
-        title_elem = chart_elem.find(".//c:title//c:tx//c:rich//a:t", ns)
-        title = (
-            title_elem.text.strip()
-            if title_elem is not None and title_elem.text
-            else None
-        )
+        title = extract_chart_title(chart_elem, ns_c=ns["c"], ns_a=ns["a"])
 
         # Detect chart type
         chart_type = "Chart"

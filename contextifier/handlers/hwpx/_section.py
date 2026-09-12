@@ -44,6 +44,7 @@ from contextifier.handlers.hwpx._constants import (
     OOXML_CHART_NS,
     CHART_TYPE_MAP,
 )
+from contextifier.handlers._ooxml import extract_chart_title
 from contextifier.handlers.hwpx._table import parse_hwpx_table
 
 if TYPE_CHECKING:
@@ -576,10 +577,7 @@ def _parse_ooxml_chart(chart_xml: bytes) -> Optional[Dict]:
 
 def _extract_chart_title(chart: ET.Element, ns: Dict[str, str]) -> Optional[str]:
     """Extract chart title from ``<c:title>``."""
-    t = chart.find(".//c:title//c:tx//c:rich//a:t", ns)
-    if t is not None and t.text:
-        return t.text.strip()
-    return None
+    return extract_chart_title(chart, ns_c=ns["c"], ns_a=ns["a"])
 
 
 def _extract_chart_plot(
