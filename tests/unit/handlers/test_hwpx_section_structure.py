@@ -179,3 +179,70 @@ class TestControlParts:
         out = _parse(_section(body), empty_zip)
         assert out.count("CELL-A1") == 1
         assert "<table>" in out
+
+
+class TestCellContent:
+    def test_picture_in_a_cell_produces_a_tag_in_that_cell(self, tmp_path) -> None:
+        """A scanned figure pasted into a form cell is the cell's content."""
+        import io
+        import zipfile
+
+        from contextifier.config import ProcessingConfig
+        from contextifier.services.image_service import ImageService
+
+        png = (
+            b"\x89PNG\r\n\x1a\n"
+            + b"\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06"
+            + b"\x00" * 20
+        )
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr("BinData/image1.png", png)
+        buf.seek(0)
+        zf = zipfile.ZipFile(buf)
+
+        cell_with_pic = (
+            '<hp:tc><hp:cellAddr colAddr="1" rowAddr="0"/>'
+            '<hp:cellSpan colSpan="1" rowSpan="1"/><hp:subList><hp:p><hp:run>'
+            '<hp:pic><hc:img binaryItemIDRef="image1"/></hp:pic>'
+            "</hp:run></hp:p></hp:subList></hp:tc>"
+        )
+        body = (
+            '<hp:p><hp:run><hp:tbl rowCnt="1" colCnt="2">'
+            f"<hp:tr>{_tc(0, 0, 'Figure')}{cell_with_pic}</hp:tr>"
+            "</hp:tbl></hp:run></hp:p>"
+        )
+
+        config = ProcessingConfig().with_images(directory_path=str(tmp_path))
+        out = parse_hwpx_section(
+            _section(body),
+            zf,
+            {"image1": "BinData/image1.png"},
+            image_service=ImageService(config),
+        )
+
+        assert "[Image:" in out, "the cell picture produced no tag:\n" + out
+        figure_row = [line for line in out.splitlines() if "Figure" in line]
+        assert figure_row and "[Image:" in figure_row[0], (
+            "the tag must sit in the cell that holds the picture:\n" + out
+        )
+
+    def test_nested_table_inside_a_cell(self, empty_zip) -> None:
+        inner = (
+            '<hp:tbl rowCnt="1" colCnt="1">'
+            f"<hp:tr>{_tc(0, 0, 'INNER VALUE')}</hp:tr></hp:tbl>"
+        )
+        outer_cell = (
+            '<hp:tc><hp:cellAddr colAddr="1" rowAddr="0"/>'
+            '<hp:cellSpan colSpan="1" rowSpan="1"/><hp:subList>'
+            f"<hp:p><hp:run>{inner}</hp:run></hp:p>"
+            "</hp:subList></hp:tc>"
+        )
+        body = (
+            '<hp:p><hp:run><hp:tbl rowCnt="1" colCnt="2">'
+            f"<hp:tr>{_tc(0, 0, 'outer')}{outer_cell}</hp:tr>"
+            "</hp:tbl></hp:run></hp:p>"
+        )
+        out = _parse(_section(body), empty_zip)
+
+        assert out.count("INNER VALUE") == 1, out

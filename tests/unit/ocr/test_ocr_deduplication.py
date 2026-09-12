@@ -62,3 +62,52 @@ def test_distinct_images_are_each_converted(tmp_path) -> None:
 
     assert sorted(engine.calls) == sorted([a, b])
     assert "<text of one.png>" in out and "<text of two.png>" in out
+
+
+class TableStructureEngine:
+    """Answers the way a vision model actually does: with markup."""
+
+    def convert_image_to_text(self, path: str) -> str:
+        return (
+            "```html\n<table><tr><th>Item</th><th>Qty</th></tr>"
+            "<tr><td>Bolt</td><td>12</td></tr></table>\n```"
+        )
+
+
+def test_output_inside_a_cell_is_flattened(tmp_path) -> None:
+    """Model output is markup; a `<table>` inside a `<td>` breaks the parser."""
+    (img,) = _make_images(tmp_path, "cell.png")
+    text = (
+        "<table>\n<tr><th>Figure</th><th>Content</th></tr>\n"
+        f"<tr><td>Fig 1</td><td>[Image:{img}]</td></tr>\n</table>"
+    )
+    out = OCRProcessor(engine=TableStructureEngine(), config=ProcessingConfig()).process(
+        text
+    )
+
+    assert out.count("<table>") == 1, "nested table markup leaked into a cell:\n" + out
+    assert out.count("</table>") == 1
+    assert "Bolt" in out and "12" in out
+    assert "&lt;" in out or "Item" in out
+
+
+def test_output_outside_a_cell_is_inserted_verbatim(tmp_path) -> None:
+    (img,) = _make_images(tmp_path, "body.png")
+    text = f"Before\n\n[Image:{img}]\n\nAfter"
+    out = OCRProcessor(engine=TableStructureEngine(), config=ProcessingConfig()).process(
+        text
+    )
+
+    assert "<table>" in out, "structure outside a cell should be preserved"
+
+
+def test_failed_conversion_keeps_the_original_tag(tmp_path) -> None:
+    class FailingEngine:
+        def convert_image_to_text(self, path: str) -> str:
+            return "[Image conversion error: unreachable]"
+
+    (img,) = _make_images(tmp_path, "broken.png")
+    text = f"a [Image:{img}] b"
+    out = OCRProcessor(engine=FailingEngine(), config=ProcessingConfig()).process(text)
+
+    assert f"[Image:{img}]" in out, "a failed conversion must leave the tag to retry"

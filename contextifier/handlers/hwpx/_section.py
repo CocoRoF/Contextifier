@@ -242,7 +242,11 @@ def _process_node(node: ET.Element, ctx: _Ctx) -> str:
         return "".join(_process_node(child, ctx) for child in node)
 
     if tag == "tbl":
-        table_text = parse_hwpx_table(node, ctx.ns)
+        table_text = parse_hwpx_table(
+            node,
+            ctx.ns,
+            render_cell=lambda tc: _render_cell(tc, ctx),
+        )
         return f"\n{table_text}\n" if table_text else ""
 
     if tag == "switch":
@@ -286,6 +290,23 @@ def _process_node(node: ET.Element, ctx: _Ctx) -> str:
         return _process_sublists(node, ctx)
 
     return ""
+
+
+def _render_cell(tc: ET.Element, ctx: _Ctx) -> str:
+    """
+    Render one ``<hp:tc>`` with the same walker the body uses.
+
+    A cell is not limited to text: a scanned figure pasted into a form is a
+    picture with no text beside it, and reading cells for ``hp:t`` alone left
+    that cell blank with no image tag anywhere — nothing for the OCR pass to
+    pick up. Routing the cell through the ordinary walker also brings nested
+    tables and shape text along.
+    """
+    pieces = [
+        _process_sublist(sublist, ctx) for sublist in tc.findall("hp:subList", ctx.ns)
+    ]
+    rendered = " ".join(piece.strip() for piece in pieces if piece.strip())
+    return rendered.strip()
 
 
 def _process_sublist(sublist: ET.Element, ctx: _Ctx) -> str:

@@ -21,7 +21,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from contextifier.pipeline.content_extractor import BaseContentExtractor
 from contextifier.services.table_service import TableService
@@ -32,6 +32,7 @@ from contextifier.types import (
 
 from contextifier.handlers.docx._constants import NAMESPACES
 from contextifier.handlers.docx._paragraph import (
+    iter_block_elements,
     process_paragraph,
     extract_diagram_text,
     DrawingInfo,
@@ -146,7 +147,12 @@ class DocxContentExtractor(BaseContentExtractor):
 
             elif local == "tbl":
                 # Table
-                table_data = extract_table(element)
+                table_data = extract_table(
+                    element,
+                    resolve_image=self._cell_image_resolver(
+                        doc, processed_images
+                    ),
+                )
                 if table_data is not None:
                     formatted = self._format_table(table_data)
                     if formatted:
@@ -270,6 +276,31 @@ class DocxContentExtractor(BaseContentExtractor):
         """Process a VML pict element → return image tag string."""
         tag = self._extract_image_by_rel(pict.rel_id, doc, processed_images)
         return tag or ""
+
+    def _cell_image_resolver(
+        self,
+        doc: Any,
+        processed_images: Dict[str, str],
+    ) -> Callable[[Any], str]:
+        """
+        Build the callback the table extractor uses for images inside cells.
+
+        A cell holding a picture instead of typed text is how a pasted
+        screenshot enters a document, and without a tag at that position the
+        image is not merely unrendered — it is unreachable, because the OCR
+        pass works from the tags in the text.
+        """
+
+        def resolve(descriptor: Any) -> str:
+            kind = getattr(descriptor, "kind", None)
+            if kind is not None and kind != DrawingKind.IMAGE:
+                return ""  # charts and diagrams are handled at body level
+            rel_id = getattr(descriptor, "rel_id", None)
+            if not rel_id:
+                return ""
+            return self._extract_image_by_rel(rel_id, doc, processed_images) or ""
+
+        return resolve
 
     def _extract_image_by_rel(
         self,
@@ -490,29 +521,6 @@ class DocxContentExtractor(BaseContentExtractor):
         if hasattr(raw, "element") and hasattr(raw.element, "body"):
             return raw
         return None
-
-
-def iter_block_elements(container: Any) -> Iterator[Any]:
-    """
-    Yield the block-level children of *container* in document order,
-    descending through content controls.
-
-    A ``<w:sdt>`` (Structured Document Tag) is a wrapper, not content: tables
-    of contents, bibliographies, cover-page fields and anything a user inserted
-    as a content control put their real paragraphs and tables inside
-    ``<w:sdtContent>``. A walk that only recognises ``w:p`` and ``w:tbl`` skips
-    the wrapper and loses everything it holds, so the wrapper is unwrapped here
-    — recursively, because content controls nest.
-    """
-    for child in container:
-        if not isinstance(child.tag, str):
-            continue  # comments / processing instructions
-        if _local_name(child) != "sdt":
-            yield child
-            continue
-        for sdt_child in child:
-            if _local_name(sdt_child) == "sdtContent":
-                yield from iter_block_elements(sdt_child)
 
 
 def _local_name(element: Any) -> str:

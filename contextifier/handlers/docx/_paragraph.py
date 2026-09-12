@@ -18,7 +18,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from enum import Enum, unique
-from typing import Any, List, Optional, Tuple
+from typing import Any, Iterator, List, Optional, Tuple
 
 
 from contextifier.handlers.docx._constants import NAMESPACES
@@ -57,6 +57,41 @@ _QN_TXBX_CONTENT = f"{{{_W}}}txbxContent"
 _QN_SDT = f"{{{_W}}}sdt"
 _QN_SDT_CONTENT = f"{{{_W}}}sdtContent"
 _QN_TAB = f"{{{_W}}}tab"
+
+
+# ── Block-level traversal ─────────────────────────────────────────────────
+
+
+def local_name(element: Any) -> str:
+    """Tag name of an element without its namespace."""
+    tag = element.tag
+    if isinstance(tag, str) and "}" in tag:
+        return tag.split("}", 1)[1]
+    return tag if isinstance(tag, str) else ""
+
+
+def iter_block_elements(container: Any) -> Iterator[Any]:
+    """
+    Yield the block-level children of *container* in document order,
+    descending through content controls.
+
+    A ``<w:sdt>`` (Structured Document Tag) is a wrapper, not content: tables
+    of contents, bibliographies, cover-page fields and anything a user inserted
+    as a content control put their real paragraphs and tables inside
+    ``<w:sdtContent>``. A walk that only recognises ``w:p`` and ``w:tbl`` skips
+    the wrapper and loses everything it holds, so the wrapper is unwrapped here
+    — recursively, because content controls nest.
+    """
+    for child in container:
+        if not isinstance(child.tag, str):
+            continue  # comments / processing instructions
+        if local_name(child) != "sdt":
+            yield child
+            continue
+        for sdt_child in child:
+            if local_name(sdt_child) == "sdtContent":
+                yield from iter_block_elements(sdt_child)
+
 
 
 # ── Drawing descriptor ────────────────────────────────────────────────────
