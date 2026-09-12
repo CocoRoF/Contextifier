@@ -301,6 +301,75 @@ def _read_pieces(
     return "".join(parts)
 
 
+FIELD_BEGIN = "\x13"
+FIELD_SEPARATOR = "\x14"
+FIELD_END = "\x15"
+
+
+def strip_field_codes(text: str) -> str:
+    """
+    Replace Word field codes with the value they display.
+
+    A field is stored as ``\x13 instruction \x14 result \x15``. The
+    instruction is machine-readable markup — ``PAGE \\* MERGEFORMAT``,
+    ``HYPERLINK "https://…"``, ``REF _Ref12345`` — and Word never shows it, but
+    stripping only the three control characters leaves all of it sitting in the
+    body text. Any document with page numbers, a table of contents, hyperlinks
+    or cross-references is affected.
+
+    Fields nest (an ``IF`` field takes fields as arguments), so the scan keeps
+    a stack: text inside an instruction is dropped, text inside a result is
+    kept at whatever level encloses it.
+
+    Args:
+        text: Raw text from the piece table.
+
+    Returns:
+        The text with instructions removed and results kept.
+    """
+    if FIELD_BEGIN not in text:
+        return text
+
+    out: List[str] = []
+    stack: List[bool] = []
+    keeping = True
+    # Where the outermost still-open field began, and how much output existed
+    # at that moment — enough to undo a field that never closes.
+    open_at: Optional[int] = None
+    out_len_at_open = 0
+
+    for index, ch in enumerate(text):
+        if ch == FIELD_BEGIN:
+            if not stack:
+                open_at = index
+                out_len_at_open = len(out)
+            stack.append(keeping)
+            keeping = False
+        elif ch == FIELD_SEPARATOR:
+            if stack:
+                keeping = stack[-1]
+        elif ch == FIELD_END:
+            if stack:
+                keeping = stack.pop()
+                if not stack:
+                    open_at = None
+        elif keeping:
+            out.append(ch)
+
+    if stack and open_at is not None:
+        # An unterminated field would otherwise swallow the rest of the
+        # document. Roll back to where it opened and keep the remainder
+        # verbatim, minus the field markers themselves.
+        del out[out_len_at_open:]
+        remainder = text[open_at:]
+        for marker in (FIELD_BEGIN, FIELD_SEPARATOR, FIELD_END):
+            remainder = remainder.replace(marker, "")
+        logger.debug("Unterminated field code at offset %d; kept remainder", open_at)
+        out.append(remainder)
+
+    return "".join(out)
+
+
 def _clean_doc_text(text: str) -> str:
     """
     Clean text extracted from DOC piece table.
@@ -308,6 +377,10 @@ def _clean_doc_text(text: str) -> str:
     Normalizes paragraph marks, removes binary control characters,
     and collapses excessive whitespace.
     """
+    # Field codes first: their instruction text is markup, and the control
+    # characters that delimit it are removed a few lines below.
+    text = strip_field_codes(text)
+
     # Replace DOC paragraph marks
     text = text.replace("\r\n", "\n")
     text = text.replace("\r", "\n")
@@ -377,6 +450,7 @@ def detect_tables_from_text(text: str) -> List[List[List[str]]]:
 
 __all__ = [
     "parse_fib_text",
+    "strip_field_codes",
     "detect_tables_from_text",
     "PieceDescriptor",
 ]

@@ -120,13 +120,26 @@ class OCRProcessor:
         if not text:
             return text
 
-        image_paths = self._extract_image_paths(text)
-        if not image_paths:
+        tag_paths = self._extract_image_paths(text)
+        if not tag_paths:
             logger.debug("No image tags found in text")
             return text
 
+        # One conversion per distinct image. The same picture is routinely
+        # referenced more than once — a logo in a repeated header, a diagram
+        # cited twice — and each extra reference is another model call for a
+        # result already in hand. Replacement covers every occurrence anyway.
+        image_paths = list(dict.fromkeys(tag_paths))
+
         total = len(image_paths)
-        logger.info(f"Detected {total} image tag(s) for OCR processing")
+        if len(tag_paths) != total:
+            logger.info(
+                "Detected %d image tag(s), %d distinct image(s) to convert",
+                len(tag_paths),
+                total,
+            )
+        else:
+            logger.info(f"Detected {total} image tag(s) for OCR processing")
 
         # Phase 1: Run OCR for all images (parallel if max_workers > 1)
         ocr_results = self._run_ocr_batch(image_paths, total, progress_callback)
