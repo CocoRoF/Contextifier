@@ -149,3 +149,83 @@ def test_custom_page_tag_configuration_is_honoured(tmp_path: Path) -> None:
 
     assert "<page>1</page>" in text
     assert "[Page Number:" not in text
+
+
+# ── HWPX ──────────────────────────────────────────────────────────────────
+
+_HWPX_NS = (
+    'xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph" '
+    'xmlns:hc="http://www.hancom.co.kr/hwpml/2011/core" '
+    'xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section"'
+)
+
+
+def _build_hwpx(path: Path) -> None:
+    """Minimal but structurally faithful HWPX: body, table, shape, header."""
+    import zipfile
+
+    def para(text: str) -> str:
+        return f"<hp:p><hp:run><hp:t>{text}</hp:t></hp:run></hp:p>"
+
+    def cell(row: int, col: int, text: str) -> str:
+        return (
+            f'<hp:tc><hp:cellAddr colAddr="{col}" rowAddr="{row}"/>'
+            f'<hp:cellSpan colSpan="1" rowSpan="1"/>'
+            f"<hp:subList>{para(text)}</hp:subList></hp:tc>"
+        )
+
+    table = (
+        '<hp:tbl rowCnt="2" colCnt="2">'
+        f'<hp:tr>{cell(0, 0, "R1C1")}{cell(0, 1, "R1C2")}</hp:tr>'
+        f'<hp:tr>{cell(1, 0, "R2C1")}{cell(1, 1, "R2C2")}</hp:tr>'
+        "</hp:tbl>"
+    )
+    section = (
+        f"<hs:sec {_HWPX_NS}>"
+        + para("Body paragraph one.")
+        + f"<hp:p><hp:run>{table}</hp:run></hp:p>"
+        + "<hp:p><hp:run><hp:rect><hp:drawText><hp:subList>"
+        + para("Diagram caption text")
+        + "</hp:subList></hp:drawText></hp:rect></hp:run></hp:p>"
+        + "<hp:p><hp:run><hp:ctrl><hp:header><hp:subList>"
+        + para("Running page header")
+        + "</hp:subList></hp:header></hp:ctrl></hp:run></hp:p>"
+        + "</hs:sec>"
+    )
+
+    with zipfile.ZipFile(path, "w") as zf:
+        zf.writestr("mimetype", "application/hwp+zip")
+        zf.writestr("version.xml", '<?xml version="1.0"?><hv:HCFVersion/>')
+        zf.writestr("Contents/section0.xml", section)
+
+
+def test_hwpx_structure_is_not_duplicated(
+    processor: DocumentProcessor, tmp_path: Path
+) -> None:
+    path = tmp_path / "doc.hwpx"
+    _build_hwpx(path)
+
+    text = processor.extract_text(str(path))
+
+    assert "<table>" in text
+    for cell_text in ("R1C1", "R1C2", "R2C1", "R2C2"):
+        assert text.count(cell_text) == 1, (
+            f"{cell_text} appears {text.count(cell_text)}× — cell paragraphs are "
+            "being emitted a second time as body text"
+        )
+
+
+def test_hwpx_shape_text_and_header_are_placed_correctly(
+    processor: DocumentProcessor, tmp_path: Path
+) -> None:
+    path = tmp_path / "doc.hwpx"
+    _build_hwpx(path)
+
+    text = processor.extract_text(str(path))
+
+    assert "Diagram caption text" in text
+    assert text.index("Body paragraph one.") < text.index("Diagram caption text")
+
+    assert "[Headers]" in text
+    assert "Running page header" in text
+    assert text.index("Diagram caption text") < text.index("[Headers]")
