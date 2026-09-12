@@ -37,6 +37,7 @@ def convert_region_to_table(
         TableData or None if the region is empty.
     """
     merged = _get_merged_cells_in_region(ws, region)
+    anchor_values = _merge_anchor_values(ws, region)
 
     rows: List[List[TableCell]] = []
     skip_cells: Set[Tuple[int, int]] = set()
@@ -48,7 +49,8 @@ def convert_region_to_table(
                 continue
 
             cell = ws.cell(row=row_idx, column=col_idx)
-            value = _format_cell_value(cell.value)
+            raw = anchor_values.get((row_idx, col_idx), cell.value)
+            value = _format_cell_value(raw)
 
             row_span = 1
             col_span = 1
@@ -106,6 +108,7 @@ def convert_region_to_markdown(
 
     Used when there are no merged cells in the region.
     """
+    anchor_values = _merge_anchor_values(ws, region)
     lines: List[str] = []
     col_count = region.cols
 
@@ -113,7 +116,8 @@ def convert_region_to_markdown(
         cells: List[str] = []
         for col_idx in range(region.min_col, region.max_col + 1):
             cell = ws.cell(row=row_idx, column=col_idx)
-            value = _format_cell_value(cell.value)
+            raw = anchor_values.get((row_idx, col_idx), cell.value)
+            value = _format_cell_value(raw)
 
             # Check if merged cell value comes from outside the region
             if not value and merged_outside:
@@ -149,6 +153,7 @@ def convert_region_to_html(
     rowspan/colspan representation.
     """
     merged = _get_merged_cells_in_region(ws, region)
+    anchor_values = _merge_anchor_values(ws, region)
     skip_cells: Set[Tuple[int, int]] = set()
 
     rows_html: List[str] = []
@@ -162,7 +167,8 @@ def convert_region_to_html(
                 continue
 
             cell = ws.cell(row=row_idx, column=col_idx)
-            value = _format_cell_value(cell.value)
+            raw = anchor_values.get((row_idx, col_idx), cell.value)
+            value = _format_cell_value(raw)
             value = _html_escape(value)
 
             tag = "th" if is_header else "td"
@@ -192,6 +198,36 @@ def convert_region_to_html(
     return "<table>\n" + "\n".join(rows_html) + "\n</table>"
 
 
+def convert_region_to_plain_text(
+    ws: object,
+    region: LayoutRange,
+) -> str:
+    """
+    Render a region that is too small to be a table as plain text.
+
+    A single cell, a lone row or a lone column has no row/column relationship
+    to preserve. Writing it as a table wraps one value in a header separator
+    and, because tables are protected from splitting, hands it a chunk of its
+    own. The values are kept — one line per row, cells joined by ``" | "`` —
+    so nothing is dropped.
+    """
+    anchor_values = _merge_anchor_values(ws, region)
+    lines: List[str] = []
+
+    for row_idx in range(region.min_row, region.max_row + 1):
+        values: List[str] = []
+        for col_idx in range(region.min_col, region.max_col + 1):
+            cell = ws.cell(row=row_idx, column=col_idx)
+            raw = anchor_values.get((row_idx, col_idx), cell.value)
+            text = _format_cell_value(raw).replace("\n", " ").strip()
+            if text:
+                values.append(text)
+        if values:
+            lines.append(" | ".join(values))
+
+    return "\n".join(lines)
+
+
 def convert_sheet_to_text(
     ws: object,
     region: LayoutRange,
@@ -199,9 +235,13 @@ def convert_sheet_to_text(
     """
     Convert a worksheet region to text, auto-selecting format.
 
+    - plain text if the region is too small to have a grid
     - HTML if merged cells present
     - Markdown otherwise
     """
+    if not region.is_table_like():
+        return convert_region_to_plain_text(ws, region)
+
     merged = _get_merged_cells_in_region(ws, region)
     if merged:
         return convert_region_to_html(ws, region)
@@ -219,28 +259,80 @@ def _get_merged_cells_in_region(
     region: LayoutRange,
 ) -> Dict[Tuple[int, int], Tuple[int, int]]:
     """
-    Find merged cells that start within the region.
+    Merged cells as they appear *within* a region, clipped to it.
 
-    Returns dict of (start_row, start_col) → (row_span, col_span).
+    A merge is anchored at its top-left cell, and only that cell holds the
+    value. When a sheet is split into several regions, a merge can cover a
+    region while being anchored in an earlier one — the region then shows a
+    blank column where the label should be, and the label is lost. Equally, a
+    merge anchored inside the region can reach past its last row, leaving a
+    span that points at rows the table does not contain.
+
+    Both cases are handled by clipping: the merge is reported at the first
+    cell of the region it actually covers, with the span it has inside the
+    region.
+
+    Returns:
+        ``{(row, col): (row_span, col_span)}`` for cells the region renders.
     """
     merged: Dict[Tuple[int, int], Tuple[int, int]] = {}
 
     try:
         for merge_range in ws.merged_cells.ranges:
-            start_row = merge_range.min_row
-            start_col = merge_range.min_col
-            end_row = merge_range.max_row
-            end_col = merge_range.max_col
+            start_row, start_col = merge_range.min_row, merge_range.min_col
+            end_row, end_col = merge_range.max_row, merge_range.max_col
 
-            # Check if merge starts within our region
-            if region.contains(start_row, start_col):
-                row_span = end_row - start_row + 1
-                col_span = end_col - start_col + 1
-                merged[(start_row, start_col)] = (row_span, col_span)
-    except Exception:
-        pass
+            # Overlap with the region, in region coordinates.
+            first_row = max(start_row, region.min_row)
+            last_row = min(end_row, region.max_row)
+            first_col = max(start_col, region.min_col)
+            last_col = min(end_col, region.max_col)
+            if first_row > last_row or first_col > last_col:
+                continue
+
+            merged[(first_row, first_col)] = (
+                last_row - first_row + 1,
+                last_col - first_col + 1,
+            )
+    except Exception as exc:
+        logger.debug("Failed to read merged cells: %s", exc)
 
     return merged
+
+
+def _merge_anchor_values(
+    ws: object,
+    region: LayoutRange,
+) -> Dict[Tuple[int, int], Any]:
+    """
+    Values to display for merges whose anchor lies outside *region*.
+
+    Only the anchor cell of a merge holds the value, so a region that sees the
+    tail of a merge reads an empty cell. This maps the region's first covered
+    cell to the anchor's value so the label is not lost.
+    """
+    values: Dict[Tuple[int, int], Any] = {}
+
+    try:
+        for merge_range in ws.merged_cells.ranges:
+            start_row, start_col = merge_range.min_row, merge_range.min_col
+            if region.contains(start_row, start_col):
+                continue  # anchor is inside; the normal read finds the value
+
+            first_row = max(start_row, region.min_row)
+            last_row = min(merge_range.max_row, region.max_row)
+            first_col = max(start_col, region.min_col)
+            last_col = min(merge_range.max_col, region.max_col)
+            if first_row > last_row or first_col > last_col:
+                continue
+
+            value = ws.cell(row=start_row, column=start_col).value
+            if value is not None:
+                values[(first_row, first_col)] = value
+    except Exception as exc:
+        logger.debug("Failed to resolve merge anchors: %s", exc)
+
+    return values
 
 
 def _format_cell_value(value: Any) -> str:

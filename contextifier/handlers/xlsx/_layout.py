@@ -17,7 +17,12 @@ from collections import deque
 from dataclasses import dataclass
 from typing import List, Optional, Set, Tuple
 
-from contextifier.handlers.xlsx._constants import MAX_SCAN_ROWS, MAX_SCAN_COLS
+from contextifier.handlers.xlsx._constants import (
+    MIN_TABLE_COLS,
+    MIN_TABLE_ROWS,
+    SCAN_COL_LIMIT,
+    SCAN_ROW_LIMIT,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +47,23 @@ class LayoutRange:
     @property
     def cell_count(self) -> int:
         return self.rows * self.cols
+
+    def is_table_like(
+        self,
+        *,
+        min_rows: int = MIN_TABLE_ROWS,
+        min_cols: int = MIN_TABLE_COLS,
+    ) -> bool:
+        """
+        Whether the region has enough of a grid to be worth calling a table.
+
+        A single cell, a lone row or a lone column carries no row/column
+        relationship — rendering one as a table produces a header separator
+        around one value and, because tables are protected from splitting,
+        hands it a whole chunk of its own. The threshold matches the minimum
+        the DOCX, HWPX and PDF table detectors already enforce.
+        """
+        return self.rows >= min_rows and self.cols >= min_cols
 
     def is_adjacent(self, other: "LayoutRange", *, tolerance: int = 1) -> bool:
         """Check if two ranges are adjacent (within tolerance rows/cols)."""
@@ -78,12 +100,46 @@ class LayoutRange:
         )
 
 
+def sheet_extent(ws: object) -> tuple:
+    """
+    The sheet's addressable extent, clamped to a sanity bound.
+
+    openpyxl reports ``max_row``/``max_column`` from the sheet dimension, which
+    can be inflated by stray formatting but is never smaller than the data.
+    Scanning a fixed window instead silently truncates every sheet past it —
+    a 1,500-row export lost a third of its rows with nothing in the output to
+    say so.
+
+    Returns:
+        ``(max_row, max_col)``, both at least 1.
+    """
+    try:
+        max_row = int(getattr(ws, "max_row", 0) or 0)
+        max_col = int(getattr(ws, "max_column", 0) or 0)
+    except (TypeError, ValueError):
+        return 1, 1
+
+    if max_row > SCAN_ROW_LIMIT:
+        logger.warning(
+            "Sheet reports %d rows; scanning the first %d",
+            max_row,
+            SCAN_ROW_LIMIT,
+        )
+        max_row = SCAN_ROW_LIMIT
+    if max_col > SCAN_COL_LIMIT:
+        logger.warning(
+            "Sheet reports %d columns; scanning the first %d",
+            max_col,
+            SCAN_COL_LIMIT,
+        )
+        max_col = SCAN_COL_LIMIT
+
+    return max(1, max_row), max(1, max_col)
+
+
 def layout_detect_range(ws: object) -> Optional[LayoutRange]:
     """
     Detect the data-containing rectangular region of a worksheet.
-
-    Scans up to ``MAX_SCAN_ROWS × MAX_SCAN_COLS`` cells to find
-    the bounding rectangle of all non-empty cells.
 
     Args:
         ws: openpyxl Worksheet object.
@@ -91,24 +147,32 @@ def layout_detect_range(ws: object) -> Optional[LayoutRange]:
     Returns:
         LayoutRange or None if the sheet is empty.
     """
+    max_row, max_col = sheet_extent(ws)
+
     min_row = None
-    max_row = None
+    max_row_seen = None
     min_col = None
-    max_col = None
+    max_col_seen = None
 
     try:
-        for row_idx in range(1, MAX_SCAN_ROWS + 1):
-            for col_idx in range(1, MAX_SCAN_COLS + 1):
-                cell = ws.cell(row=row_idx, column=col_idx)
-                if cell.value is not None:
-                    if min_row is None or row_idx < min_row:
-                        min_row = row_idx
-                    if max_row is None or row_idx > max_row:
-                        max_row = row_idx
-                    if min_col is None or col_idx < min_col:
-                        min_col = col_idx
-                    if max_col is None or col_idx > max_col:
-                        max_col = col_idx
+        # iter_rows() streams the used range; ws.cell() in a nested loop
+        # materialises a cell object per coordinate and is far slower on the
+        # large sheets this now has to handle.
+        for row_idx, row in enumerate(
+            ws.iter_rows(min_row=1, max_row=max_row, min_col=1, max_col=max_col),
+            start=1,
+        ):
+            for col_idx, cell in enumerate(row, start=1):
+                if cell.value is None:
+                    continue
+                if min_row is None or row_idx < min_row:
+                    min_row = row_idx
+                if max_row_seen is None or row_idx > max_row_seen:
+                    max_row_seen = row_idx
+                if min_col is None or col_idx < min_col:
+                    min_col = col_idx
+                if max_col_seen is None or col_idx > max_col_seen:
+                    max_col_seen = col_idx
     except Exception as exc:
         logger.debug("Error during layout detection: %s", exc)
 
@@ -117,9 +181,9 @@ def layout_detect_range(ws: object) -> Optional[LayoutRange]:
 
     return LayoutRange(
         min_row=min_row,
-        max_row=max_row,
+        max_row=max_row_seen,
         min_col=min_col,
-        max_col=max_col,
+        max_col=max_col_seen,
     )
 
 
@@ -152,19 +216,31 @@ def object_detect(
     bordered_cells: Set[Tuple[int, int]] = set()
     value_cells: Set[Tuple[int, int]] = set()
 
-    for row_idx in range(layout.min_row, layout.max_row + 1):
-        for col_idx in range(layout.min_col, layout.max_col + 1):
-            try:
-                cell = ws.cell(row=row_idx, column=col_idx)
-                has_border = _has_border(cell)
-                has_value = cell.value is not None
-
-                if has_border:
+    try:
+        for row_idx, row in enumerate(
+            ws.iter_rows(
+                min_row=layout.min_row,
+                max_row=layout.max_row,
+                min_col=layout.min_col,
+                max_col=layout.max_col,
+            ),
+            start=layout.min_row,
+        ):
+            for col_idx, cell in enumerate(row, start=layout.min_col):
+                if _has_border(cell):
                     bordered_cells.add((row_idx, col_idx))
-                elif has_value:
+                elif cell.value is not None:
                     value_cells.add((row_idx, col_idx))
-            except Exception:
-                pass
+    except Exception as exc:
+        logger.debug("Error during region detection: %s", exc)
+
+    # A merged range is one cell as far as the reader is concerned, but only
+    # its anchor holds a value — the rest read as empty and break the region
+    # apart, so a table with a merged category column is reported as several
+    # unrelated blocks and the column is lost from all but the first. Treating
+    # the whole range as occupied keeps it together.
+    value_cells |= _merged_range_cells(ws, layout)
+    value_cells -= bordered_cells
 
     # Phase 2: BFS group bordered cells into regions
     regions: List[LayoutRange] = []
@@ -188,6 +264,27 @@ def object_detect(
     regions.sort(key=lambda r: (r.min_row, r.min_col))
 
     return regions
+
+
+def _merged_range_cells(ws: object, layout: LayoutRange) -> Set[Tuple[int, int]]:
+    """Every cell of each non-empty merged range that intersects *layout*."""
+    cells: Set[Tuple[int, int]] = set()
+    try:
+        for merge_range in ws.merged_cells.ranges:
+            if ws.cell(row=merge_range.min_row, column=merge_range.min_col).value is None:
+                continue
+            first_row = max(merge_range.min_row, layout.min_row)
+            last_row = min(merge_range.max_row, layout.max_row)
+            first_col = max(merge_range.min_col, layout.min_col)
+            last_col = min(merge_range.max_col, layout.max_col)
+            if first_row > last_row or first_col > last_col:
+                continue
+            for row in range(first_row, last_row + 1):
+                for col in range(first_col, last_col + 1):
+                    cells.add((row, col))
+    except Exception as exc:
+        logger.debug("Failed to expand merged ranges: %s", exc)
+    return cells
 
 
 def _has_border(cell: object) -> bool:

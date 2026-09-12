@@ -75,8 +75,17 @@ UNSUPPORTED_IMAGE_EXTENSIONS = frozenset({".emf", ".wmf"})
 # Layout detection limits
 # ═══════════════════════════════════════════════════════════════════════════════
 
-MAX_SCAN_ROWS = 1000
-MAX_SCAN_COLS = 100
+# Upper bound on how much of a sheet is scanned. This is a guard against a
+# corrupt dimension record, not a working budget — the scan follows the
+# sheet's reported extent and only clamps (with a warning) beyond these.
+SCAN_ROW_LIMIT = 200_000
+SCAN_COL_LIMIT = 16_384  # Excel's own column maximum
+
+# Smallest shape worth rendering as a table. Anything smaller has no grid
+# relationship to preserve; it is written as plain text instead. Matches the
+# minimum the DOCX / HWPX / PDF table detectors enforce.
+MIN_TABLE_ROWS = 2
+MIN_TABLE_COLS = 2
 
 
 __all__ = [
@@ -91,6 +100,8 @@ __all__ = [
     "CHART_TYPE_MAP",
     "SUPPORTED_IMAGE_EXTENSIONS",
     "UNSUPPORTED_IMAGE_EXTENSIONS",
-    "MAX_SCAN_ROWS",
-    "MAX_SCAN_COLS",
+    "SCAN_ROW_LIMIT",
+    "SCAN_COL_LIMIT",
+    "MIN_TABLE_ROWS",
+    "MIN_TABLE_COLS",
 ]

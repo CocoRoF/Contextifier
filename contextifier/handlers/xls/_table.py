@@ -34,9 +34,36 @@ def convert_sheet_to_text(
         if region is None:
             return ""
 
+    if not region.is_table_like():
+        return convert_region_to_plain_text(sheet, book, region)
+
     if _has_merged_in_region(sheet, region):
         return convert_region_to_html(sheet, book, region)
     return convert_region_to_markdown(sheet, book, region)
+
+
+def convert_region_to_plain_text(
+    sheet: object,
+    book: object,
+    region: LayoutRange,
+) -> str:
+    """
+    Render a region too small to have a grid as plain text.
+
+    See the XLSX counterpart: a lone cell, row or column has no row/column
+    relationship worth table markup, and wrapping it in one costs it a whole
+    protected chunk.
+    """
+    lines: List[str] = []
+    for r1 in range(region.min_row, region.max_row + 1):
+        values: List[str] = []
+        for c1 in range(region.min_col, region.max_col + 1):
+            text = _format_cell(sheet, book, r1 - 1, c1 - 1).replace("\n", " ").strip()
+            if text:
+                values.append(text)
+        if values:
+            lines.append(" | ".join(values))
+    return "\n".join(lines)
 
 
 def convert_region_to_table(
@@ -135,14 +162,25 @@ def convert_region_to_html(
 ) -> str:
     """Render a region as an HTML table with rowspan/colspan."""
     merged = _get_merged_in_region(sheet, region)
-    # Build merge info keyed by (r0, c0)
+    # Clip every merge to the region. A merge anchored above or left of the
+    # region would otherwise have its anchor cell skipped entirely — the label
+    # lost and the row a column short — and a merge running past the region
+    # would leave a span pointing at rows the table does not contain.
     merge_info: dict[Tuple[int, int], Tuple[int, int]] = {}
+    anchor_of: dict[Tuple[int, int], Tuple[int, int]] = {}
     skip: Set[Tuple[int, int]] = set()
     for rlo, rhi, clo, chi in merged:
-        merge_info[(rlo, clo)] = (rhi - rlo, chi - clo)
-        for r in range(rlo, rhi):
-            for c in range(clo, chi):
-                if (r, c) != (rlo, clo):
+        first_r = max(rlo, region.min_row - 1)
+        last_r = min(rhi, region.max_row)  # rhi is exclusive
+        first_c = max(clo, region.min_col - 1)
+        last_c = min(chi, region.max_col)
+        if first_r >= last_r or first_c >= last_c:
+            continue
+        merge_info[(first_r, first_c)] = (last_r - first_r, last_c - first_c)
+        anchor_of[(first_r, first_c)] = (rlo, clo)
+        for r in range(first_r, last_r):
+            for c in range(first_c, last_c):
+                if (r, c) != (first_r, first_c):
                     skip.add((r, c))
 
     parts = ["<table>"]
@@ -155,7 +193,8 @@ def convert_region_to_html(
             c0 = c1 - 1
             if (r0, c0) in skip:
                 continue
-            val = _format_cell(sheet, book, r0, c0)
+            source_r, source_c = anchor_of.get((r0, c0), (r0, c0))
+            val = _format_cell(sheet, book, source_r, source_c)
             if val:
                 has_data = True
             val = _html_escape(val)
