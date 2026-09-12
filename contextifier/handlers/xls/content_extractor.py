@@ -184,7 +184,7 @@ class XlsContentExtractor(BaseContentExtractor):
 
                 try:
                     tag = self._image_service.save_and_tag(
-                        image_bytes=data,
+                        image_data=data,
                         custom_name=f"xls_ole_{content_hash[:12]}",
                     )
                     if tag:
@@ -258,11 +258,9 @@ class XlsContentExtractor(BaseContentExtractor):
         return None
 
     def _make_sheet_tag(self, name: str) -> str:
+        """Generate a sheet tag via TagService, falling back to the default format."""
         if self._tag_service is not None:
-            try:
-                return self._tag_service.make_sheet_tag(name)
-            except Exception:
-                pass
+            return self._tag_service.create_sheet_tag(name)
         return f"[Sheet: {name}]"
 
 

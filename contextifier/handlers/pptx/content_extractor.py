@@ -432,7 +432,7 @@ class PptxContentExtractor(BaseContentExtractor):
             custom_name = f"pptx_slide{slide_idx + 1}_shape{shape_id}"
 
             tag = self._image_service.save_and_tag(
-                image_bytes=image_data,
+                image_data=image_data,
                 custom_name=custom_name,
             )
             if tag:
@@ -533,14 +533,11 @@ class PptxContentExtractor(BaseContentExtractor):
 
     # ── Slide tags ────────────────────────────────────────────────────────
 
-    def _make_slide_tag(self, slide_number: int) -> Optional[str]:
-        """Generate a ``[Slide:N]`` tag using TagService."""
+    def _make_slide_tag(self, slide_number: int) -> str:
+        """Generate a slide tag via TagService, falling back to the default format."""
         if self._tag_service is not None:
-            try:
-                return self._tag_service.make_slide_tag(slide_number)
-            except Exception as exc:
-                logger.debug("Slide tag creation failed: %s", exc)
-        return f"[Slide:{slide_number}]"
+            return self._tag_service.create_slide_tag(slide_number)
+        return f"[Slide Number: {slide_number}]"
 
     # ── Utility ───────────────────────────────────────────────────────────
 

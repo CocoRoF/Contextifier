@@ -313,7 +313,7 @@ class DocxContentExtractor(BaseContentExtractor):
                     custom_name = partname.split("/")[-1]
 
             tag = self._image_service.save_and_tag(
-                image_bytes=image_data,
+                image_data=image_data,
                 custom_name=custom_name,
             )
 
@@ -452,14 +452,11 @@ class DocxContentExtractor(BaseContentExtractor):
 
     # ── Tag helpers ───────────────────────────────────────────────────────
 
-    def _make_page_tag(self, page_number: int) -> Optional[str]:
-        """Generate a page tag using TagService, or None if unavailable."""
+    def _make_page_tag(self, page_number: int) -> str:
+        """Generate a page tag via TagService, falling back to the default format."""
         if self._tag_service is not None:
-            try:
-                return self._tag_service.make_page_tag(page_number)
-            except Exception as exc:
-                logger.debug("Page tag creation failed: %s", exc)
-        return None
+            return self._tag_service.create_page_tag(page_number)
+        return f"[Page Number: {page_number}]"
 
     # ── Utility ───────────────────────────────────────────────────────────
 

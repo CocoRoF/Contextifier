@@ -297,7 +297,7 @@ class HwpContentExtractor(BaseContentExtractor):
                     img_data = raw
 
             if self._image_service is not None:
-                tag = self._image_service.save_image(
+                tag = self._image_service.save_and_tag(
                     img_data, custom_name=f"hwp_{stream_path[-1]}"
                 )
                 if tag:

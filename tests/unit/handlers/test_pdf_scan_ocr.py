@@ -3,13 +3,15 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, create_autospec
 
 import pytest
 
 from contextifier.handlers.pdf_default.content_extractor import (
     PdfDefaultContentExtractor,
 )
+from contextifier.services.image_service import ImageService
+from contextifier.services.tag_service import TagService
 from contextifier.types import PreprocessedData
 
 
@@ -49,8 +51,8 @@ def _make_preprocessed(doc: MagicMock, needs_ocr: bool = True) -> PreprocessedDa
 
 @pytest.fixture()
 def image_service() -> MagicMock:
-    svc = MagicMock()
-    svc.save_and_tag.side_effect = lambda img_data, custom_name=None, skip_duplicate=None: (
+    svc = create_autospec(ImageService, instance=True)
+    svc.save_and_tag.side_effect = lambda image_data, custom_name=None, skip_duplicate=None: (
         f"[Image:{custom_name}]"
     )
     return svc
@@ -58,8 +60,8 @@ def image_service() -> MagicMock:
 
 @pytest.fixture()
 def extractor(image_service: MagicMock) -> PdfDefaultContentExtractor:
-    tag_service = MagicMock()
-    tag_service.page_tag.side_effect = lambda n: f"[Page {n}]"
+    tag_service = create_autospec(TagService, instance=True)
+    tag_service.create_page_tag.side_effect = lambda n: f"[Page Number: {n}]"
 
     ext = PdfDefaultContentExtractor(
         image_service=image_service,
@@ -84,9 +86,9 @@ class TestScanPageRendering:
         assert "[Image:scan_page_3.png]" in result
 
         # Should have page tags
-        assert "[Page 1]" in result
-        assert "[Page 2]" in result
-        assert "[Page 3]" in result
+        assert "[Page Number: 1]" in result
+        assert "[Page Number: 2]" in result
+        assert "[Page Number: 3]" in result
 
         # ImageService.save_and_tag called 3 times (one per page)
         assert image_service.save_and_tag.call_count == 3

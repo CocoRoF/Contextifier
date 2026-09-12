@@ -13,11 +13,16 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, Dict, Optional
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, create_autospec
 
 import pytest
 
 from contextifier.config import ProcessingConfig
+from contextifier.services.chart_service import ChartService
+from contextifier.services.image_service import ImageService
+from contextifier.services.metadata_service import MetadataService
+from contextifier.services.table_service import TableService
+from contextifier.services.tag_service import TagService
 from contextifier.types import FileContext, get_category
 
 
@@ -41,10 +46,18 @@ def tmp_output_dir(tmp_path: Path) -> Path:
 
 @pytest.fixture()
 def mock_tag_service() -> MagicMock:
-    ts = MagicMock()
-    ts.make_page_tag.side_effect = lambda n: f"[Page {n}]"
-    ts.make_slide_tag.side_effect = lambda n: f"[Slide {n}]"
-    ts.make_sheet_tag.side_effect = lambda name: f"[Sheet: {name}]"
+    """Autospecced TagService.
+
+    ``create_autospec`` is deliberate: a handler calling a method that does not
+    exist on the real service (or passing an unknown keyword) must fail here
+    rather than silently returning a MagicMock that the handler then swallows
+    in an ``except Exception`` branch. A plain MagicMock hid exactly that class
+    of bug across seven handlers.
+    """
+    ts = create_autospec(TagService, instance=True)
+    ts.create_page_tag.side_effect = lambda n: f"[Page Number: {n}]"
+    ts.create_slide_tag.side_effect = lambda n: f"[Slide Number: {n}]"
+    ts.create_sheet_tag.side_effect = lambda name: f"[Sheet: {name}]"
     ts.create_image_tag.side_effect = lambda p: f"[Image:{p}]"
     ts.create_chart_open_tag.return_value = "[Chart Start]"
     ts.create_chart_close_tag.return_value = "[Chart End]"
@@ -53,7 +66,8 @@ def mock_tag_service() -> MagicMock:
 
 @pytest.fixture()
 def mock_image_service() -> MagicMock:
-    ims = MagicMock()
+    """Autospecced ImageService — see :func:`mock_tag_service`."""
+    ims = create_autospec(ImageService, instance=True)
     ims.save.return_value = "/saved/image.png"
     ims.save_and_tag.return_value = "[Image:/saved/image.png]"
     ims.extract_and_deduplicate.return_value = "[Image:/saved/image.png]"
@@ -64,21 +78,21 @@ def mock_image_service() -> MagicMock:
 
 @pytest.fixture()
 def mock_chart_service() -> MagicMock:
-    cs = MagicMock()
+    cs = create_autospec(ChartService, instance=True)
     cs.format_chart.return_value = "[Chart Start]\nChart Type: Bar\n[Chart End]"
     return cs
 
 
 @pytest.fixture()
 def mock_table_service() -> MagicMock:
-    tbs = MagicMock()
+    tbs = create_autospec(TableService, instance=True)
     tbs.format_table.return_value = "<table><tr><td>cell</td></tr></table>"
     return tbs
 
 
 @pytest.fixture()
 def mock_metadata_service() -> MagicMock:
-    ms = MagicMock()
+    ms = create_autospec(MetadataService, instance=True)
     ms.format_metadata.return_value = "---\ntitle: Test\n---"
     return ms
 

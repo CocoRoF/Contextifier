@@ -153,7 +153,7 @@ class HwpxContentExtractor(BaseContentExtractor):
             try:
                 with zf.open(name) as f:
                     data = f.read()
-                tag = self._image_service.save_image(data)
+                tag = self._image_service.save_and_tag(data)
                 if tag:
                     processed_images.add(name)
                     tags.append(tag)

@@ -365,7 +365,7 @@ class DocContentExtractor(BaseContentExtractor):
 
             try:
                 tag = self._image_service.save_and_tag(
-                    image_bytes=data,
+                    image_data=data,
                     custom_name=f"doc_ole_{content_hash[:12]}",
                 )
                 if tag:

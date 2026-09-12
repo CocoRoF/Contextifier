@@ -421,7 +421,7 @@ def _process_picture_element(
         with zf.open(full_path) as f:
             image_data = f.read()
 
-        tag = image_service.save_image(image_data)
+        tag = image_service.save_and_tag(image_data)
         if tag:
             processed_images.add(full_path)
             return f"\n{tag}\n"

@@ -123,6 +123,14 @@ exclude = [
 ]
 
 # ---------------------------------------------------------------------------
+# Pytest — the suite uses `@pytest.mark.asyncio`; without a mode set, those
+# tests error out on a fresh checkout instead of running.
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+# ---------------------------------------------------------------------------
 # Ruff — pin the rule set so `ruff check` is deterministic across ruff
 # versions (fresh CI installs drift otherwise). E/F is the default the repo
 # has always satisfied; the formatter (`ruff format`) owns layout, so E501

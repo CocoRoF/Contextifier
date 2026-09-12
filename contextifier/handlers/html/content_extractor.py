@@ -286,7 +286,7 @@ class HtmlContentExtractor(BaseContentExtractor):
             if not data:
                 continue
             tag = self._image_service.save_and_tag(
-                image_bytes=data,
+                image_data=data,
                 custom_name=f"html_image_{idx}.{fmt}",
             )
             if tag:
