@@ -24,7 +24,7 @@ from typing import Any, List, Optional, Tuple, Union
 from contextifier.config import ProcessingConfig
 from contextifier.types import Chunk, ChunkMetadata
 from contextifier.chunking.constants import (
-    HTML_TABLE_PATTERN,
+    find_html_tables,
     MARKDOWN_TABLE_PATTERN,
     TEXTBOX_BLOCK_PATTERN,
     TABLE_EXTENSIONS,
@@ -336,8 +336,8 @@ class TableChunkingStrategy(BaseChunkingStrategy):
         """Find non-overlapping HTML + Markdown tables."""
         all_matches: List[Tuple[int, int, str]] = []
 
-        for m in HTML_TABLE_PATTERN.finditer(text):
-            all_matches.append((m.start(), m.end(), m.group(0)))
+        for start, end in find_html_tables(text):
+            all_matches.append((start, end, text[start:end]))
 
         for m in MARKDOWN_TABLE_PATTERN.finditer(text):
             s = m.start()
