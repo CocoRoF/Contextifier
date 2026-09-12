@@ -17,14 +17,17 @@ Pipeline:
 
 from __future__ import annotations
 
-from typing import FrozenSet
+from typing import Any, FrozenSet, Optional
 
 from contextifier.handlers.base import BaseHandler
+from contextifier.handlers.html._detect import looks_like_html
 from contextifier.pipeline.converter import BaseConverter
 from contextifier.pipeline.preprocessor import BasePreprocessor
 from contextifier.pipeline.metadata_extractor import BaseMetadataExtractor
 from contextifier.pipeline.content_extractor import BaseContentExtractor
 from contextifier.pipeline.postprocessor import BasePostprocessor, DefaultPostprocessor
+
+from contextifier.types import ExtractionResult, FileContext
 
 from contextifier.handlers.xlsx.converter import XlsxConverter
 from contextifier.handlers.xlsx.preprocessor import XlsxPreprocessor
@@ -42,6 +45,30 @@ class XLSXHandler(BaseHandler):
     @property
     def handler_name(self) -> str:
         return "XLSX Handler"
+
+    # ── Delegation ───────────────────────────────────────────────────────
+
+    def _check_delegation(
+        self,
+        file_context: FileContext,
+        **kwargs: Any,
+    ) -> Optional[ExtractionResult]:
+        """Delegate when the .xlsx file is really an HTML export.
+
+        Report portals serve HTML tables under a spreadsheet filename; openpyxl
+        cannot open them, so without this the whole document fails to convert.
+        """
+        if looks_like_html(file_context.get("file_data", b"")):
+            self._logger.info("XLSX file is actually an HTML export")
+            return self._delegate_to(
+                "html",
+                file_context,
+                include_metadata=kwargs.get("include_metadata", True),
+                **{k: v for k, v in kwargs.items() if k != "include_metadata"},
+            )
+        return None
+
+    # ── Pipeline stages ──────────────────────────────────────────────────
 
     def create_converter(self) -> BaseConverter:
         xlsx_opts = self._config.format_options.get("xlsx", {})

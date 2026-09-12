@@ -29,6 +29,7 @@ from contextifier.types import (
     TableCell,
 )
 from contextifier.handlers.html.preprocessor import HtmlParsedData
+from contextifier.handlers.html._tables import merge_split_tables
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,7 @@ class HtmlContentExtractor(BaseContentExtractor):
 
         # Start from <body> if present, otherwise whole soup
         root = soup.find("body") or soup
+        merge_split_tables(root)
         parts: List[str] = []
         self._walk(root, parts)
 
@@ -89,6 +91,7 @@ class HtmlContentExtractor(BaseContentExtractor):
         soup, _, _ = self._unpack(preprocessed)
         if soup is None:
             return []
+        merge_split_tables(soup.find("body") or soup)
 
         tables: List[TableData] = []
         for table_tag in (soup.find("body") or soup).find_all("table"):
