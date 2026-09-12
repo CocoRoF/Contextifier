@@ -12,9 +12,10 @@ Pipeline:
 
 from __future__ import annotations
 
-from typing import FrozenSet
+from typing import Any, FrozenSet
 
 from contextifier.handlers.base import BaseHandler
+from contextifier.types import FileContext
 from contextifier.pipeline.converter import BaseConverter
 from contextifier.pipeline.preprocessor import BasePreprocessor
 from contextifier.pipeline.metadata_extractor import BaseMetadataExtractor
@@ -38,6 +39,17 @@ class ImageFileHandler(BaseHandler):
     @property
     def handler_name(self) -> str:
         return "Image File Handler"
+
+    def extract_text_fast(self, file_context: FileContext, **kwargs: Any) -> str:
+        """An image file has no text layer to scan.
+
+        A pre-scan asks whether a document *contains* a forbidden word, and an
+        image only answers that through OCR — which is exactly the cost this
+        path exists to avoid, and which the caller may not have configured an
+        engine for anyway. Returning nothing keeps the scan moving; a caller
+        that wants the picture read should use ``extract_text``.
+        """
+        return ""
 
     def create_converter(self) -> BaseConverter:
         return ImageConverter()

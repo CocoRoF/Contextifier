@@ -70,6 +70,37 @@ class XLSXHandler(BaseHandler):
 
     # ── Pipeline stages ──────────────────────────────────────────────────
 
+    def extract_text_fast(self, file_context: FileContext, **kwargs: Any) -> str:
+        """Cell values only — no layout detection, images or charts."""
+        import io
+
+        try:
+            from openpyxl import load_workbook
+
+            workbook = load_workbook(
+                io.BytesIO(file_context.get("file_data", b"")),
+                read_only=True,
+                data_only=True,
+            )
+        except Exception as exc:
+            self._logger.debug("Fast XLSX path unavailable (%s); using pipeline", exc)
+            return super().extract_text_fast(file_context, **kwargs)
+
+        try:
+            lines = []
+            for sheet in workbook.worksheets:
+                for row in sheet.iter_rows(values_only=True):
+                    values = [
+                        str(value).strip()
+                        for value in row
+                        if value is not None and str(value).strip()
+                    ]
+                    if values:
+                        lines.append("\t".join(values))
+            return "\n".join(lines)
+        finally:
+            workbook.close()
+
     def create_converter(self) -> BaseConverter:
         xlsx_opts = self._config.format_options.get("xlsx", {})
         data_only = xlsx_opts.get("data_only", True)

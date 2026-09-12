@@ -17,9 +17,10 @@ Pipeline:
 
 from __future__ import annotations
 
-from typing import FrozenSet
+from typing import Any, FrozenSet
 
 from contextifier.handlers.base import BaseHandler
+from contextifier.types import FileContext
 from contextifier.pipeline.converter import BaseConverter
 from contextifier.pipeline.preprocessor import BasePreprocessor
 from contextifier.pipeline.metadata_extractor import BaseMetadataExtractor
@@ -42,6 +43,36 @@ class PPTXHandler(BaseHandler):
     @property
     def handler_name(self) -> str:
         return "PPTX Handler"
+
+    def extract_text_fast(self, file_context: FileContext, **kwargs: Any) -> str:
+        """Shape and table text from each slide; no images, charts or notes."""
+        import io
+
+        try:
+            import pptx
+
+            presentation = pptx.Presentation(
+                io.BytesIO(file_context.get("file_data", b""))
+            )
+        except Exception as exc:
+            self._logger.debug("Fast PPTX path unavailable (%s); using pipeline", exc)
+            return super().extract_text_fast(file_context, **kwargs)
+
+        lines = []
+        for slide in presentation.slides:
+            for shape in slide.shapes:
+                if getattr(shape, "has_text_frame", False):
+                    for paragraph in shape.text_frame.paragraphs:
+                        text = "".join(run.text or "" for run in paragraph.runs).strip()
+                        if text:
+                            lines.append(text)
+                if getattr(shape, "has_table", False):
+                    for row in shape.table.rows:
+                        for cell in row.cells:
+                            text = (cell.text or "").strip()
+                            if text:
+                                lines.append(text)
+        return "\n".join(lines)
 
     def create_converter(self) -> BaseConverter:
         return PptxConverter()

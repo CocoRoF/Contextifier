@@ -456,6 +456,30 @@ class BaseHandler(ABC):
         result = self.process(file_context, include_metadata=include_metadata, **kwargs)
         return result.text
 
+    def extract_text_fast(self, file_context: FileContext, **kwargs: Any) -> str:
+        """
+        Plain text only, as cheaply as the format allows.
+
+        Intended for the question "does this file contain a forbidden word or a
+        piece of personal data?", which needs the words and nothing else. The
+        full pipeline spends most of its time on things that question does not
+        use: table reconstruction, image extraction, OCR, chart parsing, layout
+        and quality analysis.
+
+        The default is correct for any handler — it runs the normal pipeline
+        with metadata and OCR off — but it is only *fast* for formats whose
+        pipeline is already cheap. Handlers with heavy analysis override it.
+
+        Returns:
+            Plain text: no image tags, no chart blocks, no metadata header.
+        """
+        return self.extract_text(
+            file_context,
+            include_metadata=False,
+            ocr_processing=False,
+            **kwargs,
+        )
+
     # ═══════════════════════════════════════════════════════════════════════
     # Properties (read-only access to internals)
     # ═══════════════════════════════════════════════════════════════════════
