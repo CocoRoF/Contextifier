@@ -111,6 +111,39 @@ SIMPLE_OCR_PROMPT: str = "Describe the contents of this image."
 # ── Abstract Base ─────────────────────────────────────────────────────────
 
 
+def normalize_response_content(content: Any) -> str:
+    """
+    Reduce a chat response body to text.
+
+    ``content`` is usually a string, but a chat model can answer with a list of
+    content blocks — every OpenAI-compatible server does so for multi-part
+    answers, and vLLM does it for a single part too when
+    ``skip_special_tokens`` is off. Calling ``.strip()`` on that raises, and
+    the engine reports a working model as broken.
+
+    Args:
+        content: ``response.content`` from a chat model.
+
+    Returns:
+        The text, stripped. Empty when there is none.
+    """
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content.strip()
+    if isinstance(content, list):
+        parts: List[str] = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict):
+                text = block.get("text") or block.get("content")
+                if isinstance(text, str):
+                    parts.append(text)
+        return "".join(parts).strip()
+    return str(content).strip()
+
+
 class BaseOCREngine(ABC):
     """
     Abstract base class for OCR engine implementations.
@@ -205,7 +238,17 @@ class BaseOCREngine(ABC):
 
             message = HumanMessage(content=content)
             response = self._llm_client.invoke([message])
-            result = response.content.strip()
+            result = normalize_response_content(response.content)
+
+            if not result:
+                # An empty answer is a failure, not an empty figure. Returning
+                # "[Figure:]" would replace the image tag with a placeholder
+                # holding nothing, and the reference to the image would be gone
+                # — nothing left to retry from.
+                logger.warning(
+                    f"[{self.provider.upper()}] OCR returned nothing: {image_path}"
+                )
+                return "[Image conversion error: empty response]"
 
             logger.info(
                 f"[{self.provider.upper()}] OCR completed: {os.path.basename(image_path)}"

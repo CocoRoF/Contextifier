@@ -11,6 +11,7 @@ from contextifier.ocr.engines.anthropic_engine import AnthropicOCREngine
 from contextifier.ocr.engines.gemini_engine import GeminiOCREngine
 from contextifier.ocr.engines.bedrock_engine import BedrockOCREngine
 from contextifier.ocr.engines.vllm_engine import VLLMOCREngine
+from contextifier.ocr.engines.deepseek_engine import DeepSeekOCREngine
 from contextifier.ocr.engines.tesseract_engine import TesseractOCREngine
 
 __all__ = [
@@ -19,5 +20,6 @@ __all__ = [
     "GeminiOCREngine",
     "BedrockOCREngine",
     "VLLMOCREngine",
+    "DeepSeekOCREngine",
     "TesseractOCREngine",
 ]
