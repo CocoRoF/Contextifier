@@ -295,12 +295,9 @@ class BlockImageEngine:
             return None
         try:
             return self._image_service.save_and_tag(img_bytes)
-        except Exception:
-            try:
-                return self._image_service.save_image(img_bytes)
-            except Exception as exc:
-                logger.error("[BlockImageEngine] Save error: %s", exc)
-                return None
+        except Exception as exc:
+            logger.error("[BlockImageEngine] Save error: %s", exc)
+            return None
 
     def _is_empty_region(
         self,

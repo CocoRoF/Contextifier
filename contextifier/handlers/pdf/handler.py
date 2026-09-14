@@ -26,9 +26,10 @@ Usage::
 from __future__ import annotations
 
 import logging
-from typing import FrozenSet
+from typing import Any, FrozenSet
 
 from contextifier.handlers.base import BaseHandler
+from contextifier.types import FileContext
 from contextifier.pipeline.converter import BaseConverter
 from contextifier.pipeline.preprocessor import BasePreprocessor
 from contextifier.pipeline.metadata_extractor import BaseMetadataExtractor
@@ -61,6 +62,36 @@ class PDFHandler(BaseHandler):
         return "PDF Handler"
 
     # ── pipeline factories ───────────────────────────────────────────────
+
+    def extract_text_fast(self, file_context: FileContext, **kwargs: Any) -> str:
+        """Page text straight from the text layer.
+
+        Skips table detection, layout and complexity analysis, image
+        extraction, OCR and chart parsing — everything a keyword scan has no
+        use for, and everything that makes PDF the slowest format here.
+        """
+        data = file_context.get("file_data", b"")
+        try:
+            import pymupdf
+
+            doc = pymupdf.open(stream=data, filetype="pdf")
+        except Exception as exc:
+            self._logger.debug("Fast PDF path unavailable (%s); using pipeline", exc)
+            return super().extract_text_fast(file_context, **kwargs)
+
+        try:
+            pages = []
+            for index in range(doc.page_count):
+                try:
+                    text = doc[index].get_text("text") or ""
+                except Exception as exc:
+                    self._logger.debug("Page %d unreadable: %s", index + 1, exc)
+                    continue
+                if text.strip():
+                    pages.append(text)
+            return "\n\n".join(pages)
+        finally:
+            doc.close()
 
     def create_converter(self) -> BaseConverter:
         return PdfConverter()

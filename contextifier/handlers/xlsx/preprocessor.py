@@ -28,6 +28,8 @@ from contextifier.handlers.xlsx._constants import (
 )
 from contextifier.handlers.xlsx.converter import XlsxConvertedData
 
+from contextifier.handlers._ooxml import extract_chart_title
+
 logger = logging.getLogger(__name__)
 
 
@@ -215,28 +217,7 @@ def _parse_chart_xml(xml_data: bytes) -> Optional[dict]:
 
 def _extract_chart_title(chart_el: ET.Element, ns_c: str, ns_a: str) -> Optional[str]:
     """Extract chart title from c:title element."""
-    title_el = chart_el.find(f"{{{ns_c}}}title")
-    if title_el is None:
-        return None
-
-    # Try rich text: c:title/c:tx/c:rich/a:p/a:r/a:t
-    rich = title_el.find(f"{{{ns_c}}}tx/{{{ns_c}}}rich")
-    if rich is not None:
-        parts = []
-        for t_el in rich.iter(f"{{{ns_a}}}t"):
-            if t_el.text:
-                parts.append(t_el.text)
-        if parts:
-            return " ".join(parts).strip()
-
-    # Try string reference: c:title/c:tx/c:strRef/c:strCache/c:pt/c:v
-    str_cache = title_el.find(f"{{{ns_c}}}tx/{{{ns_c}}}strRef/{{{ns_c}}}strCache")
-    if str_cache is not None:
-        pt = str_cache.find(f"{{{ns_c}}}pt/{{{ns_c}}}v")
-        if pt is not None and pt.text:
-            return pt.text.strip()
-
-    return None
+    return extract_chart_title(chart_el, ns_c=ns_c, ns_a=ns_a)
 
 
 def _extract_series(

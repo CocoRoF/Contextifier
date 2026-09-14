@@ -17,7 +17,8 @@ from __future__ import annotations
 
 import re
 import logging
-from typing import List, Optional, Tuple
+from dataclasses import dataclass
+from typing import Dict, List, Optional, Tuple
 
 from contextifier.chunking.constants import (
     ParsedTable,
@@ -204,8 +205,214 @@ def is_markdown_table(text: str) -> bool:
     return has_pipes and has_separator
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# Row-span carry-over — cells that outlive a chunk boundary
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_CELL_PATTERN = re.compile(
+    r"<(?P<tag>t[hd])(?P<attrs>[^>]*)>(?P<content>.*?)</(?P=tag)>",
+    re.DOTALL | re.IGNORECASE,
+)
+_ROWSPAN_ATTR_PATTERN = re.compile(r"\s*rowspan\s*=\s*[\"\']?\d+[\"\']?", re.IGNORECASE)
+
+
+@dataclass(frozen=True)
+class SpanningCell:
+    """A cell whose ``rowspan`` carries it into following rows.
+
+    Holds everything needed to write the cell again at the top of a
+    continuation chunk: where it sits, how wide it is, and its markup.
+    """
+
+    col: int
+    rowspan: int
+    colspan: int
+    tag: str
+    attrs: str  # original attributes with rowspan removed
+    content: str
+
+    def render(self, remaining_rows: int) -> str:
+        """Markup for re-issuing the cell with an adjusted row span."""
+        attrs = self.attrs.strip()
+        parts = [self.tag]
+        if attrs:
+            parts.append(attrs)
+        if remaining_rows > 1:
+            parts.append(f'rowspan="{remaining_rows}"')
+        return f"<{' '.join(parts)}>{self.content}</{self.tag}>"
+
+
+@dataclass(frozen=True)
+class RowCell:
+    """One cell as written in a row, with its resolved grid position."""
+
+    col: int
+    rowspan: int
+    colspan: int
+    html: str
+
+
+def extract_row_cells(row_html: str, occupied: Optional[set] = None) -> List[RowCell]:
+    """
+    Resolve the grid position of every cell written in a row.
+
+    A row that sits under a ``rowspan`` from an earlier row omits the covered
+    cell entirely, so the first cell it writes is not necessarily in column 0.
+    *occupied* carries the columns already taken by those spans; without it the
+    positions are only correct for a row no span reaches into.
+
+    Args:
+        row_html: The ``<tr>…</tr>`` markup.
+        occupied: Column indices covered by spans from earlier rows.
+
+    Returns:
+        The row's cells in written order, each with its visual column.
+    """
+    taken = occupied or set()
+    cells: List[RowCell] = []
+    col = 0
+
+    for match in _CELL_PATTERN.finditer(row_html):
+        while col in taken:
+            col += 1
+        attrs = match.group("attrs")
+        rowspan = _int_attr(attrs, "rowspan")
+        colspan = _int_attr(attrs, "colspan")
+        cells.append(
+            RowCell(col=col, rowspan=rowspan, colspan=colspan, html=match.group(0))
+        )
+        col += colspan
+
+    return cells
+
+
+def _int_attr(attrs: str, name: str) -> int:
+    match = re.search(rf'{name}\s*=\s*["\']?(\d+)', attrs, re.IGNORECASE)
+    if not match:
+        return 1
+    try:
+        return max(1, int(match.group(1)))
+    except ValueError:
+        return 1
+
+
+def compute_carried_cells(
+    data_rows: List[TableRow],
+) -> List[Dict[int, Tuple[SpanningCell, int]]]:
+    """
+    For every row, the spanning cells that cover it but are written earlier.
+
+    A chunk that begins at such a row has to write those cells again, or the
+    chunk loses their content and every row in it is short a column.
+
+    Args:
+        data_rows: The table's data rows, in order.
+
+    Returns:
+        One entry per row: ``{column: (cell, rows_still_covered)}`` where the
+        count includes the row itself. Empty for a row nothing reaches into.
+    """
+    carried: List[Dict[int, Tuple[SpanningCell, int]]] = []
+    active: Dict[int, Tuple[SpanningCell, int]] = {}
+
+    for row_index, row in enumerate(data_rows):
+        if row_index > 0:
+            for col in list(active):
+                cell, remaining = active[col]
+                remaining -= 1
+                if remaining <= 0:
+                    del active[col]
+                else:
+                    active[col] = (cell, remaining)
+
+        # Snapshot before this row's own cells join: exactly the spans that
+        # started earlier and still reach this row.
+        carried.append(dict(active))
+
+        occupied = {
+            column
+            for col, (cell, _) in active.items()
+            for column in range(col, col + cell.colspan)
+        }
+
+        for written in extract_row_cells(row.html, occupied):
+            if written.rowspan <= 1:
+                continue
+            match = _CELL_PATTERN.match(written.html)
+            if match is None:  # pragma: no cover — html came from the matcher
+                continue
+            cell = SpanningCell(
+                col=written.col,
+                rowspan=written.rowspan,
+                colspan=written.colspan,
+                tag=match.group("tag").lower(),
+                attrs=_ROWSPAN_ATTR_PATTERN.sub("", match.group("attrs")),
+                content=match.group("content"),
+            )
+            active[written.col] = (cell, written.rowspan)
+
+    return carried
+
+
+def reissue_carried_cells(
+    row_html: str,
+    carried: Dict[int, Tuple[SpanningCell, int]],
+) -> str:
+    """
+    Write the carried spanning cells back into a row that opens a chunk.
+
+    Each cell is placed at the column it occupies, so a category column stays
+    on the left and a mid-table span stays in the middle. The row's own cells
+    keep their order and markup.
+
+    Args:
+        row_html: Markup of the row that begins the chunk.
+        carried: ``{column: (cell, rows_still_covered)}`` from
+            :func:`compute_carried_cells`.
+
+    Returns:
+        The row with the carried cells restored.
+    """
+    if not carried:
+        return row_html
+
+    occupied = {
+        column
+        for col, (cell, _) in carried.items()
+        for column in range(col, col + cell.colspan)
+    }
+    own_cells = extract_row_cells(row_html, occupied)
+
+    pieces: List[str] = []
+    pending = sorted(carried.items())
+    pending_index = 0
+
+    def flush_up_to(limit: Optional[int]) -> None:
+        nonlocal pending_index
+        while pending_index < len(pending):
+            col, (cell, remaining) = pending[pending_index]
+            if limit is not None and col > limit:
+                return
+            pieces.append(cell.render(remaining))
+            pending_index += 1
+
+    for written in own_cells:
+        flush_up_to(written.col)
+        pieces.append(written.html)
+    flush_up_to(None)
+
+    open_match = re.match(r"\s*<tr[^>]*>", row_html, re.IGNORECASE)
+    open_tag = open_match.group(0).strip() if open_match else "<tr>"
+    return f"{open_tag}{''.join(pieces)}</tr>"
+
+
 __all__ = [
     "parse_html_table",
+    "SpanningCell",
+    "RowCell",
+    "extract_row_cells",
+    "compute_carried_cells",
+    "reissue_carried_cells",
     "extract_cell_spans",
     "has_complex_spans",
     "parse_markdown_table",

@@ -28,13 +28,30 @@ from contextifier.handlers.hwpx._constants import (
     BINDATA_PREFIX,
     SUPPORTED_IMAGE_EXTENSIONS,
 )
-from contextifier.handlers.hwpx._section import parse_hwpx_section
+from contextifier.handlers.hwpx._section import HwpxSupplementary, parse_hwpx_section
 from contextifier.handlers.hwpx.preprocessor import find_section_paths
 
 if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
+
+
+def _render_supplementary(supplementary: "HwpxSupplementary") -> List[str]:
+    """Render collected header/footer/note text as labelled blocks."""
+    blocks: List[str] = []
+    for label, texts in (
+        ("[Headers]", supplementary.headers),
+        ("[Footers]", supplementary.footers),
+        ("[Footnotes]", supplementary.notes),
+    ):
+        unique: List[str] = []
+        for text in texts:
+            if text not in unique:
+                unique.append(text)
+        if unique:
+            blocks.append(label + "\n" + "\n\n".join(unique))
+    return blocks
 
 
 class HwpxContentExtractor(BaseContentExtractor):
@@ -54,6 +71,10 @@ class HwpxContentExtractor(BaseContentExtractor):
         ) or find_section_paths(zf)
         processed_images: Set[str] = set()
         parts: List[str] = []
+        # Page furniture is anchored to the page, not to a spot in the running
+        # text, so it is collected and rendered after the body — the same way
+        # the DOCX handler reports it.
+        supplementary = HwpxSupplementary()
 
         for section_path in section_paths:
             try:
@@ -67,6 +88,7 @@ class HwpxContentExtractor(BaseContentExtractor):
                     image_service=self._image_service,
                     chart_service=self._chart_service,
                     processed_images=processed_images,
+                    supplementary=supplementary,
                 )
                 if section_text and section_text.strip():
                     parts.append(section_text)
@@ -82,6 +104,8 @@ class HwpxContentExtractor(BaseContentExtractor):
         )
         if remaining:
             parts.append(remaining)
+
+        parts.extend(_render_supplementary(supplementary))
 
         return "\n".join(parts)
 
@@ -153,7 +177,7 @@ class HwpxContentExtractor(BaseContentExtractor):
             try:
                 with zf.open(name) as f:
                     data = f.read()
-                tag = self._image_service.save_image(data)
+                tag = self._image_service.save_and_tag(data)
                 if tag:
                     processed_images.add(name)
                     tags.append(tag)

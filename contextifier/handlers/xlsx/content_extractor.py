@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Set
 
 from contextifier.pipeline.content_extractor import BaseContentExtractor
 from contextifier.types import (
@@ -224,7 +224,7 @@ class XlsxContentExtractor(BaseContentExtractor):
                 # Create a clean name from the ZIP path
                 clean_name = name.replace("xl/media/", "").replace("/", "_")
                 tag = self._image_service.save_and_tag(
-                    image_bytes=img_data,
+                    image_data=img_data,
                     custom_name=f"excel_{clean_name}",
                 )
                 if tag:
@@ -271,13 +271,10 @@ class XlsxContentExtractor(BaseContentExtractor):
 
     # ── Internal helpers ──────────────────────────────────────────────────
 
-    def _make_sheet_tag(self, sheet_name: str) -> Optional[str]:
-        """Generate a ``[Sheet: name]`` tag using TagService."""
+    def _make_sheet_tag(self, sheet_name: str) -> str:
+        """Generate a sheet tag via TagService, falling back to the default format."""
         if self._tag_service is not None:
-            try:
-                return self._tag_service.make_sheet_tag(sheet_name)
-            except Exception as exc:
-                logger.debug("Sheet tag creation failed: %s", exc)
+            return self._tag_service.create_sheet_tag(sheet_name)
         return f"[Sheet: {sheet_name}]"
 
     def _format_chart(self, chart_dict: dict) -> str:
@@ -312,7 +309,7 @@ class XlsxContentExtractor(BaseContentExtractor):
                     content_name = hashlib.sha256(img_data).hexdigest()[:8]
                     sheet_title = getattr(ws, "title", "sheet")
                     tag = self._image_service.save_and_tag(
-                        image_bytes=img_data,
+                        image_data=img_data,
                         custom_name=f"excel_{sheet_title}_{content_name}",
                     )
                     if tag:

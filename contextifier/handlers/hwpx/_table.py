@@ -13,7 +13,7 @@ simple tables), matching the v1.0 strategy:
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Callable, Dict, List, Optional, Set, Tuple
 
 import xml.etree.ElementTree as ET
 
@@ -30,6 +30,8 @@ logger = logging.getLogger(__name__)
 def parse_hwpx_table(
     tbl_elem: ET.Element,
     ns: Optional[Dict[str, str]] = None,
+    *,
+    render_cell: Optional[Callable[[ET.Element], str]] = None,
 ) -> str:
     """
     Parse an ``<hp:tbl>`` element and return HTML or plain text.
@@ -37,6 +39,10 @@ def parse_hwpx_table(
     Args:
         tbl_elem: The ``<hp:tbl>`` XML element.
         ns: XML namespace dictionary (defaults to ``HWPX_NAMESPACES``).
+        render_cell: Optional callback rendering one ``<hp:tc>``. The section
+            walker passes its own renderer so a cell gets the same treatment
+            as body content — pictures, nested tables and shape text included.
+            Without it, cells are read for text only.
 
     Returns:
         Rendered table content (HTML for multi-column, plain text for
@@ -49,7 +55,7 @@ def parse_hwpx_table(
         total_rows = int(tbl_elem.get("rowCnt", 0))
         total_cols = int(tbl_elem.get("colCnt", 0))
 
-        grid, max_row, max_col = _build_grid(tbl_elem, ns)
+        grid, max_row, max_col = _build_grid(tbl_elem, ns, render_cell)
         if not grid:
             return ""
 
@@ -91,6 +97,7 @@ def parse_hwpx_table(
 def _build_grid(
     tbl_elem: ET.Element,
     ns: Dict[str, str],
+    render_cell: Optional[Callable[[ET.Element], str]] = None,
 ) -> Tuple[Dict[Tuple[int, int], Dict], int, int]:
     """
     Walk ``<hp:tr>/<hp:tc>`` and build a ``(row, col) → info`` dict.
@@ -108,7 +115,11 @@ def _build_grid(
         for tc in tr.findall("hp:tc", ns):
             row_addr, col_addr = _parse_cell_position(tc, ns)
             rowspan, colspan = _parse_cell_span(tc, ns)
-            text = _extract_cell_text(tc, ns)
+            text = (
+                render_cell(tc)
+                if render_cell is not None
+                else _extract_cell_text(tc, ns)
+            )
 
             grid[(row_addr, col_addr)] = {
                 "text": text,

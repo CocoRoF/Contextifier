@@ -194,8 +194,9 @@ class PdfDefaultContentExtractor(BaseContentExtractor):
         return (preprocessed.resources or {}).get("document")
 
     def _make_page_tag(self, page_number: int) -> str:
+        """Generate a page tag via TagService, falling back to the default format."""
         if self._tag_service is not None:
-            return self._tag_service.page_tag(page_number)
+            return self._tag_service.create_page_tag(page_number)
         return f"[Page Number: {page_number}]"
 
     # ── Scan page rendering ──────────────────────────────────────────────

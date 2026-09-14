@@ -23,6 +23,24 @@ from contextifier.config import ProcessingConfig, TableConfig
 from contextifier.types import OutputFormat, TableData
 
 
+def _flatten_table(table: "TableData") -> str:
+    """
+    Reduce a nested table to a single line of its values.
+
+    Markdown and plain text cannot nest a table inside a cell, so the choice
+    is between flattening and losing the sub-table. Rows are separated by
+    ``;`` and cells by ``/``, which keeps the grouping readable without
+    pretending to be structure.
+    """
+    rows: List[str] = []
+    for row_cells in table.rows:
+        values = [" ".join((cell.content or "").split()) for cell in row_cells]
+        values = [v for v in values if v]
+        if values:
+            rows.append(" / ".join(values))
+    return "; ".join(rows)
+
+
 class TableService:
     """
     Formats TableData into string representations.
@@ -63,8 +81,14 @@ class TableService:
         for row_cells in table.rows:
             line_parts: List[str] = []
             for cell in row_cells:
-                content = self._clean_cell(cell.content)
-                content = html_mod.escape(content, quote=False)
+                content = html_mod.escape(self._clean_cell(cell.content), quote=False)
+                if cell.nested_table is not None:
+                    # Rendered, not escaped: a sub-table is markup, and the
+                    # chunker's table scanner counts depth so a nested table
+                    # stays inside its parent's protected region.
+                    inner = self.format_as_html(cell.nested_table)
+                    if inner:
+                        content = f"{content}{inner}" if content else inner
                 tag = "th" if cell.is_header else "td"
                 attrs = ""
                 if cell.row_span > 1:
@@ -90,8 +114,14 @@ class TableService:
         for i, row_cells in enumerate(table.rows):
             cells_text = []
             for cell in row_cells:
-                content = self._clean_cell(cell.content).replace("|", "\\|")
-                cells_text.append(content)
+                content = self._clean_cell(cell.content)
+                if cell.nested_table is not None:
+                    # Markdown has no nesting; the sub-table's values are
+                    # flattened into the cell so none of them are lost.
+                    flat = _flatten_table(cell.nested_table)
+                    if flat:
+                        content = f"{content} {flat}" if content else flat
+                cells_text.append(content.replace("|", "\\|"))
             # Pad to num_cols
             while len(cells_text) < num_cols:
                 cells_text.append("")
@@ -112,7 +142,14 @@ class TableService:
 
         lines: List[str] = []
         for row_cells in table.rows:
-            cells_text = [self._clean_cell(cell.content) for cell in row_cells]
+            cells_text = []
+            for cell in row_cells:
+                content = self._clean_cell(cell.content)
+                if cell.nested_table is not None:
+                    flat = _flatten_table(cell.nested_table)
+                    if flat:
+                        content = f"{content} {flat}" if content else flat
+                cells_text.append(content)
             lines.append("\t".join(cells_text))
 
         return "\n".join(lines)

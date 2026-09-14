@@ -290,6 +290,68 @@ class DocumentProcessor:
 
         return text
 
+    def extract_text_fast(
+        self,
+        file_path: Union[str, Path],
+        file_extension: Optional[str] = None,
+        *,
+        password: Optional[str] = None,
+        **kwargs: Any,
+    ) -> str:
+        """
+        Extract plain text as cheaply as the format allows.
+
+        For the question "does this file contain a forbidden word or a piece of
+        personal data?", which needs the words and nothing else. The full
+        pipeline spends most of its time on work that question does not use —
+        table reconstruction, image extraction, OCR, chart parsing, layout and
+        quality analysis — and on a complex PDF or DOCX that is most of the
+        wall clock.
+
+        The output is plain text: no metadata block, no image tags, no chart
+        blocks, and no structure. Use :meth:`extract_text` for anything that
+        will be read rather than scanned.
+
+        Args:
+            file_path: Path to the document file.
+            file_extension: File extension override. If None, auto-detected.
+            password: Password for encrypted MS Office files.
+            **kwargs: Additional options passed to the handler.
+
+        Returns:
+            Plain text.
+
+        Raises:
+            ContextifyFileNotFoundError: If file does not exist.
+            UnsupportedFormatError: If file extension is not supported.
+        """
+        file_path_str = str(file_path)
+        ext = self._resolve_extension(file_path_str, file_extension)
+
+        if not self._registry.is_supported(ext):
+            raise UnsupportedFormatError(
+                f"Unsupported file format: .{ext}",
+                context={"file_path": file_path_str, "extension": ext},
+            )
+        if not os.path.exists(file_path_str):
+            raise ContextifyFileNotFoundError(
+                f"File not found: {file_path_str}",
+                context={"file_path": file_path_str},
+            )
+
+        file_context = self._create_file_context(
+            file_path_str,
+            ext,
+            max_file_size=self._MAX_FILE_SIZE,
+            password=password,
+        )
+
+        self._logger.info(f"Extracting plain text: {file_path_str} (ext={ext})")
+        self._services["image_service"].clear_state()
+
+        handler = self._registry.get_handler(ext)
+        return handler.extract_text_fast(file_context, **kwargs)
+
     def process(
         self,
         file_path: Union[str, Path],

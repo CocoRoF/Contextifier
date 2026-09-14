@@ -157,7 +157,7 @@ class TextChunker:
                     enrich_chunk_metadata,
                 )
 
-                result = enrich_chunk_metadata(result)
+                result = enrich_chunk_metadata(result, effective_config)
             return result
         except NotImplementedError:
             # Strategy not yet implemented — try next

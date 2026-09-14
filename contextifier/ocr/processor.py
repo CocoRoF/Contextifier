@@ -15,12 +15,15 @@ BaseOCR.process_text() method — single source of truth.
 
 from __future__ import annotations
 
+import bisect
 import concurrent.futures
+import html as html_mod
 import logging
 import os
+
 import re
 from dataclasses import dataclass
-from typing import Any, Callable, List, Optional, Pattern, Protocol
+from typing import Any, Callable, Dict, List, Optional, Pattern, Protocol
 
 from contextifier.config import ProcessingConfig
 from contextifier.ocr.base import BaseOCREngine
@@ -50,6 +53,51 @@ class OCRProgressEvent:
 
 
 # ── OCRProcessor ──────────────────────────────────────────────────────────
+
+
+_CELL_OPEN_RE = re.compile(r"<(?:td|th)\b[^>]*>", re.IGNORECASE)
+_CELL_CLOSE_RE = re.compile(r"</(?:td|th)\s*>", re.IGNORECASE)
+_MARKUP_RE = re.compile(r"<[^>]+>")
+_FENCE_RE = re.compile(r"```[a-zA-Z]*")
+_WHITESPACE_RE = re.compile(r"\s+")
+
+
+class _TableCellIndex:
+    """Answers "is this offset inside a table cell?" in O(log n).
+
+    Cell boundaries are located once per document rather than rescanned for
+    every tag.
+    """
+
+    def __init__(self, text: str) -> None:
+        events = [(m.end(), True) for m in _CELL_OPEN_RE.finditer(text)]
+        events += [(m.start(), False) for m in _CELL_CLOSE_RE.finditer(text)]
+        events.sort()
+        self._positions = [pos for pos, _ in events]
+        self._inside = [opened for _, opened in events]
+
+    def contains(self, position: int) -> bool:
+        if not self._positions:
+            return False
+        index = bisect.bisect_right(self._positions, position) - 1
+        return index >= 0 and self._inside[index]
+
+
+def _flatten_for_table_cell(text: str) -> str:
+    """
+    Reduce model output to something a table cell can hold.
+
+    Vision models answer a "read this" prompt with whatever structure they see,
+    commonly an HTML or Markdown table. Inserted into a `<td>` that becomes
+    nested markup the chunker's table parser cannot read, so the structure is
+    dissolved into one line and the result is escaped — by then any `<`, `>`
+    or `&` left is literal text, not markup.
+    """
+    flat = _FENCE_RE.sub(" ", text)
+    flat = _MARKUP_RE.sub(" ", flat)
+    flat = flat.replace("|", " ")
+    flat = _WHITESPACE_RE.sub(" ", flat).strip()
+    return html_mod.escape(flat, quote=False)
 
 
 class OCRProcessor:
@@ -120,24 +168,35 @@ class OCRProcessor:
         if not text:
             return text
 
-        image_paths = self._extract_image_paths(text)
-        if not image_paths:
+        tag_paths = self._extract_image_paths(text)
+        if not tag_paths:
             logger.debug("No image tags found in text")
             return text
 
+        # One conversion per distinct image. The same picture is routinely
+        # referenced more than once — a logo in a repeated header, a diagram
+        # cited twice — and each extra reference is another model call for a
+        # result already in hand. Replacement covers every occurrence anyway.
+        image_paths = list(dict.fromkeys(tag_paths))
+
         total = len(image_paths)
-        logger.info(f"Detected {total} image tag(s) for OCR processing")
+        if len(tag_paths) != total:
+            logger.info(
+                "Detected %d image tag(s), %d distinct image(s) to convert",
+                len(tag_paths),
+                total,
+            )
+        else:
+            logger.info(f"Detected {total} image tag(s) for OCR processing")
 
         # Phase 1: Run OCR for all images (parallel if max_workers > 1)
         ocr_results = self._run_ocr_batch(image_paths, total, progress_callback)
 
-        # Phase 2: Apply replacements sequentially in order
-        result = text
-        success_count = 0
-        for img_path, ocr_text in ocr_results:
-            if ocr_text is not None:
-                result = self._replace_tag(result, img_path, ocr_text)
-                success_count += 1
+        # Phase 2: Apply replacements in one pass, so each occurrence can be
+        # rendered for the place it sits in.
+        resolved = {path: ocr for path, ocr in ocr_results if ocr is not None}
+        result = self._apply_replacements(text, resolved)
+        success_count = len(resolved)
 
         # Final notification
         if progress_callback:
@@ -270,20 +329,31 @@ class OCRProcessor:
         except Exception:
             return None
 
-    def _replace_tag(self, text: str, img_path: str, replacement: str) -> str:
-        """Replace the image tag for the given path with OCR result."""
-        escaped = re.escape(img_path)
-        pattern_str = self._pattern.pattern
-        # Replace the capture group with the escaped literal path.
-        # Use a lambda to avoid backslash interpretation in replacement strings.
-        tag_pattern_str = re.sub(
-            r"\([^)]+\)",
-            lambda _: escaped,
-            pattern_str,
-            count=1,
-        )
-        tag_re = re.compile(tag_pattern_str)
-        return tag_re.sub(lambda _: replacement, text)
+    def _apply_replacements(self, text: str, resolved: Dict[str, str]) -> str:
+        """
+        Swap each image tag for its converted text.
+
+        A tag can sit inside a table cell — a figure pasted into a cell is
+        tagged where it stands — and the default OCR prompt asks the model for
+        HTML tables. Dropping a `<table>` inside an existing `<td>` breaks the
+        chunker's table parsing, so text landing in a cell is flattened to one
+        escaped line. Everything else is inserted verbatim.
+
+        Tags whose conversion failed keep their original markup, so a later
+        run can retry them.
+        """
+        cells = _TableCellIndex(text)
+
+        def substitute(match: "re.Match[str]") -> str:
+            path = match.group(1) if match.groups() else match.group(0)
+            replacement = resolved.get(path)
+            if replacement is None:
+                return match.group(0)  # keep the tag; nothing to put there yet
+            if cells.contains(match.start()):
+                return _flatten_for_table_cell(replacement)
+            return replacement
+
+        return self._pattern.sub(substitute, text)
 
     @staticmethod
     def _notify_failed(

@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, FrozenSet, List
+from typing import FrozenSet, List, TYPE_CHECKING, Tuple
 
 if TYPE_CHECKING:
     from contextifier.config import ProcessingConfig
@@ -57,8 +57,59 @@ CODE_LANGUAGE_MAP: dict[str, str] = {
 # defined as module-level constants.
 # ============================================================================
 
-# HTML table (with any attributes) — config-independent
+# HTML table (with any attributes) — config-independent.
+#
+# NOTE: this pattern cannot see nesting; ``find_html_tables()`` below is the
+# correct way to locate table regions. The pattern is kept because it is part
+# of the public surface and is still the right tool for "does this text
+# contain a table at all".
 HTML_TABLE_PATTERN = re.compile(r"<table[^>]*>.*?</table>", re.DOTALL | re.IGNORECASE)
+
+# Individual opening/closing table tags, for depth-aware scanning.
+_TABLE_TAG_PATTERN = re.compile(r"<(/?)table(?=[\s/>])[^>]*>", re.IGNORECASE)
+
+
+def find_html_tables(text: str) -> List[Tuple[int, int]]:
+    """
+    Locate complete HTML table regions, honouring nesting.
+
+    Extracted documents nest tables routinely — a merged cell holding a
+    sub-table is how HWP, DOCX and PDF layouts express a form. A non-greedy
+    ``<table…>.*?</table>`` stops at the FIRST ``</table>``, which is the
+    inner one, so the region it reports ends in the middle of the outer table
+    and the chunker is free to split the remainder wherever it likes. Counting
+    depth instead keeps an outer table and everything inside it as one region.
+
+    Malformed markup is ignored rather than guessed at: an unclosed ``<table>``
+    yields no region (so it cannot swallow the rest of the document), and a
+    stray ``</table>`` is skipped.
+
+    Args:
+        text: Text to scan.
+
+    Returns:
+        Non-overlapping ``(start, end)`` offsets of outermost tables, in order.
+    """
+    regions: List[Tuple[int, int]] = []
+    depth = 0
+    start = -1
+
+    for match in _TABLE_TAG_PATTERN.finditer(text):
+        if match.group(0).rstrip().endswith("/>"):
+            continue  # self-closed: no content to protect, and no closing tag
+        if match.group(1):  # </table>
+            if depth == 0:
+                continue  # stray close tag
+            depth -= 1
+            if depth == 0:
+                regions.append((start, match.end()))
+        else:  # <table…>
+            if depth == 0:
+                start = match.start()
+            depth += 1
+
+    return regions
+
 
 # Textbox block — [textbox]...[/textbox] — config-independent (no TagConfig entry)
 TEXTBOX_BLOCK_PATTERN = re.compile(
@@ -209,6 +260,7 @@ class ParsedMarkdownTable:
 __all__ = [
     # Config-independent patterns
     "HTML_TABLE_PATTERN",
+    "find_html_tables",
     "TEXTBOX_BLOCK_PATTERN",
     "MARKDOWN_TABLE_PATTERN",
     "MARKDOWN_TABLE_ROW_PATTERN",

@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, List, Optional, Set, Tuple
+from typing import Any, List, Set, Tuple
 
 from contextifier.pipeline.content_extractor import BaseContentExtractor
 from contextifier.types import (
@@ -131,7 +131,7 @@ class PptContentExtractor(BaseContentExtractor):
 
             try:
                 tag = self._image_service.save_and_tag(
-                    image_bytes=img_data,
+                    image_data=img_data,
                     custom_name=f"ppt_image_{idx}",
                 )
                 if tag:
@@ -194,14 +194,11 @@ class PptContentExtractor(BaseContentExtractor):
 
     # ── Slide tags ────────────────────────────────────────────────────────
 
-    def _make_slide_tag(self, slide_number: int) -> Optional[str]:
-        """Generate a ``[Slide:N]`` tag using TagService."""
+    def _make_slide_tag(self, slide_number: int) -> str:
+        """Generate a slide tag via TagService, falling back to the default format."""
         if self._tag_service is not None:
-            try:
-                return self._tag_service.make_slide_tag(slide_number)
-            except Exception:
-                pass
-        return f"[Slide:{slide_number}]"
+            return self._tag_service.create_slide_tag(slide_number)
+        return f"[Slide Number: {slide_number}]"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

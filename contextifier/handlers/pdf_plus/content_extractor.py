@@ -512,12 +512,10 @@ class PdfPlusContentExtractor(BaseContentExtractor):
         return b""
 
     def _make_page_tag(self, page_number: int) -> str:
+        """Generate a page tag via TagService, falling back to the default format."""
         if self._tag_service is not None:
-            try:
-                return self._tag_service.page_tag(page_number)
-            except Exception:
-                pass
-        return f"[Page {page_number}]"
+            return self._tag_service.create_page_tag(page_number)
+        return f"[Page Number: {page_number}]"
 
 
 __all__ = ["PdfPlusContentExtractor"]

@@ -13,7 +13,12 @@ from collections import deque
 from dataclasses import dataclass
 from typing import List, Optional, Set, Tuple
 
-from contextifier.handlers.xls._constants import MAX_SCAN_COLS, MAX_SCAN_ROWS
+from contextifier.handlers.xls._constants import (
+    MIN_TABLE_COLS,
+    MIN_TABLE_ROWS,
+    SCAN_COL_LIMIT,
+    SCAN_ROW_LIMIT,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +57,15 @@ class LayoutRange:
             or self.min_col > other.max_col
         )
 
+    def is_table_like(
+        self,
+        *,
+        min_rows: int = MIN_TABLE_ROWS,
+        min_cols: int = MIN_TABLE_COLS,
+    ) -> bool:
+        """Whether the region has enough of a grid to be worth calling a table."""
+        return self.rows >= min_rows and self.cols >= min_cols
+
     def is_adjacent(self, other: LayoutRange, tolerance: int = 1) -> bool:
         v_gap = max(other.min_row - self.max_row, self.min_row - other.max_row)
         h_gap = max(other.min_col - self.max_col, self.min_col - other.max_col)
@@ -85,8 +99,16 @@ def layout_detect_range(sheet: object) -> Optional[LayoutRange]:
         if sheet.nrows == 0 or sheet.ncols == 0:  # type: ignore[attr-defined]
             return None
 
-        max_r = min(sheet.nrows, MAX_SCAN_ROWS)  # type: ignore[attr-defined]
-        max_c = min(sheet.ncols, MAX_SCAN_COLS)  # type: ignore[attr-defined]
+        max_r = min(sheet.nrows, SCAN_ROW_LIMIT)  # type: ignore[attr-defined]
+        max_c = min(sheet.ncols, SCAN_COL_LIMIT)  # type: ignore[attr-defined]
+        if sheet.nrows > max_r or sheet.ncols > max_c:  # type: ignore[attr-defined]
+            logger.warning(
+                "Sheet reports %dx%d cells; scanning %dx%d",
+                sheet.nrows,  # type: ignore[attr-defined]
+                sheet.ncols,  # type: ignore[attr-defined]
+                max_r,
+                max_c,
+            )
 
         min_row = max_row = min_col = max_col = None
 

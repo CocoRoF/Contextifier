@@ -109,3 +109,45 @@ def test_json_array_of_objects_gets_record_boundaries():
 
 def test_invalid_json_falls_back():
     assert _render_json_context("not json at all {") is None
+
+
+class TestDocumentHeadPageAttribution:
+    """The opening chunk usually holds front matter before the first marker."""
+
+    def test_first_chunk_inherits_first_marker_it_contains(self) -> None:
+        from contextifier.chunking.metadata_enricher import enrich_chunk_metadata
+        from contextifier.types import Chunk, ChunkMetadata
+
+        chunks = [
+            Chunk(
+                text="[Document-Metadata]\n  title: X\n[/Document-Metadata]\n\n"
+                "[Page Number: 1]\nBody of page one.",
+                metadata=ChunkMetadata(chunk_index=0),
+            ),
+            Chunk(
+                text="[Page Number: 2]\nBody of page two.",
+                metadata=ChunkMetadata(chunk_index=1),
+            ),
+        ]
+
+        enrich_chunk_metadata(chunks)
+
+        assert chunks[0].metadata.page_number == 1
+        assert chunks[1].metadata.page_number == 2
+
+    def test_mid_chunk_marker_still_belongs_to_previous_page(self) -> None:
+        """The fallback must not leak into chunks that have a prior page."""
+        from contextifier.chunking.metadata_enricher import enrich_chunk_metadata
+        from contextifier.types import Chunk, ChunkMetadata
+
+        chunks = [
+            Chunk(text="[Page Number: 1]\nA", metadata=ChunkMetadata(chunk_index=0)),
+            Chunk(
+                text="tail of page one\n[Page Number: 2]\nB",
+                metadata=ChunkMetadata(chunk_index=1),
+            ),
+        ]
+
+        enrich_chunk_metadata(chunks)
+
+        assert chunks[1].metadata.page_number == 1

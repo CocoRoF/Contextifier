@@ -22,6 +22,7 @@ from contextifier.handlers.pdf_plus._utils import (
 )
 from contextifier.handlers.pdf_plus._text_quality_analyzer import (
     QualityAwareTextExtractor,
+    TextQualityAnalyzer,
 )
 
 logger = logging.getLogger(__name__)
@@ -45,7 +46,31 @@ def extract_text_blocks(
     """
     elements: list[PageElement] = []
 
-    # 1. Try structured extraction (get_text("dict"))
+    # A whole-page fallback (OCR or positional rebuild) re-reads the page from
+    # scratch, including whatever sits inside a table — which the table
+    # renderer is already emitting. On a page with tables that produces every
+    # cell twice, so the fallback is only considered when there are none.
+    if not table_bboxes:
+        quality = TextQualityAnalyzer(page, page_num).analyze()
+        if quality.needs_ocr:
+            logger.debug(
+                "[TextExtractor] page %d: poor text layer (%s), using fallback",
+                page_num + 1,
+                quality.details,
+            )
+            qa = QualityAwareTextExtractor(page, page_num)
+            result = qa.extract()
+            if result.text.strip():
+                return [
+                    PageElement(
+                        element_type=ElementType.TEXT,
+                        content=result.text,
+                        bbox=(0, 0, page.rect.width, page.rect.height),
+                        page_num=page_num,
+                    )
+                ]
+
+    # 1. Structured extraction (get_text("dict"))
     pd = page.get_text("dict", sort=True)
     blocks = pd.get("blocks", [])
 
@@ -55,13 +80,21 @@ def extract_text_blocks(
             continue  # skip images in dict output
         bb = blk.get("bbox", (0, 0, 0, 0))
 
-        # Skip blocks inside table regions
+        # Skip blocks wholly inside a table region. A block can also straddle
+        # a table edge — the extractor groups by column, not by table — so
+        # each line is checked as well; dropping the whole block would take
+        # the prose with it, and keeping it would repeat the table's cells.
         if is_inside_any_bbox(bb, table_bboxes, threshold=overlap_threshold):
             continue
 
         # Assemble text from spans
         lines: list[str] = []
         for ln in blk.get("lines", []):
+            ln_bbox = ln.get("bbox")
+            if ln_bbox and is_inside_any_bbox(
+                ln_bbox, table_bboxes, threshold=overlap_threshold
+            ):
+                continue
             spans_text = "".join(sp.get("text", "") for sp in ln.get("spans", []))
             if spans_text.strip():
                 lines.append(spans_text.strip())
@@ -79,8 +112,8 @@ def extract_text_blocks(
             )
         )
 
-    # 2. Fallback: quality-aware extraction if structured gave nothing
-    if not text_found:
+    # 2. Last resort: nothing structured came back at all.
+    if not text_found and not table_bboxes:
         qa = QualityAwareTextExtractor(page, page_num)
         result = qa.extract()
         if result.text.strip():

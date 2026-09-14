@@ -29,7 +29,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from contextifier.config import ProcessingConfig
 from contextifier.types import Chunk, ChunkMetadata
 from contextifier.chunking.constants import (
-    HTML_TABLE_PATTERN,
+    find_html_tables,
     MARKDOWN_TABLE_PATTERN,
     TEXTBOX_BLOCK_PATTERN,
 )
@@ -190,8 +190,8 @@ class ProtectedChunkingStrategy(BaseChunkingStrategy):
 
         # ── Tables (only when fully protected) ────────────────────────────
         if not force_chunking:
-            for m in HTML_TABLE_PATTERN.finditer(text):
-                regions.append((m.start(), m.end(), "html_table"))
+            for start, end in find_html_tables(text):
+                regions.append((start, end, "html_table"))
             for m in MARKDOWN_TABLE_PATTERN.finditer(text):
                 s = m.start() + (1 if m.group(0).startswith("\n") else 0)
                 regions.append((s, m.end(), "markdown_table"))
@@ -262,8 +262,7 @@ class ProtectedChunkingStrategy(BaseChunkingStrategy):
         """Find HTML tables not already covered by *existing_regions*."""
         existing_set = {(s, e) for s, e, _ in existing_regions}
         results: List[_Region] = []
-        for m in HTML_TABLE_PATTERN.finditer(text):
-            s, e = m.start(), m.end()
+        for s, e in find_html_tables(text):
             if not any(es <= s and ee >= e for es, ee in existing_set):
                 results.append((s, e, "html"))
         return results

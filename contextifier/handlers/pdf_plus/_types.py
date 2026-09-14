@@ -325,6 +325,23 @@ class PdfPlusConfig:
     TABLE_ANNOTATION_GAP: float = 30.0  # ≡ ANNOTATION_Y_MARGIN
 
     # _text_quality_analyzer.py
+    # CJK Compatibility: squared unit abbreviations. Legitimate in Korean and
+    # Japanese technical writing, so density is a signal, never a licence to
+    # rewrite the characters.
+    CJK_COMPAT_RANGE: tuple = (0x3300, 0x33FF)
+    # Above this share of a page, the block is standing in for punctuation a
+    # broken font failed to map.
+    CJK_COMPAT_RATIO_THRESHOLD: float = 0.05
+
+    # Fragmented-text detection. Deliberately strict: a page of short bullet
+    # lines or a table of contents has a low average line length but is not
+    # broken, so the test is the share of lines that hold almost nothing.
+    FRAGMENT_LINE_MAX_CHARS: int = 3
+    FRAGMENT_LINE_RATIO: float = 0.5
+    FRAGMENT_MIN_LINES: int = 5
+    # Y distance within which two characters are on the same visual line.
+    FRAGMENT_Y_TOLERANCE: float = 3.0
+
     PUA_RANGES: list = [  # for tuple-based iteration
         (0xE000, 0xF8FF),
         (0xF0000, 0xFFFFD),
@@ -613,6 +630,13 @@ class TextQualityResult:
     garbled_ratio: float = 0.0
     needs_ocr: bool = False
     details: str = "ok"
+    # Characters from the CJK Compatibility block (squared units such as ㎏,
+    # ㏊). A page full of them where punctuation belongs is a sign of a broken
+    # font mapping — see TextQualityAnalyzer for why they are counted rather
+    # than substituted.
+    cjk_compat_chars: int = 0
+    # Set when the text layer has collapsed to roughly one character per line.
+    is_fragmented: bool = False
 
 
 @dataclass

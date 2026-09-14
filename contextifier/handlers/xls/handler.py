@@ -28,6 +28,7 @@ from contextifier.pipeline.content_extractor import BaseContentExtractor
 from contextifier.pipeline.postprocessor import BasePostprocessor, DefaultPostprocessor
 from contextifier.types import ExtractionResult, FileContext
 
+from contextifier.handlers.html._detect import looks_like_html
 from contextifier.handlers.xls._constants import ZIP_MAGIC
 from contextifier.handlers.xls.converter import XlsConverter
 from contextifier.handlers.xls.preprocessor import XlsPreprocessor
@@ -53,8 +54,16 @@ class XLSHandler(BaseHandler):
         file_context: FileContext,
         **kwargs: Any,
     ) -> Optional[ExtractionResult]:
-        """If the .xls file is actually XLSX (ZIP), delegate."""
+        """Delegate when the .xls file is really XLSX or HTML."""
         data: bytes = file_context.get("file_data", b"")
+        if looks_like_html(data):
+            self._logger.info("XLS file is actually an HTML export")
+            return self._delegate_to(
+                "html",
+                file_context,
+                include_metadata=kwargs.get("include_metadata", True),
+                **{k: v for k, v in kwargs.items() if k != "include_metadata"},
+            )
         if data and len(data) >= 4 and data[:4] == ZIP_MAGIC:
             self._logger.info("XLS file is actually XLSX (ZIP magic detected)")
             return self._delegate_to(

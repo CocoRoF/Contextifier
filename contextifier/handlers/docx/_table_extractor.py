@@ -16,10 +16,15 @@ rather than reparsing the entire DOCX.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from contextifier.types import TableCell, TableData
 from contextifier.handlers.docx._constants import NAMESPACES
+from contextifier.handlers.docx._paragraph import (
+    iter_block_elements,
+    local_name,
+    process_paragraph,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +47,11 @@ _QN_W = f"{{{_W}}}w"
 _QN_VAL = f"{{{_W}}}val"
 
 
-def extract_table(table_element: Any) -> Optional[TableData]:
+def extract_table(
+    table_element: Any,
+    *,
+    resolve_image: Optional[Callable[[Any], str]] = None,
+) -> Optional[TableData]:
     """
     Extract a ``TableData`` from a ``<w:tbl>`` lxml element.
 
@@ -65,7 +74,7 @@ def extract_table(table_element: Any) -> Optional[TableData]:
         # 2. Parse all rows → raw cells
         raw_rows: List[List[_RawCell]] = []
         for tr_elem in table_element.iterchildren(_QN_TR):
-            cells = _parse_row(tr_elem, num_cols)
+            cells = _parse_row(tr_elem, num_cols, resolve_image)
             if cells:
                 raw_rows.append(cells)
 
@@ -95,6 +104,7 @@ def extract_table(table_element: Any) -> Optional[TableData]:
                     continue
 
                 cell = TableCell(
+                    nested_table=raw_cell.nested_table,
                     content=raw_cell.text,
                     row_span=rs,
                     col_span=col_span,
@@ -140,7 +150,13 @@ def extract_table(table_element: Any) -> Optional[TableData]:
 class _RawCell:
     """Temporary cell representation during parsing."""
 
-    __slots__ = ("text", "col_span", "v_merge_restart", "v_merge_continue")
+    __slots__ = (
+        "text",
+        "col_span",
+        "v_merge_restart",
+        "v_merge_continue",
+        "nested_table",
+    )
 
     def __init__(
         self,
@@ -148,22 +164,28 @@ class _RawCell:
         col_span: int = 1,
         v_merge_restart: bool = False,
         v_merge_continue: bool = False,
+        nested_table: Optional[TableData] = None,
     ) -> None:
         self.text = text
         self.col_span = col_span
         self.v_merge_restart = v_merge_restart
         self.v_merge_continue = v_merge_continue
+        self.nested_table = nested_table
 
 
 # ── Row parsing ───────────────────────────────────────────────────────────
 
 
-def _parse_row(tr_element: Any, expected_cols: int) -> List[_RawCell]:
+def _parse_row(
+    tr_element: Any,
+    expected_cols: int,
+    resolve_image: Optional[Callable[[Any], str]] = None,
+) -> List[_RawCell]:
     """Parse a ``<w:tr>`` into a list of ``_RawCell``."""
     cells: List[_RawCell] = []
 
     for tc_elem in tr_element.iterchildren(_QN_TC):
-        text = _extract_cell_text(tc_elem)
+        text, nested = _extract_cell_content(tc_elem, resolve_image)
         col_span = 1
         v_merge_restart = False
         v_merge_continue = False
@@ -194,6 +216,7 @@ def _parse_row(tr_element: Any, expected_cols: int) -> List[_RawCell]:
                 col_span=col_span,
                 v_merge_restart=v_merge_restart,
                 v_merge_continue=v_merge_continue,
+                nested_table=nested,
             )
         )
 
@@ -203,25 +226,61 @@ def _parse_row(tr_element: Any, expected_cols: int) -> List[_RawCell]:
 # ── Cell text extraction ──────────────────────────────────────────────────
 
 
-def _extract_cell_text(tc_element: Any) -> str:
+def _extract_cell_content(
+    tc_element: Any,
+    resolve_image: Optional[Callable[[Any], str]] = None,
+) -> Tuple[str, Optional[TableData]]:
     """
-    Extract text from a ``<w:tc>`` (table cell) element.
+    Read one ``<w:tc>``: its text, any image it holds, and a nested table.
 
-    Joins text from all paragraphs in the cell with newlines.
+    Three things used to be lost here. Cell paragraphs were read for ``w:t``
+    only, so a cell holding a picture instead of typed text — a pasted
+    screenshot, which is how scanned figures usually enter a document — came
+    out empty, with no image tag anywhere for OCR to pick up later. Content
+    controls inside a cell were skipped along with their text. And a nested
+    table, the usual way a form expresses a sub-grid, was dropped entirely
+    because only direct ``w:p`` children were visited.
+
+    Args:
+        tc_element: The ``<w:tc>`` element.
+        resolve_image: Optional callback turning a drawing/pict descriptor
+            into an image tag. Without it the cell behaves as text-only.
+
+    Returns:
+        ``(text, nested_table)``.
     """
-    paragraphs: List[str] = []
+    pieces: List[str] = []
+    nested: Optional[TableData] = None
 
-    for p_elem in tc_element.iterchildren(_QN_P):
-        parts: List[str] = []
-        for r_elem in p_elem.iter(_QN_R):
-            for t_elem in r_elem.iterchildren(_QN_T):
-                if t_elem.text:
-                    parts.append(t_elem.text)
-        text = "".join(parts).strip()
-        if text:
-            paragraphs.append(text)
+    for block in iter_block_elements(tc_element):
+        name = local_name(block)
 
-    return "\n".join(paragraphs)
+        if name == "p":
+            text, drawings, picts, _ = process_paragraph(block)
+            line = text.strip()
+
+            if resolve_image is not None:
+                tags: List[str] = []
+                for drawing in drawings:
+                    tag = resolve_image(drawing)
+                    if tag:
+                        tags.append(tag)
+                for pict in picts:
+                    tag = resolve_image(pict)
+                    if tag:
+                        tags.append(tag)
+                if tags:
+                    # Keep any caption the cell also carries: an image is
+                    # content, not a substitute for the text beside it.
+                    line = " ".join(part for part in [line, *tags] if part)
+
+            if line:
+                pieces.append(line)
+
+        elif name == "tbl" and nested is None:
+            nested = extract_table(block, resolve_image=resolve_image)
+
+    return "\n".join(pieces), nested
 
 
 # ── Column width calculation ──────────────────────────────────────────────

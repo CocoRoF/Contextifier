@@ -88,8 +88,7 @@ def extract_images(
                 try:
                     tag = image_service.save_and_tag(
                         png_data,
-                        page_num=page_num,
-                        image_index=img_idx,
+                        custom_name=f"pdf_p{page_num + 1}_{img_idx}.png",
                     )
                 except Exception as exc:
                     logger.debug("[ImgExtractor] save_and_tag failed: %s", exc)

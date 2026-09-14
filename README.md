@@ -9,6 +9,7 @@
 - **Intelligent Text Extraction**: Preserves document structure (headings, tables, image positions) with automatic metadata extraction
 - **Table Processing**: Converts tables to HTML/Markdown/Text with `rowspan`/`colspan` support for merged cells
 - **OCR Integration**: 5 Vision LLM engines — OpenAI, Anthropic, Google Gemini, AWS Bedrock, vLLM
+- **Two Speeds**: the full pipeline for text that will be read, `extract_text_fast()` for text that will only be scanned
 - **Smart Chunking**: 4 strategies with automatic selection — table-aware, page-boundary, protected-region, and recursive splitting
 - **Immutable Config System**: Frozen dataclass-based `ProcessingConfig` controls all behavior
 
@@ -68,7 +69,23 @@ raw.save("deck2.pptx")
 Supported raw formats: `.xlsx` / `.docx` / `.pptx` (the OOXML trio).
 Every model also exposes `.package` for part-level OPC access.
 
-### 3. Extract + Chunk in One Step
+### 3. Fast Scan — Words Only
+
+When the question is "does this file contain a forbidden word or a piece of
+personal data?", the structure is dead weight. `extract_text_fast()` skips
+table reconstruction, image extraction, OCR, chart parsing and layout
+analysis:
+
+```python
+text = processor.extract_text_fast("report.pdf")   # ~200x faster than extract_text
+if "900101-1234567" in text:
+    quarantine("report.pdf")
+```
+
+It returns plain text: no metadata block, no image tags, no chart blocks.
+Use `extract_text()` for anything that will be read rather than scanned.
+
+### 4. Extract + Chunk in One Step
 
 ```python
 from contextifier import DocumentProcessor
@@ -83,7 +100,7 @@ for i, chunk in enumerate(result.chunks, 1):
 result.save_to_md("output/chunks")
 ```
 
-### 4. Custom Configuration
+### 5. Custom Configuration
 
 ```python
 from contextifier import DocumentProcessor
@@ -98,7 +115,7 @@ processor = DocumentProcessor(config=config)
 text = processor.extract_text("report.xlsx")
 ```
 
-### 5. OCR Integration
+### 6. OCR Integration
 
 ```python
 from contextifier import DocumentProcessor

@@ -35,6 +35,7 @@ from __future__ import annotations
 import logging
 import xml.etree.ElementTree as ET
 import zipfile
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Dict, List, Optional, Set
 
 from contextifier.handlers.hwpx._constants import (
@@ -43,6 +44,7 @@ from contextifier.handlers.hwpx._constants import (
     OOXML_CHART_NS,
     CHART_TYPE_MAP,
 )
+from contextifier.handlers._ooxml import extract_chart_title
 from contextifier.handlers.hwpx._table import parse_hwpx_table
 
 if TYPE_CHECKING:
@@ -57,6 +59,73 @@ logger = logging.getLogger(__name__)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
+@dataclass
+class HwpxSupplementary:
+    """Header / footer / note text collected while walking a section.
+
+    These parts are anchored to the page, not to a position in the running
+    text, so splicing them into the body puts a page header in the middle of a
+    sentence. The caller collects them here and renders them as their own
+    block, matching how the DOCX handler reports ``[Headers]`` / ``[Footers]``.
+    """
+
+    headers: List[str] = field(default_factory=list)
+    footers: List[str] = field(default_factory=list)
+    notes: List[str] = field(default_factory=list)
+
+
+@dataclass
+class _Ctx:
+    """Everything the recursive walk needs, threaded as one object."""
+
+    zf: zipfile.ZipFile
+    bin_item_map: Dict[str, str]
+    ns: Dict[str, str]
+    image_service: Optional["ImageService"]
+    chart_service: Optional["ChartService"]
+    processed_images: Set[str]
+    supplementary: Optional[HwpxSupplementary]
+
+
+# Shapes that can carry a text box. Hangul has many shape elements and the
+# list grows between versions, so the walk treats "has an <hp:drawText>"
+# as the real test and uses this set only to know what to recurse into.
+_SHAPE_TAGS = frozenset(
+    {
+        "container",
+        "rect",
+        "ellipse",
+        "polygon",
+        "arc",
+        "curve",
+        "line",
+        "connectLine",
+        "textart",
+        "shapeObject",
+    }
+)
+
+# Elements whose content is rendered by a dedicated handler. A paragraph
+# inside one of these belongs to that handler, not to the section body.
+_OWNED_CONTAINER_TAGS = frozenset({"tbl", "drawText", "ctrl", "subList", "switch"})
+
+# Control children that are page furniture rather than running text.
+_SUPPLEMENTARY_TAGS = {
+    "header": "headers",
+    "footer": "footers",
+    "footNote": "notes",
+    "endNote": "notes",
+}
+
+
+def _tag_of(element: ET.Element) -> str:
+    """Local tag name without the namespace URI."""
+    tag = element.tag
+    if isinstance(tag, str) and "}" in tag:
+        return tag.split("}", 1)[1]
+    return tag if isinstance(tag, str) else ""
+
+
 def parse_hwpx_section(
     section_xml: bytes,
     zf: zipfile.ZipFile,
@@ -65,13 +134,21 @@ def parse_hwpx_section(
     image_service: Optional["ImageService"] = None,
     chart_service: Optional["ChartService"] = None,
     processed_images: Optional[Set[str]] = None,
+    supplementary: Optional[HwpxSupplementary] = None,
 ) -> str:
     """
-    Parse a single HWPX section XML and return its text.
+    Parse a single HWPX section XML and return its body text.
 
     Tables are rendered inline (HTML or plain-text depending on shape),
     images are saved via *image_service* and replaced by image tags,
-    and charts are formatted as text blocks.
+    charts are formatted as text blocks, and shape text boxes are rendered
+    where the shape sits in the text.
+
+    Only paragraphs that belong to the section body are walked. Table cells,
+    shape text boxes and header/footer parts store their content as ``hp:p``
+    as well, so a blanket ``.//hp:p`` search reports each of them a second
+    time — table content came out twice and shape text landed at the end of
+    the section rather than in place.
 
     Args:
         section_xml: Raw XML bytes of the section.
@@ -81,6 +158,9 @@ def parse_hwpx_section(
         chart_service: Optional — for formatting chart data.
         processed_images: A set that accumulates processed image paths
                           (to avoid duplicates across sections).
+        supplementary: Optional collector for header/footer/note text. When
+                       omitted, that text is emitted inline at the position of
+                       its control so that nothing is silently dropped.
 
     Returns:
         Extracted text for the section.
@@ -94,25 +174,41 @@ def parse_hwpx_section(
         logger.warning("Failed to parse HWPX section XML: %s", exc)
         return ""
 
-    ns = HWPX_NAMESPACES
-    parts: List[str] = []
+    ctx = _Ctx(
+        zf=zf,
+        bin_item_map=bin_item_map,
+        ns=HWPX_NAMESPACES,
+        image_service=image_service,
+        chart_service=chart_service,
+        processed_images=processed_images,
+        supplementary=supplementary,
+    )
 
-    # Walk all <hp:p> paragraphs under any parent (hs:sec, or root itself)
-    paragraphs = root.findall(".//hp:p", ns)
-    for para in paragraphs:
-        para_text = _process_paragraph(
-            para,
-            zf,
-            bin_item_map,
-            ns,
-            image_service=image_service,
-            chart_service=chart_service,
-            processed_images=processed_images,
-        )
+    parts: List[str] = []
+    for para in _iter_body_paragraphs(root):
+        para_text = _process_paragraph(para, ctx)
         if para_text and para_text.strip():
             parts.append(para_text)
 
     return "\n".join(parts)
+
+
+def _iter_body_paragraphs(node: ET.Element):
+    """
+    Yield the paragraphs that belong to the section body.
+
+    Descends through structural wrappers but stops at any container that
+    renders its own content, so a cell or text-box paragraph is reached only
+    by the renderer that owns it.
+    """
+    for child in node:
+        tag = _tag_of(child)
+        if tag == "p":
+            yield child
+        elif tag in _OWNED_CONTAINER_TAGS:
+            continue
+        else:
+            yield from _iter_body_paragraphs(child)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -120,259 +216,204 @@ def parse_hwpx_section(
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-def _process_paragraph(
-    para: ET.Element,
-    zf: zipfile.ZipFile,
-    bin_item_map: Dict[str, str],
-    ns: Dict[str, str],
-    *,
-    image_service: Optional["ImageService"],
-    chart_service: Optional["ChartService"],
-    processed_images: Set[str],
-) -> str:
+def _process_paragraph(para: ET.Element, ctx: _Ctx) -> str:
     """Process a single ``<hp:p>`` paragraph, returning its text."""
     parts: List[str] = []
-
     for child in para:
-        tag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
-
-        if tag == "run":
-            run_text = _process_run(
-                child,
-                zf,
-                bin_item_map,
-                ns,
-                image_service=image_service,
-                processed_images=processed_images,
-            )
-            if run_text:
-                parts.append(run_text)
-
-        elif tag == "tbl":
-            table_text = parse_hwpx_table(child, ns)
-            if table_text:
-                parts.append(f"\n{table_text}\n")
-
-        elif tag == "switch":
-            switch_text = _process_switch(
-                child,
-                zf,
-                bin_item_map,
-                ns,
-                chart_service=chart_service,
-                image_service=image_service,
-                processed_images=processed_images,
-            )
-            if switch_text:
-                parts.append(switch_text)
-
-        elif tag == "ctrl":
-            ctrl_text = _process_ctrl(
-                child,
-                zf,
-                bin_item_map,
-                ns,
-                image_service=image_service,
-                processed_images=processed_images,
-            )
-            if ctrl_text:
-                parts.append(ctrl_text)
-
-        elif tag == "pic":
-            img_text = _process_picture_element(
-                child,
-                zf,
-                bin_item_map,
-                ns,
-                image_service=image_service,
-                processed_images=processed_images,
-            )
-            if img_text:
-                parts.append(img_text)
-
-        elif tag == "chart":
-            chart_text = _process_chart_ref(
-                child,
-                zf,
-                chart_service=chart_service,
-            )
-            if chart_text:
-                parts.append(chart_text)
-
+        piece = _process_node(child, ctx)
+        if piece:
+            parts.append(piece)
     return "".join(parts)
+
+
+def _process_node(node: ET.Element, ctx: _Ctx) -> str:
+    """
+    Render one element of a paragraph/run/control in document order.
+
+    Every container that can hold content routes through here, so a table in a
+    shape, a shape in a control and a control in a run all behave the same.
+    """
+    tag = _tag_of(node)
+
+    if tag == "t":
+        return node.text or ""
+
+    if tag == "run":
+        return "".join(_process_node(child, ctx) for child in node)
+
+    if tag == "tbl":
+        table_text = parse_hwpx_table(
+            node,
+            ctx.ns,
+            render_cell=lambda tc: _render_cell(tc, ctx),
+        )
+        return f"\n{table_text}\n" if table_text else ""
+
+    if tag == "switch":
+        return _process_switch(node, ctx)
+
+    if tag == "ctrl":
+        return _process_ctrl(node, ctx)
+
+    if tag in ("pic",):
+        return _process_picture_element(
+            node,
+            ctx.zf,
+            ctx.bin_item_map,
+            ctx.ns,
+            image_service=ctx.image_service,
+            processed_images=ctx.processed_images,
+        )
+
+    if tag == "chart":
+        return _process_chart_ref(node, ctx.zf, chart_service=ctx.chart_service)
+
+    if tag == "drawText":
+        return _process_sublists(node, ctx)
+
+    if tag == "subList":
+        return _process_sublist(node, ctx)
+
+    if tag == "p":
+        return _process_paragraph(node, ctx)
+
+    if tag in _SHAPE_TAGS:
+        # A shape is a container: it may nest further shapes and it may carry
+        # a text box. Recursing over its children covers both.
+        return "\n".join(
+            piece for piece in (_process_node(child, ctx) for child in node) if piece
+        )
+
+    # Unknown element — descend only if it actually holds a text box, so an
+    # unrecognised shape from a newer Hangul release still yields its text.
+    if node.find("hp:drawText", ctx.ns) is not None:
+        return _process_sublists(node, ctx)
+
+    return ""
+
+
+def _render_cell(tc: ET.Element, ctx: _Ctx) -> str:
+    """
+    Render one ``<hp:tc>`` with the same walker the body uses.
+
+    A cell is not limited to text: a scanned figure pasted into a form is a
+    picture with no text beside it, and reading cells for ``hp:t`` alone left
+    that cell blank with no image tag anywhere — nothing for the OCR pass to
+    pick up. Routing the cell through the ordinary walker also brings nested
+    tables and shape text along.
+    """
+    pieces = [
+        _process_sublist(sublist, ctx) for sublist in tc.findall("hp:subList", ctx.ns)
+    ]
+    rendered = " ".join(piece.strip() for piece in pieces if piece.strip())
+    return rendered.strip()
+
+
+def _process_sublist(sublist: ET.Element, ctx: _Ctx) -> str:
+    """Render the paragraphs of one ``<hp:subList>``."""
+    pieces = [_process_paragraph(p, ctx) for p in sublist.findall("hp:p", ctx.ns)]
+    return "\n".join(piece for piece in pieces if piece.strip())
+
+
+def _iter_owned_sublists(node: ET.Element):
+    """
+    Yield the ``<hp:subList>`` elements that belong to *node* itself.
+
+    Descends through nested shapes and text-box wrappers but never enters a
+    sub-list it has already yielded, nor a table or control — those render
+    their own cells, and walking into them would report a cell's text a second
+    time as if it were shape text.
+    """
+    for child in node:
+        tag = _tag_of(child)
+        if tag == "subList":
+            yield child
+        elif tag in ("tbl", "ctrl", "switch"):
+            continue
+        else:
+            yield from _iter_owned_sublists(child)
+
+
+def _process_sublists(node: ET.Element, ctx: _Ctx) -> str:
+    """Render the text boxes belonging to *node* (a shape or ``drawText``)."""
+    pieces: List[str] = []
+    for sublist in _iter_owned_sublists(node):
+        text = _process_sublist(sublist, ctx)
+        if text.strip():
+            pieces.append(text)
+    return "\n".join(pieces)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Run / Control / Switch Processing
+# Control / Switch Processing
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-def _process_run(
-    run: ET.Element,
-    zf: zipfile.ZipFile,
-    bin_item_map: Dict[str, str],
-    ns: Dict[str, str],
-    *,
-    image_service: Optional["ImageService"],
-    processed_images: Set[str],
-) -> str:
-    """Process a single ``<hp:run>`` element."""
+def _process_ctrl(ctrl: ET.Element, ctx: _Ctx) -> str:
+    """
+    Process ``<hp:ctrl>``.
+
+    A control holds anything anchored rather than inline: pictures, tables,
+    shapes, and the page furniture (header, footer, footnote, endnote). The
+    furniture is diverted to the supplementary collector when the caller
+    supplied one; everything else renders in place.
+    """
     parts: List[str] = []
 
-    for child in run:
-        tag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
+    for child in ctrl:
+        tag = _tag_of(child)
 
-        if tag == "t" and child.text:
-            parts.append(child.text)
-
-        elif tag == "tbl":
-            table_text = parse_hwpx_table(child, ns)
-            if table_text:
-                parts.append(f"\n{table_text}\n")
-
-        elif tag == "ctrl":
-            ctrl_text = _process_ctrl(
-                child,
-                zf,
-                bin_item_map,
-                ns,
-                image_service=image_service,
-                processed_images=processed_images,
+        bucket = _SUPPLEMENTARY_TAGS.get(tag)
+        if bucket is not None:
+            text = _process_sublists(child, ctx) or _process_sublist_fallback(
+                child, ctx
             )
-            if ctrl_text:
-                parts.append(ctrl_text)
+            if not text.strip():
+                continue
+            if ctx.supplementary is not None:
+                getattr(ctx.supplementary, bucket).append(text.strip())
+            else:
+                parts.append(text)
+            continue
 
-        elif tag == "pic":
-            img_text = _process_picture_element(
+        # hc:pic and hp:pic differ only by namespace.
+        if tag == "pic":
+            piece = _process_picture_element(
                 child,
-                zf,
-                bin_item_map,
-                ns,
-                image_service=image_service,
-                processed_images=processed_images,
+                ctx.zf,
+                ctx.bin_item_map,
+                ctx.ns,
+                image_service=ctx.image_service,
+                processed_images=ctx.processed_images,
             )
-            if img_text:
-                parts.append(img_text)
+        else:
+            piece = _process_node(child, ctx)
+
+        if piece:
+            parts.append(piece)
 
     return "".join(parts)
 
 
-def _process_ctrl(
-    ctrl: ET.Element,
-    zf: zipfile.ZipFile,
-    bin_item_map: Dict[str, str],
-    ns: Dict[str, str],
-    *,
-    image_service: Optional["ImageService"],
-    processed_images: Set[str],
-) -> str:
-    """Process ``<hp:ctrl>`` — look for ``<hc:pic>`` children."""
-    parts: List[str] = []
-    # hc:pic is in the 'hc' namespace
-    for pic in ctrl.findall("hc:pic", ns):
-        img_text = _process_picture_element(
-            pic,
-            zf,
-            bin_item_map,
-            ns,
-            image_service=image_service,
-            processed_images=processed_images,
-        )
-        if img_text:
-            parts.append(img_text)
-    # Also direct hp:pic
-    for pic in ctrl.findall("hp:pic", ns):
-        img_text = _process_picture_element(
-            pic,
-            zf,
-            bin_item_map,
-            ns,
-            image_service=image_service,
-            processed_images=processed_images,
-        )
-        if img_text:
-            parts.append(img_text)
-    return "".join(parts)
+def _process_sublist_fallback(node: ET.Element, ctx: _Ctx) -> str:
+    """Header/footer variants that hold paragraphs without a ``subList``."""
+    pieces = [_process_paragraph(para, ctx) for para in _iter_body_paragraphs(node)]
+    return "\n".join(piece for piece in pieces if piece.strip())
 
 
-def _process_switch(
-    switch: ET.Element,
-    zf: zipfile.ZipFile,
-    bin_item_map: Dict[str, str],
-    ns: Dict[str, str],
-    *,
-    chart_service: Optional["ChartService"],
-    image_service: Optional["ImageService"],
-    processed_images: Set[str],
-) -> str:
+def _process_switch(switch: ET.Element, ctx: _Ctx) -> str:
     """
     Process ``<hp:switch>`` — iterate cases for charts / nested content.
 
     The ``<hp:case>`` elements may contain ``<hp:chart>`` or paragraphs.
     """
     parts: List[str] = []
-
-    for case in switch.findall("hp:case", ns):
+    for case in switch.findall("hp:case", ctx.ns):
         for child in case:
-            tag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
-
-            if tag == "chart":
-                chart_text = _process_chart_ref(
-                    child,
-                    zf,
-                    chart_service=chart_service,
-                )
-                if chart_text:
-                    parts.append(chart_text)
-
-            elif tag == "p":
-                para_text = _process_paragraph(
-                    child,
-                    zf,
-                    bin_item_map,
-                    ns,
-                    image_service=image_service,
-                    chart_service=chart_service,
-                    processed_images=processed_images,
-                )
-                if para_text:
-                    parts.append(para_text)
-
-            elif tag == "pic":
-                img_text = _process_picture_element(
-                    child,
-                    zf,
-                    bin_item_map,
-                    ns,
-                    image_service=image_service,
-                    processed_images=processed_images,
-                )
-                if img_text:
-                    parts.append(img_text)
-
-    # Also try <hp:default>
-    for default in switch.findall("hp:default", ns):
-        for child in default:
-            tag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
-            if tag == "p":
-                para_text = _process_paragraph(
-                    child,
-                    zf,
-                    bin_item_map,
-                    ns,
-                    image_service=image_service,
-                    chart_service=chart_service,
-                    processed_images=processed_images,
-                )
-                if para_text:
-                    parts.append(para_text)
-
+            piece = _process_node(child, ctx)
+            if piece:
+                parts.append(piece)
     return "".join(parts)
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# Image Processing
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 def _process_picture_element(
@@ -421,7 +462,7 @@ def _process_picture_element(
         with zf.open(full_path) as f:
             image_data = f.read()
 
-        tag = image_service.save_image(image_data)
+        tag = image_service.save_and_tag(image_data)
         if tag:
             processed_images.add(full_path)
             return f"\n{tag}\n"
@@ -557,10 +598,7 @@ def _parse_ooxml_chart(chart_xml: bytes) -> Optional[Dict]:
 
 def _extract_chart_title(chart: ET.Element, ns: Dict[str, str]) -> Optional[str]:
     """Extract chart title from ``<c:title>``."""
-    t = chart.find(".//c:title//c:tx//c:rich//a:t", ns)
-    if t is not None and t.text:
-        return t.text.strip()
-    return None
+    return extract_chart_title(chart, ns_c=ns["c"], ns_a=ns["a"])
 
 
 def _extract_chart_plot(
@@ -642,4 +680,4 @@ def _format_chart_simple(chart_data: Dict) -> str:
     return "\n".join(lines) + "\n"
 
 
-__all__ = ["parse_hwpx_section"]
+__all__ = ["parse_hwpx_section", "HwpxSupplementary"]

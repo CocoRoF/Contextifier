@@ -24,15 +24,17 @@ from typing import Any, List, Optional, Tuple, Union
 from contextifier.config import ProcessingConfig
 from contextifier.types import Chunk, ChunkMetadata
 from contextifier.chunking.constants import (
-    HTML_TABLE_PATTERN,
+    find_html_tables,
     MARKDOWN_TABLE_PATTERN,
-    TEXTBOX_BLOCK_PATTERN,
     TABLE_EXTENSIONS,
 )
 from contextifier.chunking.table_chunker import chunk_large_table
 from contextifier.chunking.strategies.base import BaseChunkingStrategy
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+# Separator between segments packed into the same chunk.
+_SEGMENT_JOINER = "\n\n"
 
 
 class TableChunkingStrategy(BaseChunkingStrategy):
@@ -156,35 +158,62 @@ class TableChunkingStrategy(BaseChunkingStrategy):
             # Split into segments: table, textbox, chart, image, text
             segments = self._extract_segments(body, config)
 
+            # Segments that fit are buffered and emitted together: the
+            # prefix is written once per chunk, not once per segment, so
+            # sizing on segment bodies is what fills a chunk.
+            prefix_size = len(sheet_prefix) + 1  # +1 for the newline joiner
+            body_budget = max(1, chunk_size - prefix_size)
+            buffer: List[str] = []
+            buffer_size = 0
+
+            def flush() -> None:
+                nonlocal buffer, buffer_size
+                if buffer:
+                    all_chunks.append(
+                        f"{sheet_prefix}\n" + _SEGMENT_JOINER.join(buffer)
+                        if sheet_prefix
+                        else _SEGMENT_JOINER.join(buffer)
+                    )
+                    buffer = []
+                    buffer_size = 0
+
+            def buffer_segment(content: str) -> None:
+                nonlocal buffer, buffer_size
+                separator = len(_SEGMENT_JOINER) if buffer else 0
+                if buffer and buffer_size + separator + len(content) > body_budget:
+                    flush()
+                    separator = 0
+                buffer.append(content)
+                buffer_size += separator + len(content)
+
             for seg_type, seg_content in segments:
                 if not seg_content.strip():
                     continue
 
+                fits = len(seg_content) <= body_budget
+
+                if fits:
+                    buffer_segment(seg_content)
+                    continue
+
+                # Oversized: emit what is buffered, then split the segment.
+                flush()
                 if seg_type == "table":
-                    if len(sheet_prefix) + len(seg_content) <= chunk_size:
-                        all_chunks.append(f"{sheet_prefix}\n{seg_content}".strip())
-                    else:
-                        table_chunks = chunk_large_table(
-                            seg_content,
-                            chunk_size,
-                            sheet_prefix,
-                        )
-                        all_chunks.extend(table_chunks)
-
-                elif seg_type in ("textbox", "chart", "image"):
-                    # Protected: never split
+                    all_chunks.extend(
+                        chunk_large_table(seg_content, chunk_size, sheet_prefix)
+                    )
+                elif seg_type == "chart":
+                    # Charts are protected; an oversized one stays whole.
                     all_chunks.append(f"{sheet_prefix}\n{seg_content}".strip())
-
                 else:
-                    # Plain text
-                    if len(sheet_prefix) + len(seg_content) <= chunk_size:
-                        all_chunks.append(f"{sheet_prefix}\n{seg_content}".strip())
-                    else:
-                        text_chunks = self._split_plain(
-                            seg_content, chunk_size, chunk_overlap
-                        )
-                        for tc in text_chunks:
-                            all_chunks.append(f"{sheet_prefix}\n{tc}".strip())
+                    for piece in self._split_plain(
+                        seg_content, body_budget, chunk_overlap
+                    ):
+                        all_chunks.append(f"{sheet_prefix}\n{piece}".strip())
+
+            # A sheet boundary always closes the chunk, so segments from two
+            # sheets never share one (their markers would contradict).
+            flush()
 
         return all_chunks
 
@@ -292,10 +321,13 @@ class TableChunkingStrategy(BaseChunkingStrategy):
                 ),
             ),
             ("table", MARKDOWN_TABLE_PATTERN),
-            ("textbox", TEXTBOX_BLOCK_PATTERN),
             ("chart", chart_pattern),
-            ("image", img_pattern),
         ]
+        # Image tags and textbox blocks are deliberately NOT segments. They
+        # are short and belong with the prose around them; cutting a segment
+        # at each one hands a lone `[Image:…]` tag a chunk of its own. The
+        # protected-region logic already keeps them from being split.
+        del img_pattern
 
         all_matches: List[Tuple[int, int, str, str]] = []
         for seg_type, pat in patterns:
@@ -336,8 +368,8 @@ class TableChunkingStrategy(BaseChunkingStrategy):
         """Find non-overlapping HTML + Markdown tables."""
         all_matches: List[Tuple[int, int, str]] = []
 
-        for m in HTML_TABLE_PATTERN.finditer(text):
-            all_matches.append((m.start(), m.end(), m.group(0)))
+        for start, end in find_html_tables(text):
+            all_matches.append((start, end, text[start:end]))
 
         for m in MARKDOWN_TABLE_PATTERN.finditer(text):
             s = m.start()

@@ -7,6 +7,132 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.0] — 2026-09-12
+
+A pass over extraction correctness, driven by comparing this codebase against
+a fork that stayed on the pre-2.0 architecture and kept fixing real documents.
+Each item below was reproduced here before being changed, and the fork's own
+fix was reviewed rather than copied — several were rejected outright (see
+*Considered and declined*).
+
+### Fixed — content that never reached the output
+
+- **Handler↔service contracts.** Thirteen call sites addressed an API that does
+  not exist: `save_and_tag(image_bytes=…)` against a parameter named
+  `image_data`, `ImageService.save_image()` which is not a method, and
+  `TagService.make_page_tag` / `page_tag` against `create_page_tag`. Every one
+  sat inside an `except Exception`, so image extraction was dead in seven
+  handlers and page/slide tagging in five — with a green test suite, because
+  the service doubles were plain `MagicMock`s written against the wrong names.
+  Tagging drove more than itself: `PageChunkingStrategy` never matched, so
+  every chunk came back with `page_number=None`.
+- **DOCX `mc:AlternateContent`.** Word stores every modern shape twice; the
+  paragraph walker knew neither branch, so text boxes, shape captions and
+  grouped-shape labels produced nothing. Shape text (`w:txbxContent`) is read
+  for both renderings, once.
+- **DOCX `w:sdt`.** A content control is a wrapper — tables of contents,
+  bibliographies, cover-page fields and user-inserted controls keep their
+  content in `w:sdtContent`, and a walk matching only `w:p`/`w:tbl` dropped it.
+- **DOCX headers and footers** were read through `part.paragraphs`, which sees
+  paragraphs only; a header table (document number, revision, classification)
+  was discarded.
+- **HWPX traversal** collected every `hp:p` in the subtree, so table cells and
+  header parts were emitted a second time as loose body text while shape text
+  landed at the end of the section. The walk now follows containment, which is
+  also what makes shape text, control-anchored tables and header/footer parts
+  reachable at all.
+- **Table cells** were read for text runs only: a pasted screenshot left the
+  cell empty *and* produced no image tag anywhere, so OCR never saw it; a
+  nested table was dropped; a content control was skipped.
+- **Word field codes** in legacy `.doc` left their instruction text —
+  `PAGE \* MERGEFORMAT`, `HYPERLINK "…"` — in the body.
+- **Chart titles** were truncated to their first text run in DOCX and HWPX, and
+  space-separated in XLSX, so `2026년 매출 실적` arrived as `2026` or
+  `2026 년 매출 실적`.
+- **Spreadsheets** were scanned within a fixed 1000×100 cell window, silently
+  truncating anything larger; a merged category column broke its own table into
+  "unrelated" blocks and was lost from all but the first; a merge anchored
+  outside a region lost its label and left the row short.
+- **HTML served as `.xls`/`.xlsx`** (report portals do this routinely) failed to
+  convert at all. Both handlers delegate to the HTML handler, and a table split
+  into a header table plus a body table is rejoined.
+- **Nested HTML tables** were cut at the inner `</table>`, so the chunker split
+  the remainder of the outer table wherever it liked.
+- **Merged cells spanning a chunk boundary** were dropped from the continuation
+  chunk — on a three-group table split six ways, three chunks lost their
+  category label entirely.
+- **PDF text quality** was assessed only by whether structured extraction
+  returned anything, so a page with a broken font mapping — plenty of
+  characters, all wrong — never reached the fallback.
+
+### Added
+
+- `DocumentProcessor.extract_text_fast()` — plain text for scanning ("does this
+  file contain a forbidden word?"), skipping table reconstruction, images, OCR,
+  charts and layout analysis. Measured: PDF 197×, PPTX 7.0×, XLSX 2.9×,
+  DOCX 3.1×.
+- `FragmentedTextReconstructor` — rebuilds lines from glyph positions when a
+  producer exported each character as its own text object.
+- CJK Compatibility density as a garbled-text signal (counted, never
+  substituted — see below).
+- `DeepSeekOCREngine`, whose message shape and prompt the generic vLLM engine
+  cannot stand in for.
+- `find_html_tables()`, `compute_carried_cells()` / `reissue_carried_cells()`,
+  `strip_field_codes()`, `looks_like_html()`, `iter_block_elements()`,
+  `normalize_response_content()`.
+- `tests/unit/services/test_service_contracts.py` — an AST check that every
+  service call site matches the real signature, so the failure mode that
+  started this cannot return silently.
+
+### Changed
+
+- Spreadsheet chunking packs segments that fit instead of emitting one chunk
+  per segment; six small tables against a 1000-character budget went from eight
+  chunks averaging 97 characters to one.
+- Image tags and textbox blocks are no longer chunk boundaries of their own.
+- Regions smaller than 2×2 render as plain text rather than as a "table".
+- `TableCell.nested_table` is rendered (HTML nests it; Markdown and text
+  flatten it) — the field existed and no renderer read it.
+- OCR converts each distinct image once, and output landing inside a `<td>` is
+  flattened so the table stays parseable.
+- An empty OCR answer is a failure rather than an empty `[Figure:]`, so the
+  image tag survives for a retry.
+- Test doubles for the services are `create_autospec` of the real classes.
+- pytest `asyncio_mode = "auto"`; the async tests errored on a fresh checkout.
+
+### Considered and declined
+
+- **A CJK substitution table.** Six of its nine mappings target CJK Extension A
+  — ordinary Hanja — so rewriting U+3711 (㜑) as an arrow corrupts any document
+  that genuinely uses the character. Density drives OCR instead, and a page
+  using ㎏/㎞/㎡ normally is left alone.
+- **"Average line under fifteen characters" as fragmentation.** A bulleted
+  list, a table of contents and a column of figures all fail that test while
+  being perfectly intact.
+- **Merging page-marker-only chunks forward.** It attributes the next page's
+  content to the empty page; attribution here is already correct.
+- **Unconditional small-chunk merging.** 0.9% of chunks across the repo's real
+  documents are that small, and the version reviewed has no size check, so
+  chained merges can exceed the budget several times over.
+- **Relaxed PDF table validation** (paragraph ratio 0.25 → 0.60, two checks
+  commented out) — it accepts prose as tables.
+- **`[Page Number: 1]` for DOC and RTF**, whose pagination is never computed.
+- **`is_linked_to_previous` special-casing** for a first-section header:
+  writing to a header clears the flag, so when it is set there is no own header
+  part to read.
+
+### Not ported — unverifiable in this environment
+
+Legacy binary parsing that could not be exercised: `.doc` table reconstruction
+from `sprmTDefTable`/TC80, `.doc` text boxes and the brute-force piece-table
+search, and `.xls` BIFF text boxes and per-sheet Escher images. No `.doc`
+samples exist on this machine and LibreOffice cannot convert here, so roughly
+1,700 lines of struct parsing would have been merged without ever being run.
+The heuristics currently in place (`\x07` cell markers for `.doc` tables, OLE
+signature scanning for `.xls` images) remain.
+
+---
+
 ## [0.8.0] — 2026-08-06
 
 ### Added — native slide authoring, notes, links, bullets, z-order, theme, chart depth

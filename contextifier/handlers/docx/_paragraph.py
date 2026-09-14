@@ -18,7 +18,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from enum import Enum, unique
-from typing import Any, List, Optional, Tuple
+from typing import Any, Iterator, List, Optional, Tuple
 
 
 from contextifier.handlers.docx._constants import NAMESPACES
@@ -47,6 +47,50 @@ _QN_GRAPHIC = f"{{{_A}}}graphic"
 _QN_GRAPHIC_DATA = f"{{{_A}}}graphicData"
 _QN_BLIP = f"{{{_A}}}blip"
 _QN_IMAGEDATA = f"{{{_V}}}imagedata"
+
+_MC = NAMESPACES["mc"]
+_QN_ALTERNATE_CONTENT = f"{{{_MC}}}AlternateContent"
+_QN_MC_CHOICE = f"{{{_MC}}}Choice"
+_QN_MC_FALLBACK = f"{{{_MC}}}Fallback"
+_QN_P = f"{{{_W}}}p"
+_QN_TXBX_CONTENT = f"{{{_W}}}txbxContent"
+_QN_SDT = f"{{{_W}}}sdt"
+_QN_SDT_CONTENT = f"{{{_W}}}sdtContent"
+_QN_TAB = f"{{{_W}}}tab"
+
+
+# ── Block-level traversal ─────────────────────────────────────────────────
+
+
+def local_name(element: Any) -> str:
+    """Tag name of an element without its namespace."""
+    tag = element.tag
+    if isinstance(tag, str) and "}" in tag:
+        return tag.split("}", 1)[1]
+    return tag if isinstance(tag, str) else ""
+
+
+def iter_block_elements(container: Any) -> Iterator[Any]:
+    """
+    Yield the block-level children of *container* in document order,
+    descending through content controls.
+
+    A ``<w:sdt>`` (Structured Document Tag) is a wrapper, not content: tables
+    of contents, bibliographies, cover-page fields and anything a user inserted
+    as a content control put their real paragraphs and tables inside
+    ``<w:sdtContent>``. A walk that only recognises ``w:p`` and ``w:tbl`` skips
+    the wrapper and loses everything it holds, so the wrapper is unwrapped here
+    — recursively, because content controls nest.
+    """
+    for child in container:
+        if not isinstance(child.tag, str):
+            continue  # comments / processing instructions
+        if local_name(child) != "sdt":
+            yield child
+            continue
+        for sdt_child in child:
+            if local_name(sdt_child) == "sdtContent":
+                yield from iter_block_elements(sdt_child)
 
 
 # ── Drawing descriptor ────────────────────────────────────────────────────
@@ -122,29 +166,39 @@ def process_paragraph(
     all_picts: List[PictInfo] = []
     has_page_break = False
 
-    for child in paragraph_element:
-        _local_name(child)
+    def absorb(rc: RunContent) -> None:
+        nonlocal has_page_break
+        if rc.text:
+            full_text_parts.append(rc.text)
+        all_drawings.extend(rc.drawings)
+        all_picts.extend(rc.picts)
+        if rc.has_page_break:
+            has_page_break = True
 
-        if child.tag == _QN_R:
-            rc = _process_run(child)
-            if rc.text:
-                full_text_parts.append(rc.text)
-            all_drawings.extend(rc.drawings)
-            all_picts.extend(rc.picts)
-            if rc.has_page_break:
-                has_page_break = True
+    def visit(node: Any) -> None:
+        """Walk the direct children of a paragraph-level container."""
+        for child in node:
+            if child.tag == _QN_R:
+                absorb(_process_run(child))
+            elif child.tag == _QN_HYPERLINK:
+                visit(child)
+            elif child.tag == _QN_SDT:
+                # Inline content control: the runs live under sdtContent.
+                for sdt_child in child:
+                    if sdt_child.tag == _QN_SDT_CONTENT:
+                        visit(sdt_child)
+            elif child.tag == _QN_ALTERNATE_CONTENT:
+                # Some producers wrap an anchored shape at paragraph level
+                # rather than inside a run.
+                rc = RunContent()
+                for resolved in resolve_alternate_content(child):
+                    if resolved.tag == _QN_R:
+                        absorb(_process_run(resolved))
+                    else:
+                        _process_run_child(resolved, rc)
+                absorb(rc)
 
-        elif child.tag == _QN_HYPERLINK:
-            # Process runs inside hyperlink
-            for sub in child:
-                if sub.tag == _QN_R:
-                    rc = _process_run(sub)
-                    if rc.text:
-                        full_text_parts.append(rc.text)
-                    all_drawings.extend(rc.drawings)
-                    all_picts.extend(rc.picts)
-                    if rc.has_page_break:
-                        has_page_break = True
+    visit(paragraph_element)
 
     text = "".join(full_text_parts)
     return text, all_drawings, all_picts, has_page_break
@@ -180,35 +234,128 @@ def _process_run(run_element: Any) -> RunContent:
     pict elements (``<w:pict>``), and page breaks.
     """
     rc = RunContent()
-
     for child in run_element:
-        if child.tag == _QN_T:
-            # Text element
-            if child.text:
-                rc.text += child.text
-
-        elif child.tag == _QN_BR:
-            # Break element
-            br_type = child.get(f"{{{_W}}}type", "")
-            if br_type == "page":
-                rc.has_page_break = True
-            else:
-                rc.text += "\n"
-
-        elif child.tag == _QN_LAST_PAGE_BREAK:
-            rc.has_page_break = True
-
-        elif child.tag == _QN_DRAWING:
-            drawing_info = _process_drawing(child)
-            if drawing_info is not None:
-                rc.drawings.append(drawing_info)
-
-        elif child.tag == _QN_PICT:
-            pict_info = _process_pict(child)
-            if pict_info is not None:
-                rc.picts.append(pict_info)
-
+        _process_run_child(child, rc)
     return rc
+
+
+def _process_run_child(child: Any, rc: RunContent) -> None:
+    """
+    Fold one child of a run into *rc*.
+
+    Split out of :func:`_process_run` so that a compatibility branch resolved
+    from ``<mc:AlternateContent>`` goes through exactly the same handling as a
+    child written directly in the run.
+    """
+    tag = child.tag
+
+    if tag == _QN_T:
+        if child.text:
+            rc.text += child.text
+
+    elif tag == _QN_BR:
+        br_type = child.get(f"{{{_W}}}type", "")
+        if br_type == "page":
+            rc.has_page_break = True
+        else:
+            rc.text += "\n"
+
+    elif tag == _QN_LAST_PAGE_BREAK:
+        rc.has_page_break = True
+
+    elif tag == _QN_DRAWING:
+        drawing_info = _process_drawing(child)
+        if drawing_info is not None:
+            rc.drawings.append(drawing_info)
+        # A shape carries its own text; the drawing descriptor only describes
+        # the picture/chart/diagram, so the text box has to be read here.
+        shape_text = _extract_shape_text(child)
+        if shape_text:
+            rc.text += shape_text
+
+    elif tag == _QN_PICT:
+        pict_info = _process_pict(child)
+        if pict_info is not None:
+            rc.picts.append(pict_info)
+        shape_text = _extract_shape_text(child)
+        if shape_text:
+            rc.text += shape_text
+
+    elif tag == _QN_ALTERNATE_CONTENT:
+        for resolved in resolve_alternate_content(child):
+            _process_run_child(resolved, rc)
+
+
+def resolve_alternate_content(element: Any) -> List[Any]:
+    """
+    Pick ONE branch of an ``<mc:AlternateContent>`` element.
+
+    Word writes a shape twice — a DrawingML rendering under ``<mc:Choice>``
+    and an equivalent legacy VML rendering under ``<mc:Fallback>``. Reading
+    both duplicates every character the shape contains, so a consumer must
+    commit to one. ``Choice`` is preferred (it is what a modern Word renders);
+    ``Fallback`` is the insurance for producers that ship only VML.
+
+    Returns:
+        The children of the chosen branch, or ``[]`` when neither is usable.
+    """
+    for branch_tag in (_QN_MC_CHOICE, _QN_MC_FALLBACK):
+        for branch in element.iterchildren(branch_tag):
+            children = list(branch)
+            if children:
+                return children
+    return []
+
+
+def _collect_text(element: Any) -> str:
+    """
+    Concatenate the text of an element subtree in document order.
+
+    Unlike a bare ``iter(w:t)`` this resolves nested ``<mc:AlternateContent>``
+    to a single branch, so a shape nested inside another shape contributes its
+    text once rather than twice. Paragraph boundaries become newlines.
+    """
+    parts: List[str] = []
+
+    def walk(node: Any) -> None:
+        for child in node:
+            tag = child.tag
+            if tag == _QN_T:
+                if child.text:
+                    parts.append(child.text)
+            elif tag == _QN_TAB:
+                parts.append("\t")
+            elif tag == _QN_BR or tag == _QN_P:
+                # A paragraph or break inside a shape separates lines.
+                if parts and not parts[-1].endswith("\n"):
+                    parts.append("\n")
+                walk(child)
+            elif tag == _QN_ALTERNATE_CONTENT:
+                for resolved in resolve_alternate_content(child):
+                    walk(resolved)
+            elif isinstance(tag, str):
+                walk(child)
+
+    walk(element)
+    return "".join(parts).strip()
+
+
+def _extract_shape_text(element: Any) -> str:
+    """
+    Text held inside a shape's text box (``<w:txbxContent>``).
+
+    Covers both renderings: DrawingML shapes store it under
+    ``wps:wsp/wps:txbx/w:txbxContent`` and VML shapes under
+    ``v:shape/v:textbox/w:txbxContent``. Callers pass the ``<w:drawing>`` or
+    ``<w:pict>`` element; the caller has already committed to one
+    compatibility branch, so no de-duplication is needed here.
+    """
+    texts: List[str] = []
+    for txbx in element.iter(_QN_TXBX_CONTENT):
+        text = _collect_text(txbx)
+        if text:
+            texts.append(text)
+    return "\n".join(texts)
 
 
 def _process_drawing(drawing_element: Any) -> Optional[DrawingInfo]:
