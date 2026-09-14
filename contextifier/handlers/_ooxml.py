@@ -73,9 +73,7 @@ def extract_chart_title(
         if flat:
             return flat
 
-    cache = title_el.find(
-        f".//{_qn(ns_c, 'strRef')}/{_qn(ns_c, 'strCache')}"
-    )
+    cache = title_el.find(f".//{_qn(ns_c, 'strRef')}/{_qn(ns_c, 'strCache')}")
     if cache is not None:
         value = cache.find(f".//{_qn(ns_c, 'v')}")
         if value is not None and value.text and value.text.strip():

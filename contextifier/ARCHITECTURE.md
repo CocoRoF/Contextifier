@@ -512,8 +512,16 @@ postprocess(result, include_metadata=True)
 ```python
 class BaseHandler(ABC):
     # 생성자: 모든 핸들러 동일한 시그니처
-    def __init__(self, config, *, image_service, tag_service,
-                 chart_service, table_service, metadata_service):
+    def __init__(
+        self,
+        config,
+        *,
+        image_service,
+        tag_service,
+        chart_service,
+        table_service,
+        metadata_service,
+    ):
         # 서비스 저장
         # 5개 팩토리 메서드 호출 → 파이프라인 컴포넌트 즉시 생성
         self._converter = self.create_converter()
@@ -541,7 +549,9 @@ class BaseHandler(ABC):
     def handler_name(self) -> str: ...
 
     # ── 최종 메서드 (오버라이드 불가) ──
-    def process(self, file_context, *, include_metadata=True, **kwargs) -> ExtractionResult:
+    def process(
+        self, file_context, *, include_metadata=True, **kwargs
+    ) -> ExtractionResult:
         # Stage 0 → 1 → 2 → 3 → 4 → 5 (enforced)
         ...
 
@@ -613,7 +623,7 @@ def _delegate_to(self, extension, file_context, **kwargs):
 
 ```python
 registry = HandlerRegistry(config, services={...})
-registry.register_defaults()   # 14개 핸들러 importlib으로 로드
+registry.register_defaults()  # 14개 핸들러 importlib으로 로드
 
 # 각 핸들러 등록 과정:
 # 1. handler_class(config, **services)  → 인스턴스 생성
@@ -719,11 +729,11 @@ OCRProcessor (Orchestrator)
 ```python
 @dataclass(frozen=True)
 class OCRProgressEvent:
-    event_type: str       # 'tag_processing' | 'tag_processed' | 'completed'
-    current_index: int    # 0-based
+    event_type: str  # 'tag_processing' | 'tag_processed' | 'completed'
+    current_index: int  # 0-based
     total_count: int
     image_path: str
-    status: str           # 'success' | 'failed' | ''
+    status: str  # 'success' | 'failed' | ''
     error: str
 ```
 

@@ -92,8 +92,7 @@ class DOCXHandler(BaseHandler):
             names = [
                 name
                 for name in archive.namelist()
-                if name in self._TEXT_PARTS
-                or name.startswith(self._TEXT_PART_PREFIXES)
+                if name in self._TEXT_PARTS or name.startswith(self._TEXT_PART_PREFIXES)
             ]
             for name in names:
                 try:

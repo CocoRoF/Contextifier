@@ -365,7 +365,9 @@ def _process_ctrl(ctrl: ET.Element, ctx: _Ctx) -> str:
 
         bucket = _SUPPLEMENTARY_TAGS.get(tag)
         if bucket is not None:
-            text = _process_sublists(child, ctx) or _process_sublist_fallback(child, ctx)
+            text = _process_sublists(child, ctx) or _process_sublist_fallback(
+                child, ctx
+            )
             if not text.strip():
                 continue
             if ctx.supplementary is not None:
@@ -395,9 +397,7 @@ def _process_ctrl(ctrl: ET.Element, ctx: _Ctx) -> str:
 
 def _process_sublist_fallback(node: ET.Element, ctx: _Ctx) -> str:
     """Header/footer variants that hold paragraphs without a ``subList``."""
-    pieces = [
-        _process_paragraph(para, ctx) for para in _iter_body_paragraphs(node)
-    ]
+    pieces = [_process_paragraph(para, ctx) for para in _iter_body_paragraphs(node)]
     return "\n".join(piece for piece in pieces if piece.strip())
 
 

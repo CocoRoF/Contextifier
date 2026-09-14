@@ -271,7 +271,10 @@ def _merged_range_cells(ws: object, layout: LayoutRange) -> Set[Tuple[int, int]]
     cells: Set[Tuple[int, int]] = set()
     try:
         for merge_range in ws.merged_cells.ranges:
-            if ws.cell(row=merge_range.min_row, column=merge_range.min_col).value is None:
+            if (
+                ws.cell(row=merge_range.min_row, column=merge_range.min_col).value
+                is None
+            ):
                 continue
             first_row = max(merge_range.min_row, layout.min_row)
             last_row = min(merge_range.max_row, layout.max_row)

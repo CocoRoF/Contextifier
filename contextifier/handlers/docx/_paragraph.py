@@ -93,7 +93,6 @@ def iter_block_elements(container: Any) -> Iterator[Any]:
                 yield from iter_block_elements(sdt_child)
 
 
-
 # ── Drawing descriptor ────────────────────────────────────────────────────
 
 

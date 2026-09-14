@@ -183,9 +183,7 @@ class FragmentedTextReconstructor:
         try:
             chars = self._collect_chars()
         except Exception as exc:
-            logger.warning(
-                "[Reconstruct] page %d failed: %s", self.page_num + 1, exc
-            )
+            logger.warning("[Reconstruct] page %d failed: %s", self.page_num + 1, exc)
             return ""
 
         if not chars:

@@ -149,9 +149,7 @@ class DocxContentExtractor(BaseContentExtractor):
                 # Table
                 table_data = extract_table(
                     element,
-                    resolve_image=self._cell_image_resolver(
-                        doc, processed_images
-                    ),
+                    resolve_image=self._cell_image_resolver(doc, processed_images),
                 )
                 if table_data is not None:
                     formatted = self._format_table(table_data)

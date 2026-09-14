@@ -53,6 +53,7 @@ def _render_supplementary(supplementary: "HwpxSupplementary") -> List[str]:
             blocks.append(label + "\n" + "\n\n".join(unique))
     return blocks
 
+
 class HwpxContentExtractor(BaseContentExtractor):
     """
     Extract text, tables, images, and charts from an HWPX archive.

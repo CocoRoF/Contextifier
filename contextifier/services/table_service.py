@@ -34,10 +34,7 @@ def _flatten_table(table: "TableData") -> str:
     """
     rows: List[str] = []
     for row_cells in table.rows:
-        values = [
-            " ".join((cell.content or "").split())
-            for cell in row_cells
-        ]
+        values = [" ".join((cell.content or "").split()) for cell in row_cells]
         values = [v for v in values if v]
         if values:
             rows.append(" / ".join(values))
@@ -84,9 +81,7 @@ class TableService:
         for row_cells in table.rows:
             line_parts: List[str] = []
             for cell in row_cells:
-                content = html_mod.escape(
-                    self._clean_cell(cell.content), quote=False
-                )
+                content = html_mod.escape(self._clean_cell(cell.content), quote=False)
                 if cell.nested_table is not None:
                     # Rendered, not escaped: a sub-table is markup, and the
                     # chunker's table scanner counts depth so a nested table

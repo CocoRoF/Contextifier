@@ -116,7 +116,8 @@ def _build_grid(
             row_addr, col_addr = _parse_cell_position(tc, ns)
             rowspan, colspan = _parse_cell_span(tc, ns)
             text = (
-                render_cell(tc) if render_cell is not None
+                render_cell(tc)
+                if render_cell is not None
                 else _extract_cell_text(tc, ns)
             )
 
