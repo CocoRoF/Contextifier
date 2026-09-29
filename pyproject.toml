@@ -101,6 +101,7 @@ Documentation = "https://github.com/CocoRoF/Contextifier#readme"
 Repository = "https://github.com/CocoRoF/Contextifier.git"
 Issues = "https://github.com/CocoRoF/Contextifier/issues"
 Changelog = "https://github.com/CocoRoF/Contextifier/releases"
+Blog = "https://hrletsgo.me/en/documents/contextifier-document-processing-rag-pipeline"
 
 [tool.hatch.build.targets.wheel]
 packages = ["contextifier"]

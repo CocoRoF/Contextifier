@@ -216,6 +216,20 @@ contextifier/
 | [OCR Guide](docs/ocr_guide.md) | OCR engine setup & customization |
 | [Plugin Development](docs/plugin_development.md) | Custom handler development guide |
 
+## Articles
+
+Design notes and deep dives on how Contextifier works, from the author's blog ([hrletsgo.me](https://hrletsgo.me/en)).
+
+| Article | Korean |
+|---|---|
+| [Contextifier: Converting Documents into AI-Ready Text Chunks](https://hrletsgo.me/en/documents/contextifier-document-processing-rag-pipeline) | [한국어](https://hrletsgo.me/documents/contextifier-document-processing-library) |
+| [Contextifier PDF Handler: Table Detection and Text Quality Analysis](https://hrletsgo.me/en/documents/contextifier-pdf-handler-table-detection-text-quality) | [한국어](https://hrletsgo.me/documents/contextifier-pdf-handler-deep-dive) |
+| [Contextifier HWP/HWPX Processor: Parsing Korean Documents](https://hrletsgo.me/en/documents/contextifier-hwp-hwpx-document-parsing) | [한국어](https://hrletsgo.me/documents/contextifier-hwp-hwpx-handler) |
+| [Contextifier RTF/DOCX Handler: Streaming Table Processing](https://hrletsgo.me/en/documents/contextifier-rtf-docx-streaming-table-processing) | [한국어](https://hrletsgo.me/documents/contextifier-rtf-docx-streaming-tables) |
+| [Contextifier Chunking Strategies for Meaningful Document Splits](https://hrletsgo.me/en/documents/contextifier-chunking-strategies-rag-documents) | [한국어](https://hrletsgo.me/documents/contextifier-chunking-strategy) |
+| [Contextifier OCR: Building a Multi-Provider OCR Engine](https://hrletsgo.me/en/documents/multi-provider-ocr-engine-llm-vision) | [한국어](https://hrletsgo.me/documents/contextifier-ocr-engine-module) |
+| [Publishing Contextifier to PyPI](https://hrletsgo.me/en/documents/publishing-contextifier-to-pypi) | [한국어](https://hrletsgo.me/documents/contextifier-pypi-publish) |
+
 ## License
 
 Apache License 2.0 — see [LICENSE](LICENSE)
