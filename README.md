@@ -1,106 +1,71 @@
-# Contextifier v2
+# Contextifier
 
-**Contextifier** is a Python document processing library that converts documents of various formats into structured, AI-ready text. It applies a **uniform 5-stage pipeline** to every document format, ensuring consistent and predictable output.
+Convert raw documents into AI-ready text and chunks, and edit OOXML files losslessly.
 
-## Key Features
+Contextifier is a Python library with two views of a document:
 
-- **Broad Format Support**: PDF, DOCX, DOC, PPTX, PPT, XLSX, XLS, HWP, HWPX, RTF, CSV, TSV, TXT, MD, HTML, images, code files, and 80+ extensions
-- **Two Views of Every Document**: the AI-friendly pipeline (lightweight, normalized text for LLMs) *and* `open_raw()` — a lossless, addressable, **writable** view of OOXML files where saving keeps untouched parts byte-identical
-- **Intelligent Text Extraction**: Preserves document structure (headings, tables, image positions) with automatic metadata extraction
-- **Table Processing**: Converts tables to HTML/Markdown/Text with `rowspan`/`colspan` support for merged cells
-- **OCR Integration**: 5 Vision LLM engines — OpenAI, Anthropic, Google Gemini, AWS Bedrock, vLLM
-- **Two Speeds**: the full pipeline for text that will be read, `extract_text_fast()` for text that will only be scanned
-- **Smart Chunking**: 4 strategies with automatic selection — table-aware, page-boundary, protected-region, and recursive splitting
-- **Immutable Config System**: Frozen dataclass-based `ProcessingConfig` controls all behavior
+- **AI-friendly view** — `DocumentProcessor` runs every supported format through the same 5-stage pipeline (convert, preprocess, extract metadata, extract content, postprocess) and returns normalized text (tables, image tags, page tags, charts, metadata) ready for LLMs and RAG, plus table-aware chunking.
+- **Raw view** — `open_raw()` opens `.xlsx` / `.docx` / `.pptx` as an addressable, writable package. Saving keeps every untouched part byte-identical.
 
 ## Installation
 
+Requires Python 3.12+.
+
 ```bash
 pip install contextifier
+# PDF support needs PyMuPDF (AGPL-3.0, so it is an explicit extra)
+pip install "contextifier[pdf]"
 ```
 
-or
+`uv add contextifier` works too. Extras: `pdf` (PyMuPDF), `langchain` (LangChain integrations), `server` (pydantic and related), `all` (everything).
 
-```bash
-uv add contextifier
-```
+Optional system tools: LibreOffice (some legacy `.doc` / `.ppt` / `.xls` / `.rtf` conversion paths), Poppler (`pdf2image`), Tesseract (local OCR engine).
 
 ## Quick Start
-
-### 1. Basic Text Extraction
 
 ```python
 from contextifier import DocumentProcessor
 
 processor = DocumentProcessor()
 text = processor.extract_text("document.pdf")
-print(text)
+
+result = processor.extract_chunks("document.pdf", chunk_size=1000)
+for chunk in result.chunks:
+    print(chunk[:100])
+result.save_to_md("output/chunks")
 ```
 
-### 2. Raw Access — Read *and Write* OOXML Losslessly
+### Fast scan
 
-The extraction pipeline renders an AI-friendly view and discards the
-rest. `open_raw()` is its lossless twin: the full package stays
-available, edits are surgical, and **untouched parts round-trip
-byte-identically** — charts, pivot tables, sparklines, styles and
-custom XML all survive (unlike a load→save round-trip through the
-usual Office libraries).
+`extract_text_fast()` returns plain text only (no metadata block, image tags, chart blocks or table reconstruction). Use it when you only need to scan for words or patterns:
+
+```python
+text = processor.extract_text_fast("report.pdf")
+```
+
+### Raw read/write
 
 ```python
 from contextifier import open_raw
 
-raw = open_raw("report.xlsx")              # XlsxRawDocument
-raw.sheets["Sales"].set_cell("B3", 142)    # surgical edit
-raw.charts[0].set_data(                    # real chart-data editing
-    categories=["Q1", "Q2", "Q3"],
-    series=[("Sales", [120, 135, 150])],
-)
+raw = open_raw("report.xlsx")
+raw.sheets["Sales"].set_cell("B3", 142)
+raw.charts[0].set_data(categories=["Q1", "Q2"], series=[("Sales", [120, 135])])
 raw.save("report-edited.xlsx")
 
-raw = open_raw("paper.docx")               # DocxRawDocument
-raw.set_paragraph_text(3, "Revised text")  # runs & inline images preserved
-raw.tables[0].insert_row(2)
+doc = open_raw("paper.docx")
+doc.set_paragraph_text(3, "Revised text")   # runs and inline images preserved
+doc.tables[0].insert_row(2)
 
-raw = open_raw("deck.pptx")                # PptxRawDocument
-raw.slides[0].set_text(shape_id=2, new_text="New title")
-raw.save("deck2.pptx")
+deck = open_raw("deck.pptx")
+deck.slides[0].set_text(shape_id=2, new_text="New title")
 ```
 
-Supported raw formats: `.xlsx` / `.docx` / `.pptx` (the OOXML trio).
-Every model also exposes `.package` for part-level OPC access.
+Every raw model also exposes `.package` for part-level OPC access. `.xlsx`, `.docx` and `.pptx` are the supported raw formats.
 
-### 3. Fast Scan — Words Only
+### Configuration
 
-When the question is "does this file contain a forbidden word or a piece of
-personal data?", the structure is dead weight. `extract_text_fast()` skips
-table reconstruction, image extraction, OCR, chart parsing and layout
-analysis:
-
-```python
-text = processor.extract_text_fast("report.pdf")   # ~200x faster than extract_text
-if "900101-1234567" in text:
-    quarantine("report.pdf")
-```
-
-It returns plain text: no metadata block, no image tags, no chart blocks.
-Use `extract_text()` for anything that will be read rather than scanned.
-
-### 4. Extract + Chunk in One Step
-
-```python
-from contextifier import DocumentProcessor
-
-processor = DocumentProcessor()
-result = processor.extract_chunks("document.pdf")
-
-for i, chunk in enumerate(result.chunks, 1):
-    print(f"Chunk {i}: {chunk[:100]}...")
-
-# Save as Markdown files
-result.save_to_md("output/chunks")
-```
-
-### 5. Custom Configuration
+`ProcessingConfig` is a frozen dataclass; sub-configs are `TagConfig`, `ImageConfig`, `ChartConfig`, `MetadataConfig`, `TableConfig`, `ChunkingConfig`, `OCRConfig` and `EncodingConfig`. Use `with_tags()`, `with_chunking()`, `with_ocr()` and similar to derive modified copies.
 
 ```python
 from contextifier import DocumentProcessor
@@ -110,12 +75,12 @@ config = ProcessingConfig(
     tags=TagConfig(page_prefix="<page>", page_suffix="</page>"),
     chunking=ChunkingConfig(chunk_size=2000, chunk_overlap=300),
 )
-
 processor = DocumentProcessor(config=config)
-text = processor.extract_text("report.xlsx")
 ```
 
-### 6. OCR Integration
+PDF has two content extractors, selected with `config.with_format_option("pdf", mode="default")` or `mode="plus"` (the default, with advanced table and layout analysis). See [docs/configuration.md](docs/configuration.md) for all options.
+
+### OCR
 
 ```python
 from contextifier import DocumentProcessor
@@ -123,103 +88,74 @@ from contextifier.ocr.engines import OpenAIOCREngine
 
 ocr = OpenAIOCREngine.from_api_key("sk-...", model="gpt-4o")
 processor = DocumentProcessor(ocr_engine=ocr)
-
 text = processor.extract_text("scanned.pdf", ocr_processing=True)
 ```
 
+Engines in `contextifier.ocr.engines`: `OpenAIOCREngine`, `AnthropicOCREngine`, `GeminiOCREngine`, `BedrockOCREngine`, `VLLMOCREngine`, `DeepSeekOCREngine`, and the local `TesseractOCREngine`. See [docs/ocr_guide.md](docs/ocr_guide.md).
+
+## API Overview
+
+| API | Purpose |
+|-----|---------|
+| `DocumentProcessor` | `extract_text`, `extract_text_fast`, `process` (returns `ExtractionResult`), `extract_chunks` (returns `ChunkResult`), `chunk_text`, `open_raw`, `is_supported`, `supported_extensions` |
+| `AsyncDocumentProcessor` | Async wrapper; adds `extract_batch(paths, max_concurrent=4)` |
+| `CachedDocumentProcessor` | Wraps `DocumentProcessor` with a pluggable cache (`MemoryCacheBackend` default, `DiskCacheBackend` in `contextifier.cached_processor`) |
+| `open_raw` | Lossless, writable access to xlsx / docx / pptx |
+| `TextChunker` | Chunking with automatic strategy selection: plain (recursive), table, page-boundary, protected-region |
+| `contextifier.integrations.langchain_loader.ContextifierLoader` | LangChain `BaseLoader` (needs the `langchain` extra) |
+
+Encrypted Office files: pass `password=` to `extract_text`, `extract_text_fast`, `process` or `extract_chunks`.
+
 ## Supported Formats
 
-| Category | Extensions | Notes |
-|----------|-----------|-------|
-| **Documents** | `.pdf`, `.docx`, `.doc`, `.hwp`, `.hwpx`, `.rtf` | HWP 5.0+, HWPX supported |
-| **Presentations** | `.pptx`, `.ppt` | Slides, notes, and charts extracted |
-| **Spreadsheets** | `.xlsx`, `.xls`, `.csv`, `.tsv` | Multi-sheet, formulas, charts |
-| **Text** | `.txt`, `.md`, `.log`, `.rst` | Auto encoding detection |
-| **Web** | `.html`, `.htm`, `.xhtml` | Table/structure preservation |
-| **Code** | `.py`, `.js`, `.ts`, `.java`, `.cpp`, `.go`, `.rs`, etc. (20+) | Language-aware highlighting |
-| **Config** | `.json`, `.yaml`, `.toml`, `.ini`, `.xml`, `.env` | Structure preservation |
-| **Images** | `.jpg`, `.png`, `.gif`, `.bmp`, `.webp`, `.tiff` | Requires OCR engine |
+`DocumentProcessor().supported_extensions` currently lists 83 extensions:
 
-## Architecture
+| Category | Extensions |
+|----------|-----------|
+| Documents | `pdf`, `docx`, `doc`, `hwp`, `hwpx`, `rtf` |
+| Presentations | `pptx`, `ppt` |
+| Spreadsheets / data | `xlsx`, `xls`, `csv`, `tsv` |
+| Web | `html`, `htm`, `xhtml` |
+| Text | `txt`, `md`, `markdown`, `log`, `rst`, and code / config extensions (`py`, `js`, `ts`, `java`, `go`, `rs`, `json`, `yaml`, `toml`, `ini`, `xml`, `env`, ...) |
+| Images | `jpg`, `jpeg`, `png`, `gif`, `bmp`, `webp`, `tif`, `tiff`, `heic`, `heif`, `ico`, `svg` (text comes from OCR) |
+
+## Project Layout
 
 ```
 contextifier/
-├── document_processor.py     # Facade: single public entry point
-├── config.py                 # Immutable config system (ProcessingConfig)
-├── types.py                  # Shared types / Enums / TypedDicts
-├── errors.py                 # Unified exception hierarchy
-│
-├── handlers/                 # 14 format-specific handlers
-│   ├── base.py               #   BaseHandler — enforces 5-stage pipeline
-│   ├── registry.py           #   HandlerRegistry — extension → handler mapping
-│   ├── pdf/                  #   PDF (default)
-│   ├── pdf_plus/             #   PDF (advanced: table detection, complex layouts)
-│   ├── docx/ doc/ pptx/ ppt/ #   Office documents
-│   ├── xlsx/ xls/ csv/       #   Spreadsheets / data
-│   ├── hwp/ hwpx/            #   Korean word processor
-│   ├── rtf/ text/            #   RTF / text / code / config
-│   └── image/                #   Image (OCR integration)
-│
-├── pipeline/                 # 5-Stage pipeline ABCs
-│   ├── converter.py          #   Stage 1: Binary → Format Object
-│   ├── preprocessor.py       #   Stage 2: Preprocessing
-│   ├── metadata_extractor.py #   Stage 3: Metadata extraction
-│   ├── content_extractor.py  #   Stage 4: Text / table / image / chart extraction
-│   └── postprocessor.py      #   Stage 5: Final assembly & cleanup
-│
-├── services/                 # Shared services (DI)
-│   ├── tag_service.py        #   Page / slide / sheet tag generation
-│   ├── image_service.py      #   Image saving / tagging / deduplication
-│   ├── chart_service.py      #   Chart data formatting
-│   ├── table_service.py      #   Table HTML / MD rendering
-│   ├── metadata_service.py   #   Metadata formatting
-│   └── storage/              #   Storage backends (Local, MinIO, S3, ...)
-│
-├── chunking/                 # Chunking subsystem
-│   ├── chunker.py            #   TextChunker — auto strategy selection
-│   ├── constants.py          #   Protected region patterns
-│   └── strategies/           #   4 chunking strategies
-│       ├── plain_strategy.py     # Recursive splitting (default fallback)
-│       ├── table_strategy.py     # Sheet / table-based splitting
-│       ├── page_strategy.py      # Page-boundary splitting
-│       └── protected_strategy.py # Protected region preservation
-│
-└── ocr/                      # OCR subsystem (optional)
-    ├── base.py               #   BaseOCREngine ABC
-    ├── processor.py          #   OCRProcessor — tag detection + engine call
-    └── engines/              #   5 engine implementations
-        ├── openai_engine.py
-        ├── anthropic_engine.py
-        ├── gemini_engine.py
-        ├── bedrock_engine.py
-        └── vllm_engine.py
+├── document_processor.py   # DocumentProcessor facade
+├── async_processor.py      # AsyncDocumentProcessor
+├── cached_processor.py     # CachedDocumentProcessor
+├── config.py               # frozen ProcessingConfig and sub-configs
+├── handlers/               # per-format handlers + registry (pdf, pdf_plus, docx, hwp, ...)
+├── pipeline/               # 5-stage abstract base classes
+├── services/               # tag, image, table, chart, metadata, storage
+├── chunking/               # TextChunker and strategies
+├── ocr/                    # OCR engines and processor
+├── raw/                    # open_raw: OPC, xlsx, docx, pptx, chart
+└── integrations/           # LangChain loader
 ```
 
-## Requirements
+## Development
 
-- **Python** 3.12+
-- Required dependencies are included in `pyproject.toml`
-- **Optional**: LibreOffice (DOC/PPT/RTF conversion), Poppler (PDF image extraction)
+```bash
+git clone https://github.com/CocoRoF/Contextifier.git
+cd Contextifier
+uv sync --all-extras          # or: pip install -e ".[all]" pytest pytest-asyncio ruff
+pytest tests/ -q
+ruff check contextifier/ && ruff format --check contextifier/
+```
+
+CI runs ruff and the test suite on Python 3.12 and 3.13.
 
 ## Documentation
 
-| Document | Contents |
-|----------|----------|
-| [QUICKSTART.md](QUICKSTART.md) | Detailed usage guide & full API reference |
-| [Process Logic.md](Process%20Logic.md) | Handler processing flow diagrams |
-| [ARCHITECTURE.md](contextifier/ARCHITECTURE.md) | Internal architecture specification |
-| [CHANGELOG.md](CHANGELOG.md) | Version history |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guidelines |
-| [Handler Comparison](docs/handler_comparison.md) | Handler feature support matrix |
-| [Configuration Reference](docs/configuration.md) | All config options, defaults & examples |
-| [Error Codes](docs/error_codes.md) | Exception hierarchy & troubleshooting |
-| [OCR Guide](docs/ocr_guide.md) | OCR engine setup & customization |
-| [Plugin Development](docs/plugin_development.md) | Custom handler development guide |
+[QUICKSTART.md](QUICKSTART.md) (usage guide), [Process Logic](Process%20Logic.md), [ARCHITECTURE](contextifier/ARCHITECTURE.md), [CHANGELOG](CHANGELOG.md), [CONTRIBUTING](CONTRIBUTING.md), and in `docs/`: [handler comparison](docs/handler_comparison.md), [configuration](docs/configuration.md), [error codes](docs/error_codes.md), [OCR guide](docs/ocr_guide.md), [plugin development](docs/plugin_development.md).
+
+## Related Projects
+
+[edit2docs](https://github.com/CocoRoF/edit2docs) builds document editing on top of the raw layer.
 
 ## License
 
-Apache License 2.0 — see [LICENSE](LICENSE)
-
-## Contributing
-
-Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md).
+Apache License 2.0. See [LICENSE](LICENSE).
